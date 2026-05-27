@@ -14,7 +14,7 @@ The primary physical development and runtime environment is verified as:
 - **ABI (Processor Architecture)**: `arm64-v8a`
 - **Total Physical RAM**: approximately 6 GB (`5,531,208 kB`)
 - **Connection Status**: Connected via USB (Serial: `1431df87`)
-- **Software Dependencies**: WhatsApp (`com.whatsapp` or WhatsApp Business `com.whatsapp.w4b`) is not currently active/installed under the current test profile. *Constraint: Real WhatsApp notification capture or RemoteInput replies cannot be tested until WhatsApp is installed and active on the device profile being tested.*
+- **Software Dependencies**: WhatsApp (`com.whatsapp`) is confirmed present and active on the test profile of the physically connected Redmi 13 5G. WhatsApp Business (`com.whatsapp.w4b`) is not present. Real notification capture and replies can be fully tested on the connected handset after manual notification access authorization.
 
 All assumptions regarding Android 15 and API Level 35 have been removed.
 
@@ -127,9 +127,10 @@ Create the seven local entities to store structured states:
 ## Phase 4: FunctionGemma Local Tool Routing
 
 ### 1. LiteRT-LM & Configuration Setup
-- Add stable Maven dependency inside the Gradle configuration:
+- Add stable Maven dependency inside the Gradle configuration (Note: the exact official Maven artifact and version MUST be verified during Phase 4):
   ```kotlin
-  implementation("com.google.ai.edge.litertlm:litertlm-android:1.0.0")
+  // Future Verification Required: Confirm official Maven artifact path and version
+  // implementation("com.google.ai.edge.litertlm:litertlm-android:1.0.0")
   ```
 - Configure the Local Engine using a **Strict Manual Tool Calling** protocol. Do not allow LiteRT-LM to call tools automatically:
   ```kotlin

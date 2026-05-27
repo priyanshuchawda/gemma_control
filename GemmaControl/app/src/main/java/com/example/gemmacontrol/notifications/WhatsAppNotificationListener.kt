@@ -18,6 +18,25 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         fun clearList() {
             _capturedNotifications.value = emptyList()
         }
+
+        fun postNotificationForTest(parsed: ParsedNotification) {
+            _capturedNotifications.update { current ->
+                val filtered = current.filter { it.dedupeHash != parsed.dedupeHash }
+                listOf(parsed) + filtered
+            }
+        }
+
+        fun removeNotificationForTest(key: String) {
+            _capturedNotifications.update { current ->
+                current.map {
+                    if (it.notificationKey == key) {
+                        it.copy(isActive = false, removedAt = System.currentTimeMillis())
+                    } else {
+                        it
+                    }
+                }
+            }
+        }
     }
 
     override fun onListenerConnected() {
@@ -27,7 +46,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
-        if (sbn.packageName != "com.whatsapp" && sbn.packageName != "com.whatsapp.w4b") return
+        if (!WhatsAppNotificationParser.isPackageSupported(sbn.packageName)) return
 
         Log.d(TAG, "WhatsApp notification posted from package: ${sbn.packageName}")
         val parsed = WhatsAppNotificationParser.parse(this, sbn) ?: return
@@ -41,7 +60,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-        if (sbn.packageName != "com.whatsapp" && sbn.packageName != "com.whatsapp.w4b") return
+        if (!WhatsAppNotificationParser.isPackageSupported(sbn.packageName)) return
 
         Log.d(TAG, "WhatsApp notification removed: ${sbn.key}")
         _capturedNotifications.update { current ->

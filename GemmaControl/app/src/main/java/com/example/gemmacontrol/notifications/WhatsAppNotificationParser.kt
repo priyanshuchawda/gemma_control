@@ -21,6 +21,12 @@ data class ParsedNotification(
 
 object WhatsAppNotificationParser {
 
+    val SUPPORTED_PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
+
+    fun isPackageSupported(packageName: String?): Boolean {
+        return packageName != null && SUPPORTED_PACKAGES.contains(packageName)
+    }
+
     fun parse(context: Context, sbn: StatusBarNotification): ParsedNotification? {
         val notification = sbn.notification ?: return null
         val extras = notification.extras ?: return null
@@ -91,7 +97,7 @@ object WhatsAppNotificationParser {
         )
     }
 
-    private fun generateDedupeHash(conversation: String, sender: String, text: String, timestamp: Long): String {
+    internal fun generateDedupeHash(conversation: String, sender: String, text: String, timestamp: Long): String {
         val rawString = "$conversation|$sender|$text|$timestamp"
         return try {
             val digest = MessageDigest.getInstance("SHA-256")

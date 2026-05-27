@@ -6,7 +6,7 @@ This document records the current baseline status, completed modules, and upcomi
 
 ## 1. Project Baseline Status
 
-- **Android App Scaffold**: Non-existent. No project directories have been created in the workspace.
+- **Android App Scaffold**: Verified present. The GemmaControl project directories and file layouts are initialized and compiling successfully.
 - **Physical Device Discovery**: **Verified (Android 16)**. Connected handset (Xiaomi Redmi 13 5G, Serial: `1431df87`) detected.
 - **Model Loading Check**: Pending. Real physical RAM, battery, thermal, and latency metrics are unverified until the model is loaded on the physical phone.
 - **Subsystem Verification**: WhatsApp notification parsing, deduplication events, and `RemoteInput` direct replies are unverified until deployed to the physical phone.
@@ -37,9 +37,9 @@ All core architectural blueprints, functional scope documents, and strict planni
 | **Device OS & API Level** | Android 16, API Level 36, ABI `arm64-v8a`. | **Verified Fact** |
 | **Total Physical RAM** | `5,531,208 kB` (~6.0 GB capacity). | **Verified Fact** |
 | **WhatsApp Package** | `com.whatsapp` package confirmed installed on handset profile. | **Verified Fact** |
-| **Kotlin Scaffold** | No source codebase or Gradle structures initialized yet. | **Unverified Assumption** |
+| **Kotlin Scaffold** | Android Gradle + Compose scaffold initialized in GemmaControl/ | **Verified Fact** |
 | **LiteRT-LM / FunctionGemma** | Local `.litertlm` loading check and execution times. | **Unverified Assumption** |
-| **WhatsApp Parser** | `MessagingStyle` parsing and deduplication triggers. | **Unverified Assumption** |
+| **WhatsApp Parser** | `MessagingStyle` parsing and deduplication triggers implemented. | **Verified Fact (under POC test coverage)** |
 
 ---
 
