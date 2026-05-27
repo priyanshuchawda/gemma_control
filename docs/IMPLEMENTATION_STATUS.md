@@ -1,58 +1,76 @@
-# Implementation Status Document
+# Implementation Status
 
-This document records the current baseline status, completed modules, and upcoming technical slices for the WhatsApp AI Assistant project.
+This document records the truthful current state of completed modules, verified facts, and next coding slices.
 
 ---
 
 ## 1. Project Baseline Status
 
-- **Android App Scaffold**: Non-existent. No project directories have been created in the workspace.
-- **Physical Device Discovery**: **Verified (Android 16)**. Connected handset (Xiaomi Redmi 13 5G, Serial: `1431df87`) detected.
-- **Model Loading Check**: Pending. Real physical RAM, battery, thermal, and latency metrics are unverified until the model is loaded on the physical phone.
-- **Subsystem Verification**: WhatsApp notification parsing, deduplication events, and `RemoteInput` direct replies are unverified until deployed to the physical phone.
+| Attribute | Status |
+| :--- | :--- |
+| Android App Scaffold | **COMPLETE** — Kotlin/Compose project compiles and deploys |
+| Physical Device Connection | **VERIFIED** — Xiaomi Redmi 13 5G, Android 16, API 36, Serial `1431df87` |
+| APK Deployment | **VERIFIED** — `./gradlew installDebug` → `Installed on 1 device` |
+| App Launch | **VERIFIED** — Edge-to-edge Compose activity launches without crash |
+| Notification Access | **VERIFIED** — Listener component confirmed in `enabled_notification_listeners` secure setting |
+| WhatsApp Event Capture | **VERIFIED** — `com.whatsapp` POSTED/UPDATED/REMOVED events observed on real device |
+| Direct-Chat Classification | **VERIFIED** — On-device UI displayed `DIRECT` for controlled direct-chat test |
+| Group Classification | **NOT YET VERIFIED** — Group test received but classified `UNKNOWN` (see PHASE1_NOTIFICATION_POC_TEST_LOG.md) |
+| Room Persistence | **NOT IMPLEMENTED** — Deferred to Phase 2 |
+| Direct Reply Execution | **NOT IMPLEMENTED** — Deferred to manual-action phase |
+| FunctionGemma / LiteRT-LM | **NOT IMPLEMENTED** — Deferred to Phase 4 |
 
 ---
 
-## 2. Completed Artifacts
+## 2. Completed Modules (Phase 1 POC)
 
-All core architectural blueprints, functional scope documents, and strict planning roadmaps have been written to the workspace and verified to ensure full internal consistency:
-- **`plan.md`**: Updated to establish the self-contained, English-only Android 16 roadmap.
-- **`detailed_plan.md`**: Rewritten from scratch to detail the reordered 8-phase execution timeline starting with **Phase 0A: Verified device documentation**, 16-tool registry, MVVM pattern, and `automaticToolCalling = false` LiteRT-LM rules.
-- **`docs/PRODUCT_SCOPE.md`**: Outlines the English-only productivity boundaries and 16-tool functional maps, and Android 16 Edge-to-Edge/Predictive Back requirements.
-- **`docs/ARCHITECTURE.md`**: Details on-device MVVM module partitioned boundaries, keystore encryption, deduplication parsing, safety routing, and Android 16 Compose Window Insets.
-- **`docs/TOOL_REGISTRY.md`**: Outlines parameter specs and type safety schemas for the sixteen tools.
-- **`docs/NOTIFICATION_PARSING.md`**: Maps `MessagingStyle` parsing, deduplication hashing, and lifecycles.
-- **`docs/SECURITY_AND_PRIVACY.md`**: Details AES-GCM encryption at rest and plain-text search memory trade-offs.
-- **`docs/DEVICE_VALIDATION.md`**: Contains the verified Android 16 Xiaomi telemetry parameters and handset test milestones.
+### Android Kotlin Source
+- `NotificationEventModels.kt` — Enums (`NotificationEventType`, `ConversationType`, `NotificationParseSource`) and data classes (`ParsedWhatsAppNotificationEvent`, `ParsedMessagePreview`)
+- `WhatsAppNotificationParser.kt` — `MessagingStyle` parser with extras fallback, SHA-256 deduplication candidate, privacy-safe logging
+- `WhatsAppNotificationListener.kt` — `NotificationListenerService` subclass with POSTED/UPDATED/REMOVED in-memory state flow, 100-entry history cap, safe key suffix logging
+- `MainScreen.kt` — Fully scrollable Compose UI with event cards, colour-coded badges, permission status card, and live feed
+- `MainScreenViewModel.kt` — Exposes `StateFlow<MainScreenUiState>` bridging the listener's `capturedNotifications` flow
+
+### Documentation
+- `docs/ARCHITECTURE.md` — MVVM architecture reference
+- `docs/NOTIFICATION_PARSING.md` — Parser design and lifecycle mapping
+- `docs/SECURITY_AND_PRIVACY.md` — Privacy constraints and logging rules
+- `docs/DEVICE_VALIDATION.md` — Physical handset test milestones
+- `docs/PHASE1_NOTIFICATION_POC_TEST_LOG.md` — Honest evidence-typed validation matrix
+- `docs/PRODUCT_SCOPE.md` — Feature scope and tool registry reference
+
+### Test Coverage
+- `WhatsAppNotificationParserTest.kt` — 4 unit tests (package allowlist, SHA-256 determinism, POSTED→UPDATED→REMOVED lifecycle, 100-entry cap)
+- `MainScreenViewModelTest.kt` — 1 unit test (initial loading state)
+- **All 5 tests pass** (`./gradlew test` — BUILD SUCCESSFUL)
 
 ---
 
 ## 3. Verified Facts vs. Unverified Assumptions
 
-| Attribute | Status | Reference Type |
+| Attribute | Status | Reference |
 | :--- | :--- | :--- |
-| **Workspace Paths** | Local workspace `C:\Users\Admin\Desktop\gemma_control` active. | **Verified Fact** |
-| **ADB Executable** | Command successfully resolved. Daemon launched at tcp:5037. | **Verified Fact** |
-| **Physical Phone Connect** | Xiaomi `2406ERN9CI` (Redmi 13 5G) connected (Serial: `1431df87`). | **Verified Fact** |
-| **Device OS & API Level** | Android 16, API Level 36, ABI `arm64-v8a`. | **Verified Fact** |
-| **Total Physical RAM** | `5,531,208 kB` (~6.0 GB capacity). | **Verified Fact** |
-| **WhatsApp Package** | `com.whatsapp` package confirmed installed on handset profile. | **Verified Fact** |
-| **Kotlin Scaffold** | No source codebase or Gradle structures initialized yet. | **Unverified Assumption** |
-| **LiteRT-LM / FunctionGemma** | Local `.litertlm` loading check and execution times. | **Unverified Assumption** |
-| **WhatsApp Parser** | `MessagingStyle` parsing and deduplication triggers. | **Unverified Assumption** |
+| Workspace path | **Verified fact** | Local filesystem |
+| ADB connection | **Verified fact** | `adb devices` — device online |
+| Android 16 / API 36 | **Verified fact** | `adb shell getprop` |
+| RAM ~6 GB | **Verified fact** | `adb shell cat /proc/meminfo` |
+| `com.whatsapp` installed | **Verified fact** | `adb shell pm list packages` |
+| `MessagingStyle` parsing | **Verified fact** | Logcat evidence |
+| `UPDATED` lifecycle emission | **Verified fact** | Logcat: same-key POSTED→UPDATED on controlled 2nd message |
+| `REMOVED` lifecycle callback | **Verified fact** | Logcat: onNotificationRemoved on swipe |
+| `DIRECT` classification | **Verified fact** | On-device UI observation |
+| `GROUP` classification | **Unverified** | Group test showed UNKNOWN — needs MessagingStyle group path |
+| LiteRT-LM inference latency | **Unverified** | Deferred to Phase 4 |
+| Room write throughput | **Unverified** | Deferred to Phase 2 |
 
 ---
 
-## 4. Next Technical Coding Slice
+## 4. Next Technical Slice
 
-To transition from architectural designs to active development, the very first slice of code implementation (restricted strictly to Phase 0A and Phase 1) is:
+**Phase 1 Follow-Up (still on current branch):**
+- Trigger a group notification that takes the `MessagingStyle` path (not the summary/fallback path) and verify `GROUP` classification on the device UI.
 
-### Slice: Project Scaffold & Notification Access Onboarding (Phase 0A & 1)
-1. Initialize the native Android Compose Kotlin application skeleton in a sub-folder `GemmaControl`:
-   ```bash
-   android create empty-activity --name="GemmaControl" --output=./GemmaControl
-   ```
-2. Open and edit `build.gradle` inside the newly created project to declare compilation target to target API Level 36 (Android 16), configure Kotlin compiler parameters, and organize basic folders.
-3. Call `enableEdgeToEdge()` inside `MainActivity.onCreate()` and apply proper padding modifiers (`Modifier.safeDrawingPadding()`) inside Jetpack Compose to fulfill Android 16 edge-to-edge requirements.
-4. Code the minimal Jetpack Compose onboarding UI that displays the private productivity assistant description and includes a button triggering Android system's notification listener settings.
-5. Set up the minimal `WhatsAppNotificationListener` service to log intercepted package names to standard output, verifying basic notification access operations.
+**Phase 2 (do not start until Phase 1 follow-up is complete or explicitly deferred):**
+- Room SQLite entity design and DAO layer
+- AES-GCM encryption at rest
+- Repository pattern connecting listener → Room → ViewModel

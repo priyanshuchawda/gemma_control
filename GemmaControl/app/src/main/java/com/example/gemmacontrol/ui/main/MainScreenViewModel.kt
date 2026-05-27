@@ -5,7 +5,7 @@ import android.content.Context
 import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gemmacontrol.notifications.ParsedNotification
+import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
 import com.example.gemmacontrol.notifications.WhatsAppNotificationListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -57,7 +57,7 @@ class MainScreenViewModel : ViewModel() {
 sealed interface MainScreenUiState {
     object Loading : MainScreenUiState
     data class Success(
-        val notifications: List<ParsedNotification>,
+        val notifications: List<ParsedWhatsAppNotificationEvent>,
         val isPermissionGranted: Boolean
     ) : MainScreenUiState
 }

@@ -1,56 +1,69 @@
 # Device Validation Reference
 
-This document outlines the testing, telemetry logging, and manual verification procedures to validate the application directly on the physically connected Android 16 handset.
+Physical handset used for all Phase 1 testing and validation.
 
 ---
 
-## 1. Verified Handset Telemetry (Phase 0A Diagnostics Completed)
+## 1. Verified Handset Telemetry
 
-The following telemetry values were successfully retrieved and verified over the active ADB bridge for the physically connected device:
-- **Device Manufacturer**: `Xiaomi`
-- **Device Model**: `2406ERN9CI` (Redmi 13 5G)
-- **Target OS Version**: `Android 16`
-- **Target API Level**: `36`
-- **Processor Architecture (ABI)**: `arm64-v8a`
-- **Total Physical RAM**: approximately 6 GB (`5,531,208 kB` total hardware capacity)
-- **WhatsApp Package (`com.whatsapp`)**: **Confirmed Present and Installed** on the active user profile. Real WhatsApp notification captures, text indexing, and inline `RemoteInput` replies can be fully tested on the connected handset.
+| Property | Value | Evidence |
+| :--- | :--- | :--- |
+| Manufacturer | Xiaomi | `adb shell getprop ro.product.manufacturer` |
+| Model | Redmi 13 5G (`2406ERN9CI`) | `adb shell getprop ro.product.model` |
+| ADB Serial | `1431df87` | `adb devices` |
+| Android Version | Android 16 | `adb shell getprop ro.build.version.release` |
+| API Level | 36 | `adb shell getprop ro.build.version.sdk` |
+| ABI | arm64-v8a | `adb shell getprop ro.product.cpu.abi` |
+| Physical RAM | ~6 GB (`5,531,208 kB`) | `adb shell cat /proc/meminfo` |
+| `com.whatsapp` | Installed | `adb shell pm list packages` |
+| `com.whatsapp.w4b` | Absent | `adb shell pm list packages` |
 
 ---
 
-## 2. On-Device Validation Milestones
+## 2. Resolved Blockers
 
-Manual testing on the connected handset must follow three specific milestones before integrating any AI or model components:
+| Blocker | Resolution |
+| :--- | :--- |
+| **Xiaomi USB installation restriction** | Manually toggled "Install via USB" in MIUI Developer Options |
+| **Xiaomi Autostart rejection** | Manually toggled Autostart ON in App Info settings |
 
-### Milestone 1: Notification Listener Authorization & Intercept
-1. Install the baseline sandbox Compose app onto the handset using `android run`.
-2. Launch the app and verify the Onboarding screen is displayed.
-3. Click the "Grant Notification Access" button to navigate to the system Settings page.
-4. Toggle "On" for the GemmaControl application.
-5. Exit the app and trigger a real WhatsApp notification (either a direct or group chat).
-6. Verify that the debug screen displays the parsed metadata correctly:
-   - Exposes `"com.whatsapp"` package filter outcome.
-   - Shows correct separation of group title from the sender's display name.
-   - Confirms direct vs group classification.
-   - Confirms deduplication hashes prevent duplicate rows on notification refreshes.
+---
 
-### Milestone 2: Manual Action Testing
-1. Trigger a WhatsApp message to generate an active notification on the handset.
-2. Open the application debug interface.
-3. Select the captured notification and draft a text response manually in the text input area.
-4. Tap the "Confirm Direct Reply" button.
-5. Verify:
-   - The app makes a live call to `NotificationListenerService.getActiveNotifications()` using the specific `notification_key`.
-   - The app verifies that the notification is active and exposes direct-reply options.
-   - The inline reply is executed via the system `RemoteInput` API.
-   - Check the physical WhatsApp application to confirm the reply was successfully transmitted.
-6. Swipe away the notification banner on the physical phone, and tap the reply button again. Verify:
-   - The active notification lookup fails.
-   - The fallback dialog is displayed: *"Direct reply is no longer available. Open WhatsApp with this drafted message instead?"*.
-   - Confirming the fallback launches `open_whatsapp_share_draft` or `open_whatsapp_click_to_chat` safely.
+## 3. On-Device Validation Milestones
 
-### Milestone 3: Model Latency, RAM, & Thermal Benchmark
-- Benchmark FunctionGemma 270M performance inside the official Android example or the Google AI Edge Gallery benchmark on the physical handset:
-  - **Load Latency**: Time required to load the `.litertlm` binary file into device memory.
-  - **Inference Latency**: Time elapsed from English command submission to structured JSON output generation.
-  - **RAM Footprint**: Monitor system memory usage to confirm the app stays within safe background execution limits.
-  - **Thermal Performance**: Monitor battery temperature variables over prolonged usage.
+### Milestone 1: Notification Listener POC
+
+| Stage | Status | Evidence Type |
+| :--- | :--- | :--- |
+| APK installed | **PASS** | `Installed on 1 device` — `./gradlew installDebug` |
+| App launch, no crash | **PASS** | ADB monkey launch |
+| Notification Access granted | **PASS** | Secure settings component entry confirmed |
+| ON_RESUME permission refresh | **PASS** | UI observation |
+| Listener service connected | **PASS** | Privacy-safe Logcat |
+| Real `com.whatsapp` event received | **PASS** | Privacy-safe Logcat |
+| `MESSAGING_STYLE` parse path | **PASS** | Privacy-safe Logcat |
+| `EXTRAS_FALLBACK` parse path | **PASS** | Privacy-safe Logcat |
+| POSTED → UPDATED same-key lifecycle | **PASS** | Privacy-safe Logcat (controlled 2-message test) |
+| `onNotificationRemoved` callback | **PASS** | Privacy-safe Logcat (swipe-away test) |
+| Direct-chat classification: DIRECT | **PASS** | On-device UI observation |
+| Group-chat classification: GROUP | **NOT VERIFIED** | Group test classified as UNKNOWN; needs MessagingStyle group path |
+
+### Milestone 2: Manual Action Testing (Not Started)
+> This milestone covers RemoteInput reply execution and requires a working Phase 2 Room layer. **Not in scope for Phase 1.**
+
+- Inline reply via RemoteInput API — **NOT IMPLEMENTED**
+- Fallback deep-link to WhatsApp — **NOT IMPLEMENTED**
+
+### Milestone 3: Model Latency Benchmark (Not Started)
+> Requires LiteRT-LM integration in Phase 4. **Not in scope for Phase 1.**
+
+- FunctionGemma 270M load/inference latency — **NOT MEASURED**
+- RAM and thermal profiling — **NOT MEASURED**
+
+---
+
+## 4. Privacy Constraints (All Milestones)
+
+- No message body text, sender names, group names, or phone numbers are logged to Logcat or committed to any file.
+- Logcat output is restricted to: package names, key suffixes (last 8 characters), parse source labels, message counts, and lifecycle event types.
+- In-memory storage is volatile and bounded to 100 entries. There is no disk persistence in Phase 1.

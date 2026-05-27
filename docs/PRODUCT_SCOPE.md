@@ -17,7 +17,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 
 ### A. Notification Ingestion & Actionable Inbox
 - **Android 16 Environment**: Deployed on **API Level 36**. Exposes permission dialogs and onboarding flows that comply with Android 16 user permission structures.
-- **WhatsApp Package Presence**: WhatsApp (`com.whatsapp` or WhatsApp Business `com.whatsapp.w4b`) is not currently active/installed on the device profile checked through ADB. *Constraint: Real notification intercepts, direct replies, and intent launching cannot run until WhatsApp is installed and active on the device profile.*
+- **WhatsApp Package Presence**: WhatsApp (`com.whatsapp`) is confirmed present and active on the physical handset's test profile. WhatsApp Business (`com.whatsapp.w4b`) is absent. Real notification intercepts, direct replies, and intent launching can be fully tested on the connected handset after manual notification access permission is granted.
 - **MessagingStyle Extraction**: Uses Android `Notification.MessagingStyle` to parse historical message chains and sender details from bundled notifications.
 - **Separation of Titles**: Distinguishes group titles from message sender display names.
 - **Deduplication Engine**: Uses deterministic deduplication hashes (`dedupe_hash`) to block duplicate insertions when notifications update.
