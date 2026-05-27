@@ -9,7 +9,7 @@ This document records the current baseline status, completed modules, and upcomi
 - **Android App Scaffold**: Verified present. The GemmaControl project directories and file layouts are initialized and compiling successfully.
 - **Physical Device Discovery**: **Verified (Android 16)**. Connected handset (Xiaomi Redmi 13 5G, Serial: `1431df87`) detected.
 - **Model Loading Check**: Pending. Real physical RAM, battery, thermal, and latency metrics are unverified until the model is loaded on the physical phone.
-- **Subsystem Verification**: WhatsApp notification parsing, deduplication events, and `RemoteInput` direct replies are unverified until deployed to the physical phone.
+- **Subsystem Verification**: Proof-of-concept APK is successfully deployed, launched, and notification access authorized on the physical handset (PASS). Live WhatsApp notification capture validation is currently in progress.
 
 ---
 

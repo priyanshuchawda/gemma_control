@@ -40,30 +40,31 @@ The following outcomes have been fully validated on the host machine:
 
 ---
 
-## Physical Handset Deployment & Validation (Currently Blocked)
+## Physical Handset Deployment & Validation (In Progress)
 
 ### 1. Installation on Redmi 13 5G
-- **Command**: `.\gradlew installDebug`
-- **Outcome**: **FAILED / BLOCKED**
-- **Error log**:
+- **Command**: `./gradlew installDebug`
+- **Outcome**: **PASS**
+- **Log Outcome**:
   ```text
-  Execution failed for task ':app:installDebug'.
-  > java.util.concurrent.ExecutionException: com.android.builder.testing.api.DeviceException: com.android.ddmlib.InstallException: INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+  > Task :app:installDebug
+  Installing APK 'app-debug.apk' on '2406ERN9CI - 16' for :app:debug
+  Installed on 1 device.
+
+  BUILD SUCCESSFUL in 37s
   ```
-- **Reason**: Xiaomi's HyperOS / MIUI Developer options restrict ADB installations by default unless the user has manually authorized the setting.
-- **Required Action to Unblock**:
-  On the physical Redmi 13 5G, go to **Settings > Additional Settings > Developer Options**, enable **Install via USB**, and accept the screen prompts when the app installs.
+- **Xiaomi USB Restriction**: **RESOLVED** (Manually toggled "Install via USB" in Developer Options).
 
 ### 2. Physical Verification Checklist
 
 | Operational Stage | Validation Status | Real Handset Observations / Redacted Content |
 | :--- | :--- | :--- |
-| **App Launch** | **NOT YET VERIFIED** | Blocked by physical installation restriction. |
-| **Notification Access Onboarding** | **NOT YET VERIFIED** | Blocked by physical installation restriction. |
-| **WhatsApp Direct Chat Parse** | **NOT YET VERIFIED** | No live capture observed on handset yet. |
-| **WhatsApp Group Chat Parse** | **NOT YET VERIFIED** | No live capture observed on handset yet. |
-| **Notification Updates / Repost** | **NOT YET VERIFIED** | No live repost events observed on handset yet. |
-| **Notification Removal Lifecycle** | **NOT YET VERIFIED** | No live removal events observed on handset yet. |
+| **App Launch** | **PASS** | Activity launches smoothly, rendering the edge-to-edge Compose UI without crash. |
+| **Notification Access Onboarding** | **PASS** | Verified secure settings contains `com.example.gemmacontrol/com.example.gemmacontrol.notifications.WhatsAppNotificationListener`. ON_RESUME lifecycle auto-refreshed successfully. |
+| **WhatsApp Direct Chat Parse** | **PENDING** | Waiting for live test message capture. |
+| **WhatsApp Group Chat Parse** | **PENDING** | Waiting for live group message capture. |
+| **Notification Updates / Repost** | **PENDING** | Waiting for live update/repost observation. |
+| **Notification Removal Lifecycle** | **PENDING** | Waiting for live removal callback observation. |
 
 ---
 
@@ -75,7 +76,5 @@ The following outcomes have been fully validated on the host machine:
 ---
 
 ## Next Technical Coding Slice
-**Phase 1 Physical Validation (Unblocking Handset Install & Intercepting Messages)**
-- Toggle **Install via USB** on the handset.
-- Install and launch **GemmaControl** successfully.
-- Trigger actual WhatsApp messages to verify and log direct, group, and update transitions.
+**Phase 1 Live WhatsApp Event Verification**
+- Trigger actual WhatsApp messages to verify and log direct, group, update, and removal transitions.
