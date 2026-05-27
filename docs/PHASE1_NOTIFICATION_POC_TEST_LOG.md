@@ -61,10 +61,10 @@ The following outcomes have been fully validated on the host machine:
 | :--- | :--- | :--- |
 | **App Launch** | **PASS** | Activity launches smoothly, rendering the edge-to-edge Compose UI without crash. |
 | **Notification Access Onboarding** | **PASS** | Verified secure settings contains `com.example.gemmacontrol/com.example.gemmacontrol.notifications.WhatsAppNotificationListener`. ON_RESUME lifecycle auto-refreshed successfully. |
-| **WhatsApp Direct Chat Parse** | **PENDING** | Waiting for live test message capture. |
-| **WhatsApp Group Chat Parse** | **PENDING** | Waiting for live group message capture. |
-| **Notification Updates / Repost** | **PENDING** | Waiting for live update/repost observation. |
-| **Notification Removal Lifecycle** | **PENDING** | Waiting for live removal callback observation. |
+| **WhatsApp Direct Chat Parse** | **PASS** | Captured successfully via MESSAGING_STYLE parse source with historical stacks preserved. |
+| **WhatsApp Group Chat Parse** | **PASS** | Captured successfully via EXTRAS_FALLBACK parsing for stacked/group summary events. |
+| **Notification Updates / Repost** | **PASS** | Validated multiple stacked message captures and in-memory updates. |
+| **Notification Removal Lifecycle** | **PASS** | Captured successfully via onNotificationRemoved callbacks, correctly setting states to expired. |
 
 ---
 
