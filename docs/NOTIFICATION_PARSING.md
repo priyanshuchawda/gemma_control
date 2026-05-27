@@ -40,62 +40,28 @@ The system maps three primary lifecycle events:
 The parser class decodes raw notification data structures:
 
 ### A. MessagingStyle Parsing
-Standard WhatsApp notifications package unread histories using `Notification.MessagingStyle`. Rather than scraping the topmost display text, the parser iterates through the message array to extract each specific message block:
+Standard WhatsApp notifications package unread histories using `Notification.MessagingStyle`. Rather than scraping the topmost display text, the parser iterates through both current and historic message arrays (when the platform exposes them) to extract each specific message block into a structured `ParsedWhatsAppNotificationEvent`:
 
 ```kotlin
 object WhatsAppNotificationParser {
-    fun parse(sbn: StatusBarNotification): ParsedNotificationResult? {
-        val notification = sbn.notification
-        val extras = notification.extras
-        
-        // Retrieve MessagingStyle bundle
-        val messagingStyle = Notification.Builder.recoverBuilder(context, notification)
-            .style as? Notification.MessagingStyle ?: return parseFallback(sbn)
-
-        val conversationTitle = messagingStyle.conversationTitle?.toString() ?: ""
-        val isGroup = messagingStyle.isGroupConversation
-        val messagesList = mutableListOf<ParsedMessageItem>()
-
-        for (message in messagingStyle.messages) {
-            val text = message.text?.toString() ?: continue
-            val sender = message.sender?.name?.toString() ?: ""
-            val timestamp = message.timestamp
-            messagesList.add(ParsedMessageItem(sender, text, timestamp))
-        }
-
-        return ParsedNotificationResult(
-            notificationKey = sbn.key,
-            conversationTitle = conversationTitle,
-            isGroup = isGroup,
-            messages = messagesList,
-            hasReplyAction = sbn.notification.actions?.any { it.remoteInputs != null } == true
-        )
-    }
-
-    private fun parseFallback(sbn: StatusBarNotification): ParsedNotificationResult {
-        val extras = sbn.notification.extras
-        val title = extras.getString(Notification.EXTRA_TITLE) ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-        val isGroup = extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)
-        val timestamp = sbn.postTime
-
-        return ParsedNotificationResult(
-            notificationKey = sbn.key,
-            conversationTitle = title,
-            isGroup = isGroup,
-            messages = listOf(ParsedMessageItem(title, text, timestamp)),
-            hasReplyAction = sbn.notification.actions?.any { it.remoteInputs != null } == true
-        )
+    fun parse(
+        context: Context,
+        sbn: StatusBarNotification,
+        eventType: NotificationEventType,
+        isCurrentlyActive: Boolean
+    ): ParsedWhatsAppNotificationEvent? {
+        // ... (See actual implementation in project files for exact code)
     }
 }
 ```
 
 ### B. Separating Senders from Group Conversations
-- **Group Notifications**: `conversationTitle` matches the group name (e.g. `"Project Team"`), and individual message elements expose the unique author's name inside `sender` parameters (e.g. `"Rahul"`, `"Amit"`).
-- **Direct Notifications**: `conversationTitle` and `sender` are identical, representing the individual contact.
+- **Group Notifications**: Exposes `ConversationType.GROUP`. `conversationTitle` matches the group name, and individual message elements expose the unique author's name inside `sender` parameters.
+- **Direct Notifications**: Exposes `ConversationType.DIRECT` only when classification is reliable (e.g. `conversationTitle` is empty or identical to the sender name).
+- **Fallback / Ambiguous Cases**: Exposes `ConversationType.UNKNOWN` to prevent misleading classification.
 
-### C. Redaction Handling (Android 15)
-Target API Level 35 enforces sensitive notification redaction for background services. If notification body strings are null, blank, or flag exceptions, the parser flags `isRedacted = true` and saves empty message bodies rather than fabricating mock data.
+### C. Content Availability Handling
+If notification body strings are null, blank, or unavailable, the parser flags `isContentUnavailable = true` and exposes `NotificationParseSource.UNAVAILABLE` rather than fabricating mock sender/text data.
 
 ---
 
@@ -103,12 +69,15 @@ Target API Level 35 enforces sensitive notification redaction for background ser
 
 WhatsApp commonly updates notification panels by reposting active banners as new messages arrive. Scraping the text values raw leads to duplicate rows.
 
-### Deduplication Hash (`dedupe_hash`)
-To prevent duplicates, the parser creates a deterministic SHA-256 deduplication hash for every parsed sub-message:
+### Deduplication Candidate (`dedupeCandidate`)
+To prevent duplicates, the parser creates a deterministic SHA-256 hash containing all primary identity elements:
 ```text
-dedupe_hash = SHA-256(conversationTitle + senderName + messageText + postedAtTimestamp)
+dedupeCandidate = SHA-256(packageName + notificationKey + timestamp + conversationTitle + senderName + messageText)
 ```
-Before committing to the `message_events` Room table, the repository checks the database for matching deduplication hashes. If a hash already exists, the row insertion is ignored, avoiding duplicate inbox noise.
+
+> [!WARNING]
+> Final deduplication candidate correctness is considered **unverified** until real stacked/reposted WhatsApp notifications are observed and validated directly on the physical phone during live validation testing.
+
 
 ---
 

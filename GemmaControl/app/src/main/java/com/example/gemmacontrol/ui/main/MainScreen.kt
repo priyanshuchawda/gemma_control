@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -23,10 +24,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
-import com.example.gemmacontrol.notifications.ParsedNotification
+import com.example.gemmacontrol.notifications.ConversationType
+import com.example.gemmacontrol.notifications.NotificationEventType
+import com.example.gemmacontrol.notifications.NotificationParseSource
+import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,9 +46,23 @@ fun MainScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Periodically reconcile permission state on launch/resume
+    // Automatic permission validation on launch/first layout
     LaunchedEffect(Unit) {
         viewModel.checkPermission(context)
+    }
+
+    // Automatic permission validation on lifecycle resume (returning from Settings)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.checkPermission(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Scaffold(
@@ -91,7 +112,7 @@ fun MainScreen(
 
 @Composable
 internal fun MainScreenContent(
-    notifications: List<ParsedNotification>,
+    notifications: List<ParsedWhatsAppNotificationEvent>,
     isPermissionGranted: Boolean,
     onRequestPermission: () -> Unit,
     onClearNotifications: () -> Unit,
@@ -104,6 +125,24 @@ internal fun MainScreenContent(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
+        // 0. Privacy & Scope notice
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Notice: This screen shows only notification content received after Notification Access is enabled. It does not read full WhatsApp history.",
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // 1. Permission status card
         PermissionCard(
             isGranted = isPermissionGranted,
@@ -120,7 +159,7 @@ internal fun MainScreenContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Captured Alerts (${notifications.size})",
+                text = "Captured Debug Events (${notifications.size})",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
             if (notifications.isNotEmpty()) {
@@ -174,7 +213,10 @@ internal fun MainScreenContent(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(notifications, key = { it.dedupeHash }) { item ->
+                items(
+                    items = notifications,
+                    key = { "${it.notificationKey}_${it.observedAt}" }
+                ) { item ->
                     NotificationItemRow(item = item, formatter = formatter)
                 }
             }
@@ -245,7 +287,11 @@ fun PermissionCard(
 }
 
 @Composable
-fun NotificationItemRow(item: ParsedNotification, formatter: SimpleDateFormat) {
+fun NotificationItemRow(item: ParsedWhatsAppNotificationEvent, formatter: SimpleDateFormat) {
+    val observedTime = formatter.format(Date(item.observedAt))
+    val postedTime = item.notificationPostedAt?.let { formatter.format(Date(it)) } ?: "N/A"
+    val safeKey = if (item.notificationKey.length > 8) item.notificationKey.takeLast(8) else item.notificationKey
+
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -257,70 +303,134 @@ fun NotificationItemRow(item: ParsedNotification, formatter: SimpleDateFormat) {
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
+            // Header showing Event Type, Active State, and Observation Time
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Sender or Group display name
-                Text(
-                    text = item.conversationTitle,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                // Event Type Tag
+                val tagColor = when (item.eventType) {
+                    NotificationEventType.POSTED -> Color(0xFF2E7D32)
+                    NotificationEventType.UPDATED -> Color(0xFF1565C0)
+                    NotificationEventType.REMOVED -> Color(0xFFC62828)
+                }
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text(item.eventType.name, fontWeight = FontWeight.Bold, color = tagColor) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(labelColor = tagColor)
                 )
-                Text(
-                    text = formatter.format(Date(item.postedAt)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
-            if (item.isGroup) {
-                Spacer(modifier = Modifier.height(2.dp))
+                // Active/Expired indicator
+                val statusText = if (item.isCurrentlyActive) "Active" else "Expired"
+                val statusColor = if (item.isCurrentlyActive) Color(0xFF2E7D32) else Color(0xFFC62828)
                 Text(
-                    text = "Group Author: ${item.senderName}",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary
+                    text = statusText,
+                    color = statusColor,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
                 )
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
+            // Conversation Title and Package
             Text(
-                text = if (item.isRedacted) "[Sensitive Content Redacted]" else item.messageText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (item.isRedacted) MaterialTheme.colorScheme.error else Color.Unspecified
+                text = item.conversationTitle ?: "[Unknown Chat]",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            
+            Text(
+                text = "Package: ${item.packageName}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Extra Metadata Footer
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Message Preview / List of messages
+            if (item.isContentUnavailable) {
                 Text(
-                    text = if (item.isGroup) "Type: Group Chat" else "Type: Direct Chat",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "[Content unavailable in notification]",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.error
                 )
+            } else {
+                val latestMsg = item.messages.lastOrNull()
+                val senderPrefix = if (latestMsg?.senderName != null) "${latestMsg.senderName}: " else ""
                 Text(
-                    text = if (item.hasReplyAction) "Reply Action: Available" else "Reply Action: Missing",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (item.hasReplyAction) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-                Text(
-                    text = if (item.isActive) "Status: Active" else "Status: Expired",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (item.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    text = "$senderPrefix${latestMsg?.messageText ?: ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Dedupe Hash: ${item.dedupeHash.take(16)}...",
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Detailed parameters footer (2-column layout)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Conversation Type: ${item.conversationType.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Parse Source: ${item.parseSource.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Current Count: ${item.currentMessageCount} | Historic: ${item.historicMessageCount}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Reply Action: ${if (item.hasReplyActionAtCaptureTime) "Yes" else "No"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (item.hasReplyActionAtCaptureTime) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Observed At: $observedTime",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Posted At: $postedTime",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Text(
+                    text = "Key Suffix: ...$safeKey",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
         }
     }
 }

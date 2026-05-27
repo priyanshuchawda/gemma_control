@@ -19,19 +19,24 @@ The following telemetry values were successfully retrieved and verified over the
 
 ## 2. On-Device Validation Milestones
 
-Manual testing on the connected handset must follow three specific milestones before integrating any AI or model components:
+> [!WARNING]
+> Manual testing on the connected handset is currently **BLOCKED at Milestone 1** due to Xiaomi's USB installation security restriction (`INSTALL_FAILED_USER_RESTRICTED`). The physical device verification remains uncompleted until this setting is toggled ON.
 
-### Milestone 1: Notification Listener Authorization & Intercept
-1. Install the baseline sandbox Compose app onto the handset using `android run`.
-2. Launch the app and verify the Onboarding screen is displayed.
-3. Click the "Grant Notification Access" button to navigate to the system Settings page.
-4. Toggle "On" for the GemmaControl application.
-5. Exit the app and trigger a real WhatsApp notification (either a direct or group chat).
-6. Verify that the debug screen displays the parsed metadata correctly:
-   - Exposes `"com.whatsapp"` package filter outcome.
-   - Shows correct separation of group title from the sender's display name.
-   - Confirms direct vs group classification.
-   - Confirms deduplication hashes prevent duplicate rows on notification refreshes.
+### Milestone 1: Notification Listener Authorization & Intercept (Blocked)
+1. Unblock installation by turning ON **Install via USB** in **Settings > Additional Settings > Developer Options**.
+2. Run `.\gradlew installDebug` and authorize the prompt on the screen.
+3. Launch GemmaControl on the phone and verify that the onboarding edge-to-edge layout is rendering correctly.
+4. Click the "Grant Permission" button and toggle GemmaControl to "ON" in the system settings page.
+5. Observe permission status card transition automatically to "Active" when returning to the app (ON_RESUME lifecycle callback).
+6. Exit the app and trigger a real WhatsApp message to the phone (both direct and group messages).
+7. Verify that the debug screen displays the parsed metadata parameters correctly:
+   - Event Type (POSTED, UPDATED)
+   - Shortened safe key suffix
+   - Correct classification (DIRECT, GROUP, or UNKNOWN)
+   - Current vs. historic message counts
+   - In-app preview of text
+   - Inactive/expired lifecycle updates when swiped away (REMOVED)
+   - Bounded list size (capped at 100 history entries)
 
 ### Milestone 2: Manual Action Testing
 1. Trigger a WhatsApp message to generate an active notification on the handset.

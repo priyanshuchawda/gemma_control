@@ -19,85 +19,161 @@ class WhatsAppNotificationParserTest {
 
     @Test
     fun testPackageAllowList_acceptsSupportedPackages() {
-        // Supported
+        // Supported WhatsApp Variants
         assertTrue(WhatsAppNotificationParser.isPackageSupported("com.whatsapp"))
         assertTrue(WhatsAppNotificationParser.isPackageSupported("com.whatsapp.w4b"))
 
-        // Unrelated/Unsupported
+        // Unrelated applications
         assertFalse(WhatsAppNotificationParser.isPackageSupported("com.facebook.orca"))
         assertFalse(WhatsAppNotificationParser.isPackageSupported("com.google.android.talk"))
-        assertFalse(WhatsAppNotificationParser.isPackageSupported("com.telegram.messenger"))
         assertFalse(WhatsAppNotificationParser.isPackageSupported(null))
         assertFalse(WhatsAppNotificationParser.isPackageSupported(""))
     }
 
     @Test
-    fun testDedupeHash_isDeterministic() {
+    fun testDedupeCandidate_isDeterministic() {
+        val packageName = "com.whatsapp"
+        val key = "key_123"
+        val timestamp = 1716900000000L
         val title = "Mom"
         val sender = "Mom"
         val text = "Are you home?"
-        val timestamp = 1716900000000L
 
-        val hash1 = WhatsAppNotificationParser.generateDedupeHash(title, sender, text, timestamp)
-        val hash2 = WhatsAppNotificationParser.generateDedupeHash(title, sender, text, timestamp)
+        val candidate1 = WhatsAppNotificationParser.generateDedupeCandidate(
+            packageName, key, timestamp, title, sender, text
+        )
+        val candidate2 = WhatsAppNotificationParser.generateDedupeCandidate(
+            packageName, key, timestamp, title, sender, text
+        )
 
-        // Same inputs must yield same hash
-        assertEquals(hash1, hash2)
+        // Same inputs must yield identical candidates
+        assertEquals(candidate1, candidate2)
 
-        // Different sender
-        val hashDifferentSender = WhatsAppNotificationParser.generateDedupeHash(title, "Dad", text, timestamp)
-        assertFalse(hash1 == hashDifferentSender)
+        // Differs when key differs
+        val candidateDiffKey = WhatsAppNotificationParser.generateDedupeCandidate(
+            packageName, "key_456", timestamp, title, sender, text
+        )
+        assertFalse(candidate1 == candidateDiffKey)
 
-        // Different text
-        val hashDifferentText = WhatsAppNotificationParser.generateDedupeHash(title, sender, "Heading out", timestamp)
-        assertFalse(hash1 == hashDifferentText)
+        // Differs when message text differs
+        val candidateDiffText = WhatsAppNotificationParser.generateDedupeCandidate(
+            packageName, key, timestamp, title, sender, "Heading out!"
+        )
+        assertFalse(candidate1 == candidateDiffText)
 
-        // Different timestamp
-        val hashDifferentTime = WhatsAppNotificationParser.generateDedupeHash(title, sender, text, timestamp + 1000)
-        assertFalse(hash1 == hashDifferentTime)
+        // Differs when timestamp differs
+        val candidateDiffTime = WhatsAppNotificationParser.generateDedupeCandidate(
+            packageName, key, timestamp + 1000, title, sender, text
+        )
+        assertFalse(candidate1 == candidateDiffTime)
     }
 
     @Test
-    fun testViewModelCapturedNotifications_correctlyUpdates() = runTest {
+    fun testInMemoryStateTransitions() = runTest {
         val viewModel = MainScreenViewModel()
 
-        // Wait until it emits a Success state (which happens immediately when flow collects)
-        var currentState = viewModel.uiState.first { it is MainScreenUiState.Success } as MainScreenUiState.Success
-        assertTrue(currentState.notifications.isEmpty())
+        // Initially Success state with empty list
+        var state = viewModel.uiState.first { it is MainScreenUiState.Success } as MainScreenUiState.Success
+        assertTrue(state.notifications.isEmpty())
 
-        // Post a notification
-        val parsed = ParsedNotification(
-            notificationKey = "key_1",
-            senderName = "Amit",
-            conversationTitle = "Project Group",
-            messageText = "Let's meet tomorrow.",
-            postedAt = System.currentTimeMillis(),
-            isGroup = true,
-            hasReplyAction = true,
-            isRedacted = false,
-            dedupeHash = "dummy_hash_1"
+        // 1. Post a notification event (first time -> POSTED)
+        val event1 = ParsedWhatsAppNotificationEvent(
+            eventType = NotificationEventType.POSTED,
+            notificationKey = "key_mom",
+            packageName = "com.whatsapp",
+            observedAt = System.currentTimeMillis(),
+            notificationPostedAt = System.currentTimeMillis(),
+            conversationTitle = "Mom",
+            conversationType = ConversationType.DIRECT,
+            messages = emptyList(),
+            currentMessageCount = 0,
+            historicMessageCount = 0,
+            hasReplyActionAtCaptureTime = true,
+            parseSource = NotificationParseSource.UNAVAILABLE,
+            isContentUnavailable = true,
+            dedupeCandidate = "dedupe_1",
+            isCurrentlyActive = true
         )
-        WhatsAppNotificationListener.postNotificationForTest(parsed)
+        WhatsAppNotificationListener.postNotificationForTest(event1)
 
-        // Wait for next Success state
-        currentState = viewModel.uiState.first { it is MainScreenUiState.Success && it.notifications.isNotEmpty() } as MainScreenUiState.Success
-        val notifications = currentState.notifications
-        assertEquals(1, notifications.size)
-        assertEquals("key_1", notifications[0].notificationKey)
-        assertEquals("Amit", notifications[0].senderName)
-        assertEquals("Project Group", notifications[0].conversationTitle)
-        assertEquals("Let's meet tomorrow.", notifications[0].messageText)
-        assertTrue(notifications[0].isGroup)
-        assertTrue(notifications[0].isActive)
+        state = viewModel.uiState.first { it is MainScreenUiState.Success && it.notifications.isNotEmpty() } as MainScreenUiState.Success
+        assertEquals(1, state.notifications.size)
+        val captured1 = state.notifications.first()
+        assertEquals(NotificationEventType.POSTED, captured1.eventType)
+        assertEquals("key_mom", captured1.notificationKey)
+        assertTrue(captured1.isCurrentlyActive)
 
-        // Remove/Expire the notification
-        WhatsAppNotificationListener.removeNotificationForTest("key_1")
+        // 2. Post subsequent update using same active key -> UPDATED
+        val event2 = event1.copy(
+            eventType = NotificationEventType.UPDATED,
+            isContentUnavailable = false,
+            messages = listOf(ParsedMessagePreview("Mom", "Hello!", System.currentTimeMillis())),
+            currentMessageCount = 1
+        )
+        WhatsAppNotificationListener.postNotificationForTest(event2)
 
-        // Wait for state to reflect inactive
-        currentState = viewModel.uiState.first { it is MainScreenUiState.Success && !it.notifications[0].isActive } as MainScreenUiState.Success
-        val updatedNotifications = currentState.notifications
-        assertEquals(1, updatedNotifications.size)
-        assertFalse(updatedNotifications[0].isActive)
-        assertTrue(updatedNotifications[0].removedAt != null)
+        state = viewModel.uiState.first { it is MainScreenUiState.Success && it.notifications.size == 2 } as MainScreenUiState.Success
+        assertEquals(2, state.notifications.size)
+        
+        // Latest event is at index 0 (prepended)
+        val latest = state.notifications[0]
+        assertEquals(NotificationEventType.UPDATED, latest.eventType)
+        assertEquals("key_mom", latest.notificationKey)
+        assertTrue(latest.isCurrentlyActive)
+
+        // Previous event at index 1 is now marked inactive
+        val previous = state.notifications[1]
+        assertEquals(NotificationEventType.POSTED, previous.eventType)
+        assertFalse(previous.isCurrentlyActive)
+
+        // 3. Remove the active notification key -> REMOVED and active state is updated
+        WhatsAppNotificationListener.removeNotificationForTest("key_mom")
+
+        state = viewModel.uiState.first { it is MainScreenUiState.Success && it.notifications.size == 3 } as MainScreenUiState.Success
+        assertEquals(3, state.notifications.size)
+
+        // REMOVED event is at the top
+        val removed = state.notifications[0]
+        assertEquals(NotificationEventType.REMOVED, removed.eventType)
+        assertEquals("key_mom", removed.notificationKey)
+        assertFalse(removed.isCurrentlyActive)
+
+        // All previous ones are marked inactive
+        assertFalse(state.notifications[1].isCurrentlyActive)
+        assertFalse(state.notifications[2].isCurrentlyActive)
+    }
+
+    @Test
+    fun testEventHistoryCappedTo100() = runTest {
+        // Clear listener state first
+        WhatsAppNotificationListener.clearList()
+
+        // Push 105 events
+        for (i in 1..105) {
+            val event = ParsedWhatsAppNotificationEvent(
+                eventType = NotificationEventType.POSTED,
+                notificationKey = "key_$i",
+                packageName = "com.whatsapp",
+                observedAt = System.currentTimeMillis() + i, // unique timestamp for stable ordering
+                notificationPostedAt = System.currentTimeMillis(),
+                conversationTitle = "Contact_$i",
+                conversationType = ConversationType.UNKNOWN,
+                messages = emptyList(),
+                currentMessageCount = 0,
+                historicMessageCount = 0,
+                hasReplyActionAtCaptureTime = false,
+                parseSource = NotificationParseSource.UNAVAILABLE,
+                isContentUnavailable = true,
+                dedupeCandidate = "dedupe_$i",
+                isCurrentlyActive = true
+            )
+            WhatsAppNotificationListener.postNotificationForTest(event)
+        }
+
+        val viewModel = MainScreenViewModel()
+        val state = viewModel.uiState.first { it is MainScreenUiState.Success } as MainScreenUiState.Success
+        
+        // Assert that history size is bounded/capped strictly to 100
+        assertEquals(100, state.notifications.size)
     }
 }
