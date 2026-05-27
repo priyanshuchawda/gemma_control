@@ -1,87 +1,119 @@
 # Notification Ingestion & Parsing Subsystem
 
-This document outlines the software design, classes, deduplication logic, and OS lifecycle mappings for the `WhatsAppNotificationParser` component of the application.
+Design reference for the `WhatsApp Notification Listener` and `WhatsApp Notification Parser` components.
 
 ---
 
-## 1. System Ingestion Pipeline
-
-To capture incoming text alerts, the application BINDs a native `NotificationListenerService` to Android's notification pipeline.
+## 1. Ingestion Pipeline
 
 ```text
-       [ System Notification Post ]
-                    ↓
-     [ BIND_NOTIFICATION_LISTENER ]
-                    ↓
+[ WhatsApp posts notification to Android system ]
+              ↓
+[ BIND_NOTIFICATION_LISTENER_SERVICE (granted) ]
+              ↓
 [ WhatsAppNotificationListener.onNotificationPosted ]
-                    ↓
-     [ Filter com.whatsapp package ]
-                    ↓
-      [ WhatsAppNotificationParser ]
-                    ↓ (Parse MessagingStyle)
-       [ Deduplication Hash Check ]
-                    ↓
-        [ Commit to Room SQLite ]
+              ↓
+[ Package allowlist check — com.whatsapp / com.whatsapp.w4b ]
+              ↓
+[ Determine POSTED vs UPDATED via activeKeys set ]
+              ↓
+[ WhatsAppNotificationParser.parse() ]
+              ↓  (MessagingStyle or Extras fallback)
+[ SHA-256 dedupeCandidate generated ]
+              ↓
+[ Prepend to in-memory MutableStateFlow (cap: 100) ]
+              ↓
+[ Compose UI collects StateFlow and re-renders ]
+```
+
+On swipe/dismiss:
+```text
+[ onNotificationRemoved called ]
+              ↓
+[ Key removed from activeKeys set ]
+              ↓
+[ REMOVED event prepended; prior events marked isCurrentlyActive = false ]
 ```
 
 ---
 
-## 2. Ingestion Lifecycles & Events
+## 2. Event Types
 
-The system maps three primary lifecycle events:
-1. **`onNotificationPosted`**: Fired when a new WhatsApp alert is generated or an existing notification is updated (e.g. a new message arrives in an existing group chat, causing a repost).
-2. **`onNotificationRemoved`**: Fired when the user swipes away, clears, or clicks the notification banner. The parser updates the database, setting `is_active_last_known = false` on `ActiveNotificationReferenceEntity` and recording the `removed_at` timestamp.
-3. **Reboot Persistence**: System services are decoupled. When the physical phone restarts, the listener automatically binds again once unlocked. The UI checks active system notifications on launch via `getActiveNotifications()` to reconcile states.
+| Type | Trigger |
+| :--- | :--- |
+| `POSTED` | First time a notification key appears in `onNotificationPosted` |
+| `UPDATED` | Subsequent `onNotificationPosted` call for a key already in `activeKeys` |
+| `REMOVED` | `onNotificationRemoved` for an active key |
+
+> **Physical validation**: POSTED → UPDATED lifecycle was observed on the Redmi 13 5G (same key, message count incremented 1→4 over controlled test).
 
 ---
 
-## 3. WhatsAppNotificationParser Architecture
+## 3. Parser Architecture
 
-The parser class decodes raw notification data structures:
-
-### A. MessagingStyle Parsing
-Standard WhatsApp notifications package unread histories using `Notification.MessagingStyle`. Rather than scraping the topmost display text, the parser iterates through both current and historic message arrays (when the platform exposes them) to extract each specific message block into a structured `ParsedWhatsAppNotificationEvent`:
+### A. MessagingStyle Parsing (Primary Path)
+WhatsApp bundles unread message histories in `Notification.MessagingStyle`. The parser iterates both `messages` and `historicMessages` arrays:
 
 ```kotlin
-object WhatsAppNotificationParser {
-    fun parse(
-        context: Context,
-        sbn: StatusBarNotification,
-        eventType: NotificationEventType,
-        isCurrentlyActive: Boolean
-    ): ParsedWhatsAppNotificationEvent? {
-        // ... (See actual implementation in project files for exact code)
-    }
+val style = Notification.Builder.recoverBuilder(context, notification).style
+if (style is Notification.MessagingStyle) {
+    val isGroup = style.isGroupConversation
+    val messages = style.messages          // current unread stack
+    val historic = style.historicMessages  // older dismissed messages
+    // ...
 }
 ```
 
-### B. Separating Senders from Group Conversations
-- **Group Notifications**: Exposes `ConversationType.GROUP`. `conversationTitle` matches the group name, and individual message elements expose the unique author's name inside `sender` parameters.
-- **Direct Notifications**: Exposes `ConversationType.DIRECT` only when classification is reliable (e.g. `conversationTitle` is empty or identical to the sender name).
-- **Fallback / Ambiguous Cases**: Exposes `ConversationType.UNKNOWN` to prevent misleading classification.
+### B. Extras Fallback Path (Summary / Legacy)
+When `MessagingStyle` is unavailable (e.g. group summaries, older WhatsApp channels), the parser falls back to `EXTRA_TITLE` and `EXTRA_TEXT`:
 
-### C. Content Availability Handling
-If notification body strings are null, blank, or unavailable, the parser flags `isContentUnavailable = true` and exposes `NotificationParseSource.UNAVAILABLE` rather than fabricating mock sender/text data.
-
----
-
-## 4. Deduplication & Repost Logic
-
-WhatsApp commonly updates notification panels by reposting active banners as new messages arrive. Scraping the text values raw leads to duplicate rows.
-
-### Deduplication Candidate (`dedupeCandidate`)
-To prevent duplicates, the parser creates a deterministic SHA-256 hash containing all primary identity elements:
-```text
-dedupeCandidate = SHA-256(packageName + notificationKey + timestamp + conversationTitle + senderName + messageText)
+```kotlin
+val title = extras.getString(Notification.EXTRA_TITLE)
+val text  = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 ```
 
-> [!WARNING]
-> Final deduplication candidate correctness is considered **unverified** until real stacked/reposted WhatsApp notifications are observed and validated directly on the physical phone during live validation testing.
+**Limitation**: the fallback path does not expose `isGroupConversation`. Events parsed this way receive `ConversationType.UNKNOWN`.
 
+### C. Conversation Classification Logic
+
+| Condition | Classification |
+| :--- | :--- |
+| `MessagingStyle` && `isGroupConversation == true` | `GROUP` |
+| `MessagingStyle` && title == sender name (or title is blank) | `DIRECT` |
+| `MessagingStyle` && ambiguous title | `UNKNOWN` |
+| Extras fallback | `UNKNOWN` |
+| No content at all | `UNKNOWN` + `isContentUnavailable = true` |
+
+> **Physical validation**: `DIRECT` classification was confirmed on-device for a controlled direct-chat test. `GROUP` classification has **not yet** been confirmed — the group test notification arrived via the fallback path and was classified `UNKNOWN`.
 
 ---
 
-## 5. System Execution Constraints
+## 4. Deduplication Candidate
 
-- **Strict Main Thread Protection**: Message parsing, deduplication matching, and database writes run on a background thread (`Dispatchers.IO`) inside a `SupervisorJob` context.
-- **Model Decoupling**: The service does *not* execute LiteRT-LM prompts or invoke FunctionGemma within listener callbacks. This guarantees minimal CPU and memory footprints, preventing background thread lockups or thermal throttling during rapid notification intervals. AI operations are strictly passive, executing only when triggered by user input.
+To prevent duplicate in-memory entries when WhatsApp reposts a notification for an existing conversation, the parser generates a deterministic SHA-256 hash:
+
+```text
+dedupeCandidate = SHA-256(
+    packageName | notificationKey | timestamp | conversationTitle | senderName | messageText
+)
+```
+
+Different inputs always produce different hashes. Identical inputs always produce the same hash. This was validated by `testDedupeCandidate_isDeterministic`.
+
+> The deduplication candidate is **not** used for database deduplication in Phase 1 because there is no Room persistence. It is computed and stored in the model for Phase 2 use.
+
+---
+
+## 5. Privacy Constraints
+
+- **No message body text, sender names, or group names are logged to Logcat.**
+- Logcat output is limited to: package name, key suffix (last 8 chars), parse source label, message count.
+- The `ParsedMessagePreview.senderName` and `messageText` fields are held **in volatile in-memory only** and never written to disk or logged.
+
+---
+
+## 6. Execution Constraints
+
+- **No AI inference inside listener callbacks.** LiteRT-LM / FunctionGemma calls are strictly deferred to user-triggered flows in Phase 4.
+- **No Room writes in Phase 1.** The `MutableStateFlow` is the sole storage mechanism.
+- All state mutations happen on the calling thread (Android system notification binder thread). The flow update is thread-safe via `update {}`.
