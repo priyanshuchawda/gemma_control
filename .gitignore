@@ -1,0 +1,34 @@
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Gradle
+.gradle/
+build/
+app/build/
+GemmaControl/app/build/
+GemmaControl/build/
+GemmaControl/.gradle/
+GemmaControl/.idea/
+GemmaControl/local.properties
+
+# Local configurations
+local.properties
+.antigravitycli/
+.agents/
+skills-lock.json
+
+# Model Binaries (FunctionGemma Large Files)
+*.litertlm
+*.tflite
+*.bin
+
+# Log files
+*.log
+
+# System Files
+.DS_Store
+Thumbs.db
