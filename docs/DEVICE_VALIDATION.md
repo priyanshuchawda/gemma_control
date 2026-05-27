@@ -46,7 +46,7 @@ Physical handset used for all Phase 1 testing and validation.
 | POSTED → UPDATED same-key lifecycle | **PASS** | Privacy-safe Logcat (controlled 2-message test) |
 | `onNotificationRemoved` callback | **PASS** | Privacy-safe Logcat (swipe-away test) |
 | Direct-chat classification: DIRECT | **PASS** | On-device UI observation |
-| Group-chat classification: GROUP | **NOT VERIFIED** | Group test classified as UNKNOWN; needs MessagingStyle group path |
+| Group-chat classification: GROUP | **PASS** | On-device UI observation (controlled group test, MessagingStyle path) |
 
 ### Milestone 2: Manual Action Testing (Not Started)
 > This milestone covers RemoteInput reply execution and requires a working Phase 2 Room layer. **Not in scope for Phase 1.**

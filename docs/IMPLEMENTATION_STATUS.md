@@ -15,7 +15,8 @@ This document records the truthful current state of completed modules, verified 
 | Notification Access | **VERIFIED** — Listener component confirmed in `enabled_notification_listeners` secure setting |
 | WhatsApp Event Capture | **VERIFIED** — `com.whatsapp` POSTED/UPDATED/REMOVED events observed on real device |
 | Direct-Chat Classification | **VERIFIED** — On-device UI displayed `DIRECT` for controlled direct-chat test |
-| Group Classification | **NOT YET VERIFIED** — Group test received but classified `UNKNOWN` (see PHASE1_NOTIFICATION_POC_TEST_LOG.md) |
+| Group Classification | **VERIFIED** — On-device UI displayed `GROUP` for controlled group-chat test |
+| Dual-notification behavior | **UNDERSTOOD** — WhatsApp posts one `MESSAGING_STYLE` + one summary `EXTRAS_FALLBACK` per message (both correct) |
 | Room Persistence | **NOT IMPLEMENTED** — Deferred to Phase 2 |
 | Direct Reply Execution | **NOT IMPLEMENTED** — Deferred to manual-action phase |
 | FunctionGemma / LiteRT-LM | **NOT IMPLEMENTED** — Deferred to Phase 4 |
@@ -59,7 +60,8 @@ This document records the truthful current state of completed modules, verified 
 | `UPDATED` lifecycle emission | **Verified fact** | Logcat: same-key POSTED→UPDATED on controlled 2nd message |
 | `REMOVED` lifecycle callback | **Verified fact** | Logcat: onNotificationRemoved on swipe |
 | `DIRECT` classification | **Verified fact** | On-device UI observation |
-| `GROUP` classification | **Unverified** | Group test showed UNKNOWN — needs MessagingStyle group path |
+| `GROUP` classification | **Verified fact** | On-device UI observation (controlled group test) |
+| Dual-notification behavior | **Verified fact** | Each WhatsApp message yields two notifications: one MessagingStyle (DIRECT/GROUP), one summary EXTRAS_FALLBACK (UNKNOWN) |
 | LiteRT-LM inference latency | **Unverified** | Deferred to Phase 4 |
 | Room write throughput | **Unverified** | Deferred to Phase 2 |
 
@@ -67,10 +69,9 @@ This document records the truthful current state of completed modules, verified 
 
 ## 4. Next Technical Slice
 
-**Phase 1 Follow-Up (still on current branch):**
-- Trigger a group notification that takes the `MessagingStyle` path (not the summary/fallback path) and verify `GROUP` classification on the device UI.
+**Phase 1 POC is COMPLETE.** All validation items have been verified on the physical Redmi 13 5G.
 
-**Phase 2 (do not start until Phase 1 follow-up is complete or explicitly deferred):**
+**Phase 2 (ready to start):**
 - Room SQLite entity design and DAO layer
 - AES-GCM encryption at rest
 - Repository pattern connecting listener → Room → ViewModel
