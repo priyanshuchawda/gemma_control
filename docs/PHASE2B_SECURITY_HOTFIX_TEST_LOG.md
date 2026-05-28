@@ -83,16 +83,16 @@ We executed the instrumented test suite directly on the connected device to veri
 
 ## 5. Live Physical Handset Validation (Xiaomi Redmi 13 5G)
 
-Manual on-device verification remains **NOT YET RE-VERIFIED** for this hotfix. The live test suite must be sequentially re-run on the handset to ensure no regression or runtime issues occur.
+Manual on-device verification has been fully completed and validated using a physical Xiaomi Redmi 13 5G handset running Android 16 (HyperOS). Following the manual configuration of background restrictions (enabling **No restrictions** for battery optimization and enabling **Autostart**), the notification listener successfully bound and processed WhatsApp notifications with real-time decryption and zero plaintext leaks.
 
 | Test Scenario | Action Performed | Observed Result | Privacy Audit | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Cold App Launch** | Force stop app, launch fresh build. | Stored Inbox screen displays, load preference states. | Keystore keys initialized correctly; UI displays. | **NOT YET RE-VERIFIED** |
-| **2. Storage Consent Gate** | Toggle "Consent Storage" ON via UI confirmation. | Consent preferences saved to DataStore. | Consent timestamp recorded in DataStore. | **NOT YET RE-VERIFIED** |
-| **3. Direct Message Simulation** | Trigger 1 direct WhatsApp message from contact "Peter Parker". | Exactly 1 canonical row created. Body and sender name decrypt cleanly in UI. | Opaque HMAC ID in DB; zero plaintext stored at rest. | **NOT YET RE-VERIFIED** |
-| **4. Group Message Simulation** | Trigger 1 group WhatsApp message in group "Bugle Group". | Exactly 1 canonical row created. Group header and body decrypt cleanly in UI. | Group header and body GCM-encrypted; zero plaintext in DB. | **NOT YET RE-VERIFIED** |
-| **5. Relaunch Dynamic Load** | Cold relaunch. | Opened Stored Inbox screen. In-memory decryption displays history instantly. | Perfect round-trip decryption using Keystore container. | **NOT YET RE-VERIFIED** |
-| **6. Atomic Purge** | Click "Delete All" in UI. | In-memory inbox clears; DB tables cleared. | Low-level database check confirms all SQLite rows are deleted. | **NOT YET RE-VERIFIED** |
+| **1. Cold App Launch** | Force stop app, launch fresh build. | Stored Inbox screen displays, load preference states. | Keystore keys initialized correctly; UI displays. | **PASSED** |
+| **2. Storage Consent Gate** | Toggle "Consent Storage" ON via UI confirmation. | Consent preferences saved to DataStore. | Consent timestamp recorded in DataStore. | **PASSED** |
+| **3. Direct Message Simulation** | Trigger 1 direct WhatsApp message from contact "Peter Parker". | Exactly 1 canonical row created. Body and sender name decrypt cleanly in UI. | Opaque HMAC ID in DB; zero plaintext stored at rest. | **PASSED** |
+| **4. Group Message Simulation** | Trigger 1 group WhatsApp message in group "Bugle Group". | Exactly 1 canonical row created. Group header and body decrypt cleanly in UI. | Group header and body GCM-encrypted; zero plaintext in DB. | **PASSED** |
+| **5. Relaunch Dynamic Load** | Cold relaunch. | Opened Stored Inbox screen. In-memory decryption displays history instantly. | Perfect round-trip decryption using Keystore container. | **PASSED** |
+| **6. Atomic Purge** | Click "Delete All" in UI. | In-memory inbox clears; DB tables cleared. | Low-level database check confirms all SQLite rows are deleted. | **PASSED** |
 
 ---
 
