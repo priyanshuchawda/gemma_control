@@ -43,6 +43,7 @@ class FakeMessageBodyCipher : MessageBodyCipher {
 class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override val captureEnabledFlow = MutableStateFlow(true)
     override val storageEnabledFlow = MutableStateFlow(false)
+    override val storageEnabledAtFlow = MutableStateFlow(0L)
 
     override suspend fun setCaptureEnabled(enabled: Boolean) {
         captureEnabledFlow.value = enabled
@@ -50,6 +51,12 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
 
     override suspend fun setStorageEnabled(enabled: Boolean) {
         storageEnabledFlow.value = enabled
+        if (enabled) {
+            // Set to 1L in the fake so that mock messages (with timestamp 1716900000000L) are always post-consent
+            storageEnabledAtFlow.value = 1L
+        } else {
+            storageEnabledAtFlow.value = 0L
+        }
     }
 }
 
@@ -70,7 +77,10 @@ class FakeConversationDao : ConversationDao {
     override suspend fun deleteAll() = list.clear()
 }
 
-class FakeMessageEventDao : MessageEventDao {
+class FakeMessageEventDao(
+    private val conversationDao: FakeConversationDao,
+    private val activeRefDao: FakeActiveNotificationReferenceDao
+) : MessageEventDao {
     val list = mutableListOf<MessageEventEntity>()
     override suspend fun insert(message: MessageEventEntity): Long {
         if (list.any { it.dedupeHash == message.dedupeHash }) {
@@ -79,11 +89,26 @@ class FakeMessageEventDao : MessageEventDao {
         list.add(message)
         return list.size.toLong()
     }
+    override suspend fun getByDedupeHash(dedupeHash: String): MessageEventEntity? = list.find { it.dedupeHash == dedupeHash }
     override fun getAllMessagesFlow(): Flow<List<MessageEventEntity>> = flow { emit(list) }
     override suspend fun getAllMessages(): List<MessageEventEntity> = list
     override fun getMessagesForConversationFlow(conversationId: String): Flow<List<MessageEventEntity>> = flow { emit(list.filter { it.conversationId == conversationId }) }
     override suspend fun getMessagesForConversation(conversationId: String): List<MessageEventEntity> = list.filter { it.conversationId == conversationId }
     override suspend fun deleteAll() = list.clear()
+
+    override suspend fun deleteConversations() {
+        conversationDao.deleteAll()
+    }
+
+    override suspend fun deleteActiveReferences() {
+        activeRefDao.deleteAll()
+    }
+
+    override suspend fun deleteAllData() {
+        deleteAll()
+        deleteConversations()
+        deleteActiveReferences()
+    }
 }
 
 class FakeActiveNotificationReferenceDao : ActiveNotificationReferenceDao {
@@ -112,8 +137,8 @@ class NotificationPersistenceCoordinatorTest {
     @Before
     fun setUp() {
         conversationDao = FakeConversationDao()
-        messageEventDao = FakeMessageEventDao()
         activeNotificationReferenceDao = FakeActiveNotificationReferenceDao()
+        messageEventDao = FakeMessageEventDao(conversationDao, activeNotificationReferenceDao)
         messageBodyCipher = FakeMessageBodyCipher()
         preferencesRepository = FakeCapturePreferencesRepository()
         
@@ -179,12 +204,30 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
-    fun testIngestionPolicy_skipsPairedExtrasFallbackSummaryEvent() = runTest {
+    fun testIngestionPolicy_fallbackOnlyEventDoesNotPersist() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
-        val key = "key_dual_test"
+        val event = createDummyEvent(
+            key = "key_fallback_only",
+            source = NotificationParseSource.EXTRAS_FALLBACK,
+            title = "Aunt May",
+            text = "Dinner at 7"
+        )
 
-        // 1. MESSAGING_STYLE event arrives
+        coordinator.handleNotificationEvent(event)
+
+        // Under the new policy, fallback events remain volatile-only in debug feed
+        // and are NOT written to Room storage.
+        assertTrue(messageEventDao.list.isEmpty())
+    }
+
+    @Test
+    fun testIngestionPolicy_messagingStylePlusFallbackWithSameKeyPersistsOneRow() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val key = "key_same"
+
+        // 1. MESSAGING_STYLE event
         val canonicalEvent = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -193,7 +236,7 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(canonicalEvent)
 
-        // 2. Paired EXTRAS_FALLBACK summary event arrives
+        // 2. EXTRAS_FALLBACK summary event with same key
         val fallbackEvent = createDummyEvent(
             key = key,
             source = NotificationParseSource.EXTRAS_FALLBACK,
@@ -202,38 +245,42 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(fallbackEvent)
 
-        // Verification: volatile debug gets both (not tested here),
-        // but persistent storage contains EXACTLY ONE persisted message.
         assertEquals(1, messageEventDao.list.size)
     }
 
     @Test
-    fun testIngestionPolicy_persistsExtrasFallbackIfNoMessagingStyleSeen() = runTest {
+    fun testIngestionPolicy_messagingStylePlusFallbackWithDifferentKeysPersistsOneRow() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
-        val key = "key_fallback_only"
+        // 1. MESSAGING_STYLE event with key "key_canonical"
+        val canonicalEvent = createDummyEvent(
+            key = "key_canonical",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Spidey Chat",
+            text = "Hey!"
+        )
+        coordinator.handleNotificationEvent(canonicalEvent)
 
-        // EXTRAS_FALLBACK event arrives with no prior MESSAGING_STYLE event
+        // 2. EXTRAS_FALLBACK summary event with different key "key_fallback"
         val fallbackEvent = createDummyEvent(
-            key = key,
+            key = "key_fallback",
             source = NotificationParseSource.EXTRAS_FALLBACK,
-            title = "Unclassified Friend",
-            text = "Can you hear me?"
+            title = "Spidey Chat",
+            text = "Hey!"
         )
         coordinator.handleNotificationEvent(fallbackEvent)
 
-        // Verification: It is preserved as unclassified review-needed capture without silent deletion
+        // Fallback is ignored, so we have exactly one persisted row
         assertEquals(1, messageEventDao.list.size)
-        assertEquals(ConversationType.UNKNOWN, conversationDao.list.first().conversationType)
     }
 
     @Test
-    fun testDeduplication_updatedMessagingStyleDoesNotDuplicateRows() = runTest {
+    fun testDeduplication_duplicateInsertPointsReferenceToExistingMessageId() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
-        val key = "key_updated_lifecycle"
+        val key = "key_dedupe"
 
-        // Event 1 (POSTED)
+        // First message
         val event1 = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -242,7 +289,10 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(event1)
 
-        // Event 2 (UPDATED - repeats the same last message "On my way")
+        val firstMessageId = messageEventDao.list.first().id
+        assertEquals(firstMessageId, activeNotificationReferenceDao.list.first().latestMessageEventId)
+
+        // Second message (duplicate of the first due to same dedupeHash)
         val event2 = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -252,8 +302,55 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(event2)
 
-        // Unique dedupe constraint prevents duplicating identical message row
+        // List size remains 1
         assertEquals(1, messageEventDao.list.size)
+        // Reference latestMessageEventId must point to the existing message ID, NOT a random new one
+        assertEquals(firstMessageId, activeNotificationReferenceDao.list.first().latestMessageEventId)
+    }
+
+    @Test
+    fun testConsentBoundary_ignoresMessagePredatingStorageEnabledAt() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        // Set storageEnabledAt to a future time
+        val futureTime = System.currentTimeMillis() + 100000L
+        preferencesRepository.storageEnabledAtFlow.value = futureTime
+
+        val event = createDummyEvent(
+            key = "key_consent_boundary",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Iron Man",
+            text = "I am Iron Man"
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        // Verify nothing was persisted because the message timestamp predated storage consent
+        assertTrue(messageEventDao.list.isEmpty())
+    }
+
+    @Test
+    fun testRepository_deleteAllDataPurgesAllTables() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val event = createDummyEvent(
+            key = "key_purge",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Aunt May",
+            text = "Dinner at 7"
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        assertFalse(conversationDao.list.isEmpty())
+        assertFalse(messageEventDao.list.isEmpty())
+        assertFalse(activeNotificationReferenceDao.list.isEmpty())
+
+        // Call repository delete-all path
+        repository.deleteAllData()
+
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
     }
 
     private fun createDummyEvent(

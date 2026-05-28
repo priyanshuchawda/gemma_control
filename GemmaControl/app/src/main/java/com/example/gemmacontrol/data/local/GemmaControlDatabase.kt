@@ -39,7 +39,9 @@ abstract class GemmaControlDatabase : RoomDatabase() {
                     GemmaControlDatabase::class.java,
                     "gemma_control_database"
                 )
-                .fallbackToDestructiveMigration()
+                // Removed fallbackToDestructiveMigration() to protect stored user data.
+                // Keeping schema version at 1. Export schema is false because schema directory
+                // is not configured in build.gradle. Future schema updates must declare explicit Migrations.
                 .build()
                 INSTANCE = instance
                 instance

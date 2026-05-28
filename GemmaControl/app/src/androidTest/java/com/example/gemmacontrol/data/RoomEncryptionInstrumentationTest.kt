@@ -104,12 +104,13 @@ class RoomEncryptionInstrumentationTest {
         )
         db.conversationDao().insert(conversation)
 
+        val payload1 = cipher.encrypt("Msg 1")
         val msg1 = MessageEventEntity(
             id = "msg_1",
             conversationId = "Spidey",
             senderName = "Peter Parker",
-            encryptedMessageText = cipher.encrypt("Msg 1").ciphertext,
-            encryptionIv = cipher.encrypt("Msg 1").iv,
+            encryptedMessageText = payload1.ciphertext,
+            encryptionIv = payload1.iv,
             postedAt = System.currentTimeMillis(),
             notificationKey = "notif_key_1",
             sourcePackage = "com.whatsapp",
@@ -119,12 +120,13 @@ class RoomEncryptionInstrumentationTest {
             createdAt = System.currentTimeMillis()
         )
 
+        val payload2 = cipher.encrypt("Msg 1 again")
         val msg2 = MessageEventEntity(
             id = "msg_2",
             conversationId = "Spidey",
             senderName = "Peter Parker",
-            encryptedMessageText = cipher.encrypt("Msg 1 again").ciphertext,
-            encryptionIv = cipher.encrypt("Msg 1 again").iv,
+            encryptedMessageText = payload2.ciphertext,
+            encryptionIv = payload2.iv,
             postedAt = System.currentTimeMillis() + 1000,
             notificationKey = "notif_key_1",
             sourcePackage = "com.whatsapp",
@@ -142,6 +144,12 @@ class RoomEncryptionInstrumentationTest {
 
         val allMessages = db.messageEventDao().getMessagesForConversation("Spidey")
         assertEquals(1, allMessages.size)
+
+        // Decrypt assertion to ensure matching encryption material round-trips correctly
+        val retrieved = allMessages.firstOrNull()
+        assertNotNull(retrieved)
+        val decryptedText = cipher.decrypt(EncryptedPayload(retrieved!!.encryptedMessageText!!, retrieved.encryptionIv!!))
+        assertEquals("Msg 1", decryptedText)
     }
 
     @Test
@@ -184,9 +192,8 @@ class RoomEncryptionInstrumentationTest {
         assertFalse(db.messageEventDao().getAllMessages().isEmpty())
         assertFalse(db.activeNotificationReferenceDao().getActiveReferences().isEmpty())
 
-        db.messageEventDao().deleteAll()
-        db.conversationDao().deleteAll()
-        db.activeNotificationReferenceDao().deleteAll()
+        // Execute atomic transactional purge path
+        db.messageEventDao().deleteAllData()
 
         assertTrue(db.conversationDao().getAllConversations().isEmpty())
         assertTrue(db.messageEventDao().getAllMessages().isEmpty())

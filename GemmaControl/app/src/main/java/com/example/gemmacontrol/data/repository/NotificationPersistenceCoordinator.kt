@@ -18,6 +18,7 @@ class NotificationPersistenceCoordinator(
     suspend fun handleNotificationEvent(event: ParsedWhatsAppNotificationEvent) {
         val captureEnabled = preferencesRepository.captureEnabledFlow.first()
         val storageEnabled = preferencesRepository.storageEnabledFlow.first()
+        val storageEnabledAt = preferencesRepository.storageEnabledAtFlow.first()
 
         // If capture is disabled, do not process
         if (!captureEnabled) return
@@ -35,17 +36,15 @@ class NotificationPersistenceCoordinator(
             return
         }
 
+        // Consent Boundary: Do not persist message events whose timestamp predates the storage consent enabled time.
+        // This blocks stacking/importing history that was visible prior to opt-in storage.
+        val latestMessage = event.messages.lastOrNull()
+        val messageTime = latestMessage?.timestamp ?: event.notificationPostedAt ?: System.currentTimeMillis()
+        if (messageTime < storageEnabledAt) {
+            return
+        }
+
         if (event.parseSource == NotificationParseSource.MESSAGING_STYLE) {
-            storedInboxRepository.persistCanonicalEvent(event)
-        } else if (event.parseSource == NotificationParseSource.EXTRAS_FALLBACK) {
-            // Ingestion Policy: Do not persist paired EXTRAS_FALLBACK summary event
-            // when a MESSAGING_STYLE event has already been handled for this notification.
-            val existingRef = activeNotificationReferenceDao.getByKey(event.notificationKey)
-            if (existingRef != null) {
-                return
-            }
-            
-            // Otherwise, store it conservatively as an unclassified review-needed capture
             storedInboxRepository.persistCanonicalEvent(event)
         }
     }

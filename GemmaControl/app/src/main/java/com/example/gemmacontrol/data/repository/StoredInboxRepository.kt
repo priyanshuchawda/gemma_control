@@ -90,12 +90,18 @@ class StoredInboxRepository(
             createdAt = now
         )
 
-        messageEventDao.insert(messageEntity)
+        val insertResult = messageEventDao.insert(messageEntity)
+        val actualMessageId = if (insertResult == -1L) {
+            val existing = messageEventDao.getByDedupeHash(messageEntity.dedupeHash)
+            existing?.id ?: messageId
+        } else {
+            messageId
+        }
 
         // 3. Track active reference
         val reference = ActiveNotificationReferenceEntity(
             notificationKey = event.notificationKey,
-            latestMessageEventId = messageId,
+            latestMessageEventId = actualMessageId,
             hadReplyActionWhenSeen = event.hasReplyActionAtCaptureTime,
             lastSeenActiveAt = now,
             removedAt = null
@@ -132,9 +138,7 @@ class StoredInboxRepository(
     }
 
     suspend fun deleteAllData() {
-        messageEventDao.deleteAll()
-        conversationDao.deleteAll()
-        activeNotificationReferenceDao.deleteAll()
+        messageEventDao.deleteAllData()
     }
 
     private fun decryptMessageEntity(entity: MessageEventEntity): DecryptedMessage {

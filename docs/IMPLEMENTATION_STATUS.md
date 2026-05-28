@@ -79,11 +79,8 @@ This document records the truthful current state of completed modules, verified 
 
 ## 4. Next Technical Slice
 
-**Phase 2A is COMPLETE.**
+**Phase 2A Hardening is COMPLETE with all automated unit and instrumented tests passing.**
 
-**Phase 3 (ready to start):**
-- Dynamic live notification retrieval by key via listener service
-- RemoteInput reply execution flow under strict Jetpack Compose confirmation card
-- Fallback flow to launch share chooser / draft when system notification has expired
-- Reminder queueing backed by standard Android WorkManager system
+- Live physical handset validation of the encrypted stored inbox (toggle default OFF, consent ON group/direct persistence, relaunch decryption, delete-all UI purge) is currently **NOT YET VERIFIED** and is undergoing controlled manual verification.
+- Phase 3 (reply execution, RemoteInput, WorkManager reminders) is deferred and will NOT start until Phase 2A is fully verified and merged.
 

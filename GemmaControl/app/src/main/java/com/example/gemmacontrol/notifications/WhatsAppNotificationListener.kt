@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import com.example.gemmacontrol.ServiceLocator
 
 class WhatsAppNotificationListener : NotificationListenerService() {
@@ -211,5 +212,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 Log.e(TAG, "Error persisting REMOVED event. Key Suffix: $keySuffix", e)
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
     }
 }

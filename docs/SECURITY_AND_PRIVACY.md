@@ -18,7 +18,7 @@ The application implements a **Zero-Cloud, Absolute Local Architecture**:
 To protect user message records from compromise or local unauthorized inspection, all sensitive message text is encrypted before writing to Room SQLite.
 
 ### A. Key Provisioning in Android Keystore
-The application generates a 256-bit symmetric AES key inside Android's secure hardware-backed container using `AndroidKeystoreMessageBodyCipher`:
+The application generates a 256-bit symmetric AES key inside Android's secure Keystore container using `AndroidKeystoreMessageBodyCipher`:
 
 ```kotlin
 class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
