@@ -37,6 +37,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val _isOffline = MutableStateFlow(true)
     val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
 
+    private val _partialTranscript = MutableStateFlow("")
+    val partialTranscript: StateFlow<String> = _partialTranscript.asStateFlow()
+
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
@@ -121,6 +124,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toString())
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 }
@@ -140,6 +144,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 override fun onEndOfSpeech() {}
 
                 override fun onError(error: Int) {
+                    _partialTranscript.value = ""
                     if (useOnDevice && (error == 13 || error == 12)) {
                         Log.w(TAG, "Offline recognition language pack unavailable (code $error).")
                         _state.value = VoiceAssistantState.LanguagePackMissingError
@@ -163,6 +168,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 }
 
                 override fun onResults(results: Bundle?) {
+                    _partialTranscript.value = ""
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     val transcript = matches?.firstOrNull() ?: ""
                     if (transcript.isNotEmpty()) {
@@ -172,7 +178,10 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     }
                 }
 
-                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    _partialTranscript.value = matches?.firstOrNull() ?: ""
+                }
 
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
@@ -303,6 +312,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping TTS", e)
         }
+        _partialTranscript.value = ""
         if (_state.value is VoiceAssistantState.SpeakingMessages) {
             _state.value = VoiceAssistantState.Idle
         }
@@ -328,6 +338,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun resetToIdle() {
         forceSystemRecognition = false
+        _partialTranscript.value = ""
         try {
             tts?.stop()
         } catch (e: Exception) {
@@ -342,6 +353,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     }
 
     private fun destroySpeechRecognizer() {
+        _partialTranscript.value = ""
         try {
             speechRecognizer?.destroy()
             speechRecognizer = null
