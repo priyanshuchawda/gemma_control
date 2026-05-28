@@ -98,16 +98,16 @@ We implemented dedicated instrumentation tests in `RoomEncryptionInstrumentation
 
 ## 5. Live Physical Handset Validation (Redmi 13 5G)
 
-Following the installation of the Phase 2B build, we performed physical validation of the WhatsApp ingestion flow:
+Following the installation of the Phase 2B build, we prepared the physical validation of the WhatsApp ingestion flow:
 
 | Test Scenario | Action Performed | Observed Result | Privacy Audit | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Fresh Upgrade State** | Installed Phase 2B build over Phase 2A database. | The Stored Inbox correctly launched empty after upgrade. Previous preference state (Consent-OFF by default) was preserved. | Verified database contains zero leftover plaintext records. | **PASS** |
-| **2. Opt-In Storage Gate** | Enabled Storage toggle via UI confirmation dialog. | UI state and DataStore preferences persisted immediately. | Consent timestamp recorded; storage turned ON. | **PASS** |
-| **3. Direct Message Persistence** | Triggered 1 direct WhatsApp message from contact "Peter Parker". | Exactly 1 canonical row created. Direct message body, sender name, and group display name decrypt and display correctly in-app. | `[direct metadata/body decrypted in app and redacted from log]` | **PASS** |
-| **4. Group Message Persistence** | Triggered 1 group WhatsApp message in group "Daily Bugle Group". | Exactly 1 canonical row created. Group message text, sender name, and group title decrypt and display correctly in-app. | `[group metadata/body decrypted in app and redacted from log]` | **PASS** |
-| **5. App Relaunch Decryption** | Force-closed the app and relaunched. | Opened Stored Inbox screen. All rows load instantly, and Keystore dynamic decryption performs without any lag or errors. | Perfect round-trip decryption using hardware-backed ciphers. | **PASS** |
-| **6. Atomic Purge** | Clicked "Delete All" in the Stored Inbox UI. | App displays empty-state layout immediately. | Low-level database check confirms all SQLite rows in all tables are fully wiped. | **PASS** |
+| **1. Fresh Upgrade State** | Installed Phase 2B build over Phase 2A database. | The Stored Inbox correctly launched empty after upgrade. Previous preference state (Consent-OFF by default) was preserved. | The active v2 Room tables no longer contain plaintext conversation names, sender names, message bodies, or ordinary plaintext-derived dedupe hashes. Forensic erasure of historical bytes from prior SQLite pages or journal/WAL files is not claimed. | **NOT YET RE-VERIFIED** |
+| **2. Opt-In Storage Gate** | Enabled Storage toggle via UI confirmation dialog. | UI state and DataStore preferences persisted immediately. | Consent timestamp recorded; storage turned ON. | **NOT YET RE-VERIFIED** |
+| **3. Direct Message Persistence** | Triggered 1 direct WhatsApp message from contact "Peter Parker". | Exactly 1 canonical row created. Direct message body, sender name, and group display name decrypt and display correctly in-app. | `[direct metadata/body decrypted in app and redacted from log]` | **NOT YET RE-VERIFIED** |
+| **4. Group Message Persistence** | Triggered 1 group WhatsApp message in group "Daily Bugle Group". | Exactly 1 canonical row created. Group message text, sender name, and group title decrypt and display correctly in-app. | `[group metadata/body decrypted in app and redacted from log]` | **NOT YET RE-VERIFIED** |
+| **5. App Relaunch Decryption** | Force-closed the app and relaunched. | Opened Stored Inbox screen. All rows load instantly, and Keystore dynamic decryption performs without any lag or errors. | Perfect round-trip decryption using hardware-backed ciphers. | **NOT YET RE-VERIFIED** |
+| **6. Atomic Purge** | Clicked "Delete All" in the Stored Inbox UI. | App displays empty-state layout immediately. | SQLite delete executed atomically. Deleted content remains forensically volatile in journal/WAL files until vacuumed. Forensic erasure is not claimed. | **NOT YET RE-VERIFIED** |
 
 ---
 
@@ -115,4 +115,6 @@ Following the installation of the Phase 2B build, we performed physical validati
 
 - **No Verified WhatsApp Chat ID**: We explicitly document that conversation matching and identity quality remain limited by the system notification metadata exposed by Android's `Notification.MessagingStyle`. Opaque conversation IDs protect privacy at rest but do not solve same-name contact/group collisions if WhatsApp exposes identical titles.
 - **Android Keystore AES-GCM Integrity**: Verification asserts that keys are securely managed inside Android's system KeyStore container. Hardware backing is not claimed since the app does not run hardware security level hardware measurement queries.
+- **SQLite Forensic Erasure Disclaimer**: Dropping plaintext tables and deleting rows removes columns and data from the active SQLite database schema. However, forensic erasure of historical bytes from SQLite pages, freelists, rollback journals, or WAL files is **not** claimed unless separately implemented and verified.
 - **Strict Scope Separation**: Absolute exclusion of RemoteInput reply sending, reminders, Cloud services, and AI routing was maintained during Phase 2B.
+

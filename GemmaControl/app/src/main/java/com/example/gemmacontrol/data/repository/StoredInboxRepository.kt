@@ -16,13 +16,35 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
+import androidx.room.withTransaction
+import com.example.gemmacontrol.data.local.GemmaControlDatabase
+
 class StoredInboxRepository(
     private val conversationDao: ConversationDao,
     private val messageEventDao: MessageEventDao,
     private val activeNotificationReferenceDao: ActiveNotificationReferenceDao,
     private val sensitiveTextCipher: SensitiveTextCipher,
-    private val dedupeTokenGenerator: DedupeTokenGenerator
+    private val dedupeTokenGenerator: DedupeTokenGenerator,
+    private val db: GemmaControlDatabase? = null
 ) {
+    sealed interface PersistCanonicalResult {
+        data class Stored(val messageId: String) : PersistCanonicalResult
+        data object DuplicateReferenced : PersistCanonicalResult
+        data object SkippedByPolicy : PersistCanonicalResult
+        data object SecureStorageUnavailable : PersistCanonicalResult
+    }
+
+    private data class CryptoOutputs(
+        val conversationOpaqueId: String,
+        val encryptedDisplayName: ByteArray,
+        val displayNameIv: ByteArray,
+        val encryptedSenderName: ByteArray?,
+        val senderNameIv: ByteArray?,
+        val encryptedMessageText: ByteArray?,
+        val messageTextIv: ByteArray?,
+        val dedupeToken: String
+    )
+
     data class DecryptedMessage(
         val id: String,
         val conversationId: String, // Decrypted conversation display name
@@ -42,92 +64,121 @@ class StoredInboxRepository(
         val latestMessage: DecryptedMessage?
     )
 
-    suspend fun persistCanonicalEvent(event: ParsedWhatsAppNotificationEvent) {
+    suspend fun persistCanonicalEvent(event: ParsedWhatsAppNotificationEvent): PersistCanonicalResult {
         val now = System.currentTimeMillis()
-
-        // 1. Generate opaque conversation ID and encrypt conversation display name
-        val identityMaterial = "${event.conversationTitle ?: "WhatsApp Chat"}-${event.conversationType.name}"
-        val conversationOpaqueId = dedupeTokenGenerator.generate(identityMaterial)
-
-        val conversationTitleToStore = event.conversationTitle ?: "WhatsApp Chat"
-        val encryptedTitlePayload = sensitiveTextCipher.encrypt(conversationTitleToStore)
-
-        val existingConversation = conversationDao.getById(conversationOpaqueId)
-        if (existingConversation == null) {
-            val conversation = ConversationEntity(
-                id = conversationOpaqueId,
-                encryptedDisplayName = encryptedTitlePayload.ciphertext,
-                displayNameIv = encryptedTitlePayload.iv,
-                conversationType = event.conversationType,
-                encryptedVerifiedPhoneNumberE164 = null,
-                verifiedPhoneNumberIv = null,
-                createdAt = now,
-                updatedAt = now
-            )
-            conversationDao.insert(conversation)
-        } else {
-            val updated = existingConversation.copy(
-                encryptedDisplayName = encryptedTitlePayload.ciphertext,
-                displayNameIv = encryptedTitlePayload.iv,
-                conversationType = if (event.conversationType != ConversationType.UNKNOWN) event.conversationType else existingConversation.conversationType,
-                updatedAt = now
-            )
-            conversationDao.update(updated)
-        }
-
-        // 2. Encrypt sender name and message event details
         val latestMessage = event.messages.lastOrNull()
-        
-        val senderNameToStore = latestMessage?.senderName ?: ""
-        val encryptedSenderPayload = if (senderNameToStore.isNotEmpty()) {
-            sensitiveTextCipher.encrypt(senderNameToStore)
-        } else {
-            null
+
+        // 1. Wrap all cryptographic computations in a fail-closed try-catch block.
+        // If Keystore encryption or HMAC token generation throws an exception, no DB write occurs.
+        val cryptoOutputs = try {
+            val identityMaterial = "${event.conversationTitle ?: "WhatsApp Chat"}-${event.conversationType.name}"
+            val conversationOpaqueId = dedupeTokenGenerator.generate(identityMaterial)
+
+            val conversationTitleToStore = event.conversationTitle ?: "WhatsApp Chat"
+            val encryptedTitlePayload = sensitiveTextCipher.encrypt(conversationTitleToStore)
+
+            val senderNameToStore = latestMessage?.senderName ?: ""
+            val encryptedSenderPayload = if (senderNameToStore.isNotEmpty()) {
+                sensitiveTextCipher.encrypt(senderNameToStore)
+            } else {
+                null
+            }
+
+            val textToEncrypt = latestMessage?.messageText ?: ""
+            val encryptedMessagePayload = if (textToEncrypt.isNotEmpty()) {
+                sensitiveTextCipher.encrypt(textToEncrypt)
+            } else {
+                null
+            }
+
+            val dedupeTokenToStore = dedupeTokenGenerator.generate(event.dedupeCandidate ?: UUID.randomUUID().toString())
+
+            CryptoOutputs(
+                conversationOpaqueId = conversationOpaqueId,
+                encryptedDisplayName = encryptedTitlePayload.ciphertext,
+                displayNameIv = encryptedTitlePayload.iv,
+                encryptedSenderName = encryptedSenderPayload?.ciphertext,
+                senderNameIv = encryptedSenderPayload?.iv,
+                encryptedMessageText = encryptedMessagePayload?.ciphertext,
+                messageTextIv = encryptedMessagePayload?.iv,
+                dedupeToken = dedupeTokenToStore
+            )
+        } catch (e: Exception) {
+            // Fail closed: return SecureStorageUnavailable, leaving the database untouched.
+            return PersistCanonicalResult.SecureStorageUnavailable
         }
 
-        val textToEncrypt = latestMessage?.messageText ?: ""
-        val encryptedMessagePayload = if (textToEncrypt.isNotEmpty()) {
-            sensitiveTextCipher.encrypt(textToEncrypt)
-        } else {
-            null
+        // 2. Perform DB operations inside a Room transaction block (if db is provided) to guarantee all-or-nothing atomicity.
+        val executeDbOps = suspend {
+            val existingConversation = conversationDao.getById(cryptoOutputs.conversationOpaqueId)
+            if (existingConversation == null) {
+                val conversation = ConversationEntity(
+                    id = cryptoOutputs.conversationOpaqueId,
+                    encryptedDisplayName = cryptoOutputs.encryptedDisplayName,
+                    displayNameIv = cryptoOutputs.displayNameIv,
+                    conversationType = event.conversationType,
+                    encryptedVerifiedPhoneNumberE164 = null,
+                    verifiedPhoneNumberIv = null,
+                    createdAt = now,
+                    updatedAt = now
+                )
+                conversationDao.insert(conversation)
+            } else {
+                val updated = existingConversation.copy(
+                    encryptedDisplayName = cryptoOutputs.encryptedDisplayName,
+                    displayNameIv = cryptoOutputs.displayNameIv,
+                    conversationType = if (event.conversationType != ConversationType.UNKNOWN) event.conversationType else existingConversation.conversationType,
+                    updatedAt = now
+                )
+                conversationDao.update(updated)
+            }
+
+            val messageId = UUID.randomUUID().toString()
+            val messageEntity = MessageEventEntity(
+                id = messageId,
+                conversationId = cryptoOutputs.conversationOpaqueId,
+                encryptedSenderName = cryptoOutputs.encryptedSenderName,
+                senderNameIv = cryptoOutputs.senderNameIv,
+                encryptedMessageText = cryptoOutputs.encryptedMessageText,
+                messageTextIv = cryptoOutputs.messageTextIv,
+                postedAt = latestMessage?.timestamp ?: event.notificationPostedAt ?: now,
+                notificationKey = event.notificationKey,
+                sourcePackage = event.packageName,
+                parseSource = event.parseSource,
+                dedupeToken = cryptoOutputs.dedupeToken,
+                isContentUnavailable = event.isContentUnavailable,
+                createdAt = now
+            )
+
+            val insertResult = messageEventDao.insert(messageEntity)
+            val (actualMessageId, isDuplicate) = if (insertResult == -1L) {
+                val existing = messageEventDao.getByDedupeToken(cryptoOutputs.dedupeToken)
+                (existing?.id ?: messageId) to true
+            } else {
+                messageId to false
+            }
+
+            val reference = ActiveNotificationReferenceEntity(
+                notificationKey = event.notificationKey,
+                latestMessageEventId = actualMessageId,
+                hadReplyActionWhenSeen = event.hasReplyActionAtCaptureTime,
+                lastSeenActiveAt = now,
+                removedAt = null
+            )
+            activeNotificationReferenceDao.insertOrUpdate(reference)
+
+            if (isDuplicate) {
+                PersistCanonicalResult.DuplicateReferenced
+            } else {
+                PersistCanonicalResult.Stored(actualMessageId)
+            }
         }
 
-        val dedupeTokenToStore = dedupeTokenGenerator.generate(event.dedupeCandidate ?: UUID.randomUUID().toString())
-
-        val messageId = UUID.randomUUID().toString()
-        val messageEntity = MessageEventEntity(
-            id = messageId,
-            conversationId = conversationOpaqueId,
-            encryptedSenderName = encryptedSenderPayload?.ciphertext,
-            senderNameIv = encryptedSenderPayload?.iv,
-            encryptedMessageText = encryptedMessagePayload?.ciphertext,
-            messageTextIv = encryptedMessagePayload?.iv,
-            postedAt = latestMessage?.timestamp ?: event.notificationPostedAt ?: now,
-            notificationKey = event.notificationKey,
-            sourcePackage = event.packageName,
-            parseSource = event.parseSource,
-            dedupeToken = dedupeTokenToStore,
-            isContentUnavailable = event.isContentUnavailable,
-            createdAt = now
-        )
-
-        val insertResult = messageEventDao.insert(messageEntity)
-        val actualMessageId = if (insertResult == -1L) {
-            val existing = messageEventDao.getByDedupeToken(dedupeTokenToStore)
-            existing?.id ?: messageId
+        return if (db != null) {
+            db.withTransaction { executeDbOps() }
         } else {
-            messageId
+            executeDbOps()
         }
-
-        // 3. Track active reference
-        val reference = ActiveNotificationReferenceEntity(
-            notificationKey = event.notificationKey,
-            latestMessageEventId = actualMessageId,
-            hadReplyActionWhenSeen = event.hasReplyActionAtCaptureTime,
-            lastSeenActiveAt = now,
-            removedAt = null
-        )
-        activeNotificationReferenceDao.insertOrUpdate(reference)
     }
 
     suspend fun markNotificationRemoved(notificationKey: String) {
