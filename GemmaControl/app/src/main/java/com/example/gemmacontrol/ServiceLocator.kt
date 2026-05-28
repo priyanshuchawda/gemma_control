@@ -73,4 +73,19 @@ object ServiceLocator {
             ).also { persistenceCoordinator = it }
         }
     }
+
+    @Volatile
+    private var modelAdapter: com.example.gemmacontrol.ai.AssistantModelAdapter? = null
+
+    fun setModelAdapter(adapter: com.example.gemmacontrol.ai.AssistantModelAdapter?) {
+        synchronized(this) {
+            modelAdapter = adapter
+        }
+    }
+
+    fun getModelAdapter(context: Context): com.example.gemmacontrol.ai.AssistantModelAdapter {
+        return modelAdapter ?: synchronized(this) {
+            modelAdapter ?: com.example.gemmacontrol.ai.GemmaModelAdapter(context.applicationContext).also { modelAdapter = it }
+        }
+    }
 }

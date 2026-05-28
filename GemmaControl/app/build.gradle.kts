@@ -97,4 +97,7 @@ dependencies {
 
   // DataStore Preferences
   implementation(libs.androidx.datastore.preferences)
+
+  // LiteRT-LM
+  implementation(libs.litertlm.android)
 }

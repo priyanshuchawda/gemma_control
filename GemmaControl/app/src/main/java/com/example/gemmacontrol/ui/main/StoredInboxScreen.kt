@@ -54,6 +54,7 @@ fun StoredInboxScreen(
     val storageEnabled by viewModel.storageEnabled.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val activeRepliesAvailability by viewModel.activeRepliesAvailability.collectAsStateWithLifecycle()
+    val aiDraftState by viewModel.aiDraftState.collectAsStateWithLifecycle()
 
     var showStorageConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -62,6 +63,7 @@ fun StoredInboxScreen(
     var replyText by remember { mutableStateOf("") }
     var showReplyDialog by remember { mutableStateOf(false) }
     var showReplyConfirmDialog by remember { mutableStateOf(false) }
+    var showAiDraftDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -282,6 +284,11 @@ fun StoredInboxScreen(
                             activeReplyMessage = message
                             replyText = ""
                             showReplyDialog = true
+                        },
+                        onSuggestReplyClick = {
+                            activeReplyMessage = message
+                            replyText = ""
+                            showAiDraftDialog = true
                         }
                     )
                 }
@@ -362,7 +369,6 @@ fun StoredInboxScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Preview bubble of what is being replied to
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -431,6 +437,159 @@ fun StoredInboxScreen(
         )
     }
 
+    // Suggest Reply Dialog
+    if (showAiDraftDialog && activeReplyMessage != null) {
+        val message = activeReplyMessage!!
+        AlertDialog(
+            onDismissRequest = {
+                showAiDraftDialog = false
+                viewModel.clearAiProposal()
+                replyText = ""
+                activeReplyMessage = null
+            },
+            title = {
+                Text(
+                    text = "FunctionGemma Proposal",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            if (message.senderName != null && message.senderName != message.conversationId) {
+                                Text(
+                                    text = message.senderName,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = message.decryptedText ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    when (val draftState = aiDraftState) {
+                        StoredInboxViewModel.AiDraftState.Idle -> {
+                            LaunchedEffect(Unit) {
+                                viewModel.generateAiProposal(message)
+                            }
+                        }
+                        StoredInboxViewModel.AiDraftState.Loading -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+                                Text(
+                                    "Analyzing local context...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                        is StoredInboxViewModel.AiDraftState.Success -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Suggested Reply (Review & Edit):",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                OutlinedTextField(
+                                    value = replyText,
+                                    onValueChange = { if (it.length <= 1000) replyText = it },
+                                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                                    label = { Text("AI Proposal") },
+                                    maxLines = 5,
+                                    supportingText = {
+                                        Text(
+                                            text = "${replyText.length} / 1000",
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.End
+                                        )
+                                    }
+                                )
+
+                                LaunchedEffect(draftState.draft) {
+                                    replyText = draftState.draft.replyText
+                                }
+                            }
+                        }
+                        is StoredInboxViewModel.AiDraftState.Failure -> {
+                            Text(
+                                text = "Draft generation failed: ${draftState.error}",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        StoredInboxViewModel.AiDraftState.ModelNotInstalled -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "FunctionGemma model is not installed on this device.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "One-time model provisioning is required to enable on-device local AI reply suggestions.",
+                                    color = MaterialTheme.colorScheme.outline,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (aiDraftState is StoredInboxViewModel.AiDraftState.Success) {
+                    Button(
+                        onClick = {
+                            if (replyText.trim().isNotEmpty()) {
+                                showReplyConfirmDialog = true
+                            }
+                        },
+                        enabled = replyText.trim().isNotEmpty()
+                    ) {
+                        Text("Review Send")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAiDraftDialog = false
+                        viewModel.clearAiProposal()
+                        replyText = ""
+                        activeReplyMessage = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Final Confirmation Dialog
     if (showReplyConfirmDialog && activeReplyMessage != null) {
         val message = activeReplyMessage!!
@@ -445,11 +604,13 @@ fun StoredInboxScreen(
                     onClick = {
                         showReplyConfirmDialog = false
                         showReplyDialog = false
+                        showAiDraftDialog = false
 
                         val result = viewModel.sendConfirmedReply(message.notificationKey, replyText)
 
                         replyText = ""
                         activeReplyMessage = null
+                        viewModel.clearAiProposal()
 
                         scope.launch {
                             val msg = when (result) {
@@ -482,7 +643,8 @@ fun StoredMessageRow(
     message: DecryptedMessage,
     formatter: SimpleDateFormat,
     isReplyAvailable: Boolean,
-    onReplyClick: () -> Unit
+    onReplyClick: () -> Unit,
+    onSuggestReplyClick: () -> Unit
 ) {
     val dateStr = formatter.format(Date(message.postedAt))
     
@@ -575,14 +737,26 @@ fun StoredMessageRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (isReplyAvailable) {
-                    Button(
-                        onClick = onReplyClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text("Reply", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = onSuggestReplyClick,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Suggest Reply", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        Button(
+                            onClick = onReplyClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Reply", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 } else {
                     Text(
