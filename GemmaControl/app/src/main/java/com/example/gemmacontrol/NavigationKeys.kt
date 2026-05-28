@@ -6,3 +6,5 @@ import kotlinx.serialization.Serializable
 @Serializable data object Setup : NavKey
 @Serializable data object Main : NavKey
 @Serializable data object StoredInbox : NavKey
+@Serializable data object VoiceAssistant : NavKey
+@Serializable data object AppSettings : NavKey

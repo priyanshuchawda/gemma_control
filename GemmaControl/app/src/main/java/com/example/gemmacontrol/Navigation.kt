@@ -12,6 +12,8 @@ import com.example.gemmacontrol.ui.main.MainScreen
 import com.example.gemmacontrol.ui.main.SetupScreen
 import com.example.gemmacontrol.ui.main.SetupViewModel
 import com.example.gemmacontrol.ui.main.StoredInboxScreen
+import com.example.gemmacontrol.ui.main.VoiceAssistantScreen
+import com.example.gemmacontrol.ui.main.SettingsScreen
 
 @Composable
 fun MainNavigation() {
@@ -44,6 +46,12 @@ fun MainNavigation() {
             }
             entry<StoredInbox> {
                 StoredInboxScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<VoiceAssistant> {
+                VoiceAssistantScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<AppSettings> {
+                SettingsScreen(onBack = { backStack.removeLastOrNull() })
             }
         },
     )
