@@ -52,6 +52,7 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override val captureEnabledFlow = MutableStateFlow(true)
     override val storageEnabledFlow = MutableStateFlow(false)
     override val storageEnabledAtFlow = MutableStateFlow(0L)
+    override val xiaomiAutostartAcknowledgedFlow = MutableStateFlow(false)
 
     override suspend fun setCaptureEnabled(enabled: Boolean) {
         captureEnabledFlow.value = enabled
@@ -64,6 +65,10 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
         } else {
             storageEnabledAtFlow.value = 0L
         }
+    }
+
+    override suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean) {
+        xiaomiAutostartAcknowledgedFlow.value = acknowledged
     }
 }
 

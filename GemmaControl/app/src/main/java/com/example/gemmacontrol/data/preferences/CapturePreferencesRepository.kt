@@ -17,8 +17,10 @@ interface CapturePreferencesRepository {
     val captureEnabledFlow: Flow<Boolean>
     val storageEnabledFlow: Flow<Boolean>
     val storageEnabledAtFlow: Flow<Long>
+    val xiaomiAutostartAcknowledgedFlow: Flow<Boolean>
     suspend fun setCaptureEnabled(enabled: Boolean)
     suspend fun setStorageEnabled(enabled: Boolean)
+    suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "capture_settings")
@@ -29,6 +31,7 @@ class DataStoreCapturePreferencesRepository(private val context: Context) : Capt
         val CAPTURE_ENABLED = booleanPreferencesKey("capture_enabled")
         val STORAGE_ENABLED = booleanPreferencesKey("storage_enabled")
         val STORAGE_ENABLED_AT = longPreferencesKey("storage_enabled_at")
+        val XIAOMI_AUTOSTART_ACKNOWLEDGED = booleanPreferencesKey("xiaomi_autostart_acknowledged")
     }
 
     override val captureEnabledFlow: Flow<Boolean> = context.dataStore.data
@@ -67,6 +70,18 @@ class DataStoreCapturePreferencesRepository(private val context: Context) : Capt
             preferences[PreferencesKeys.STORAGE_ENABLED_AT] ?: 0L
         }
 
+    override val xiaomiAutostartAcknowledgedFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.XIAOMI_AUTOSTART_ACKNOWLEDGED] ?: false
+        }
+
     override suspend fun setCaptureEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.CAPTURE_ENABLED] = enabled
@@ -81,6 +96,12 @@ class DataStoreCapturePreferencesRepository(private val context: Context) : Capt
             } else {
                 preferences[PreferencesKeys.STORAGE_ENABLED_AT] = 0L
             }
+        }
+    }
+
+    override suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.XIAOMI_AUTOSTART_ACKNOWLEDGED] = acknowledged
         }
     }
 }
