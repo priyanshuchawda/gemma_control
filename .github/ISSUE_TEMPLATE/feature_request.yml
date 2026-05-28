@@ -1,0 +1,63 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe what you'd like to see and why.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem does this feature solve? What user need does it address?
+      placeholder: "Currently when I say 'read messages from Mom' the app doesn't filter by sender..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you'd like and how it should work.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature area
+      options:
+        - Voice Commands (new phrases / parser)
+        - Voice UX (animations, overlay, hold-to-speak)
+        - Notification Capture & Storage
+        - Reply Execution
+        - Settings & Permissions
+        - On-Device AI (Gemma replies)
+        - CI / Build
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Suggested milestone
+      options:
+        - "v0.1 – Voice MVP"
+        - "v0.2 – Voice UX Polish"
+        - "v0.3 – On-Device AI Reply"
+        - "Future / Backlog"
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative approaches you considered?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any screenshots, voice command examples, or reference implementations (e.g. Google AI Edge Gallery).
