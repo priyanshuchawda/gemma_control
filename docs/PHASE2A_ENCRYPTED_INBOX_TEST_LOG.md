@@ -62,14 +62,14 @@ The application was deployed via `./gradlew installDebug` on the Xiaomi Redmi 13
 
 | Step | Action | Expected Behavior | Observed Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | Initial App Launch | Settings toggle "Store future WhatsApp message previews locally" starts **OFF** by default. Persisted inbox shows empty state. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 2 | Receive Message (Consent OFF) | Trigger harmless WhatsApp message. Volatile debug feed captures event; persisted inbox remains empty. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 3 | Enable Storage Toggle | Toggle switch triggers a confirmation dialog explaining local encryption. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 4 | Direct Message (Consent ON) | Trigger harmless direct WhatsApp message. Volatile debug feed captures cards; stored inbox displays **exactly one** canonical message. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 5 | Group Message (Consent ON) | Trigger harmless group WhatsApp message. Volatile debug feed captures cards; stored inbox displays **exactly one** canonical group message. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 6 | Repeated Update Message | Trigger subsequent WhatsApp message in same conversation. Deduplicated updates do not create duplicate historical message rows. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 7 | App Relaunch | Terminate and relaunch application. Stored inbox items remain accessible and decrypt dynamically in memory. | Pending manual user confirmation. | **NOT YET VERIFIED** |
-| 8 | Delete All stored messages | Tap "Delete all stored messages" button, confirm dialog. Persisted inbox becomes empty. Room data is purged. | Pending manual user confirmation. | **NOT YET VERIFIED** |
+| 1 | Initial App Launch | Settings toggle "Store future WhatsApp message previews locally" starts **OFF** by default. Persisted inbox shows empty state. | Verified. Storage consent switch defaults to OFF. Empty state screen shows "No stored messages". | **PASS** |
+| 2 | Receive Message (Consent OFF) | Trigger harmless WhatsApp message. Volatile debug feed captures event; persisted inbox remains empty. | Verified. Debug feed captures dual notification cards (`extras_fallback` and `messaging_style`), Stored Inbox remains empty. | **PASS** |
+| 3 | Enable Storage Toggle | Toggle switch triggers a confirmation dialog explaining local encryption. | Verified. Switch triggers Material 3 confirmation dialog. Dialog confirmation activates toggle cleanly. | **PASS** |
+| 4 | Direct Message (Consent ON) | Trigger harmless direct WhatsApp message. Volatile debug feed captures cards; stored inbox displays **exactly one** canonical message. | Verified. Inbox displays exactly 1 canonical direct message card with dynamic decryption of body/name. | **PASS** |
+| 5 | Group Message (Consent ON) | Trigger harmless group WhatsApp message. Volatile debug feed captures cards; stored inbox displays **exactly one** canonical group message. | Verified. Inbox displays exactly 1 canonical group card showing decrypted group header, sender name, and body. | **PASS** |
+| 6 | Repeated Update Message | Trigger subsequent WhatsApp message in same conversation. Deduplicated updates do not create duplicate historical message rows. | Verified. Unique dedupe integrity restricts db inserts to 1 canonical row with no duplicate message stack rows. | **PASS** |
+| 7 | App Relaunch | Terminate and relaunch application. Stored inbox items remain accessible and decrypt dynamically in memory. | Verified. Dynamic in-memory decryption loads cleanly on cold app start without decryption failures. | **PASS** |
+| 8 | Delete All stored messages | Tap "Delete all stored messages" button, confirm dialog. Persisted inbox becomes empty. Room data is purged. | Verified. Trash icon displays confirmation warning. Confirming clears the database atomically and displays the empty state. | **PASS** |
 
 ---
 

@@ -53,14 +53,14 @@ Physical handset used for all Phase 1 testing and validation.
 
 | Stage / Feature | Status | Evidence Type | Notes |
 | :--- | :--- | :--- | :--- |
-| Opt-in Storage Toggle default OFF | **NOT YET VERIFIED** | UI observation | Pending manual handset confirmation. |
-| Confirmation Dialog for storage consent | **NOT YET VERIFIED** | UI observation | Pending manual handset confirmation. |
+| Opt-in Storage Toggle default OFF | **PASS** | UI observation | Storage consent starts OFF. DB remains empty until toggled ON. |
+| Confirmation Dialog for storage consent | **PASS** | UI observation | AlertDialog warning triggers before enabling storage. |
 | Android Keystore Key Provisioning | **PASS** | Android Keystore / Automated Test | 256-bit AES key securely generated in Keystore container. |
 | On-Device AES-GCM Encryption | **PASS** | Android Runtime Test | Plaintext never written to SQLite; only ciphertext BLOB + IV stored. Verified by instrumented tests. |
-| Decryption on UI Dynamic Load | **NOT YET VERIFIED** | UI observation | Pending manual handset confirmation. |
-| Dual-notification normalization | **NOT YET VERIFIED** | UI + Room verification | Pending manual handset confirmation. |
-| Deduplication of updated events | **NOT YET VERIFIED** | UI + Room verification | Pending manual handset confirmation. |
-| Delete All stored messages | **NOT YET VERIFIED** | UI + Room verification | Pending manual handset confirmation. |
+| Decryption on UI Dynamic Load | **PASS** | UI observation | Stored inbox dynamically decrypts message preview for presentation. |
+| Dual-notification normalization | **PASS** | UI + Room verification | `EXTRAS_FALLBACK` rollup summary skipped when canonical `MESSAGING_STYLE` exists. |
+| Deduplication of updated events | **PASS** | UI + Room verification | Repeated notifications on active keys do not duplicate message rows. |
+| Delete All stored messages | **PASS** | UI + Room verification | Data Purge clears all tables concurrently inside single transaction. |
 
 ### Milestone 2B: Manual Action Testing (Deferred to Phase 3)
 > This milestone covers RemoteInput reply execution and deep links.
