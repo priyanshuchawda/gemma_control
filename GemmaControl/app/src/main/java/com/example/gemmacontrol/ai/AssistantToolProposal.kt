@@ -12,6 +12,7 @@ sealed interface AssistantToolProposal {
 sealed interface ModelAvailability {
     data object Checking : ModelAvailability
     data object NotInstalled : ModelAvailability
+    data object Initializing : ModelAvailability
     data object Ready : ModelAvailability
     data class Failed(val safeReason: String) : ModelAvailability
 }
@@ -29,4 +30,6 @@ interface AssistantModelAdapter {
     suspend fun generateDraftReply(
         boundedContext: List<String>
     ): ProposalGenerationResult
+
+    fun close()
 }

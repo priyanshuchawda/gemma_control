@@ -29,7 +29,7 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
     val activeRepliesAvailability: StateFlow<Map<String, Boolean>> = com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry.availabilityFlow
 
     private val replyExecutor = com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor()
-    private val modelAdapter = com.example.gemmacontrol.ai.GemmaModelAdapter()
+    private val modelAdapter = ServiceLocator.getModelAdapter(application)
 
     private val _aiDraftState = MutableStateFlow<AiDraftState>(AiDraftState.Idle)
     val aiDraftState: StateFlow<AiDraftState> = _aiDraftState.asStateFlow()
@@ -106,5 +106,10 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             storedInboxRepository.deleteAllData()
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        modelAdapter.close()
     }
 }

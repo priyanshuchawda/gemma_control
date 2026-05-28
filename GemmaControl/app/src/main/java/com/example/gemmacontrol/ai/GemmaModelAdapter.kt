@@ -1,67 +1,81 @@
 package com.example.gemmacontrol.ai
 
+import android.content.Context
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.Tool
-import com.google.ai.edge.litertlm.ToolParam
-import com.google.ai.edge.litertlm.ToolSet
+import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.tool
 import com.google.ai.edge.litertlm.Message
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 
-object FunctionGemmaModelConfig {
-    const val MODEL_PATH = "/data/local/tmp/gemmacontrol_models/functiongemma.litertlm"
-}
-
-class GemmaModelAdapter : AssistantModelAdapter {
+class GemmaModelAdapter(private val context: Context) : AssistantModelAdapter {
 
     private val _availability = MutableStateFlow<ModelAvailability>(ModelAvailability.Checking)
     override val availability: StateFlow<ModelAvailability> = _availability.asStateFlow()
 
     private var engine: Engine? = null
 
+    private val modelFile: File
+        get() = File(context.getExternalFilesDir("models"), "functiongemma.litertlm")
+
     init {
         checkModelAvailability()
     }
 
     private fun checkModelAvailability() {
-        val file = File(FunctionGemmaModelConfig.MODEL_PATH)
+        val file = modelFile
         if (!file.exists()) {
             _availability.value = ModelAvailability.NotInstalled
         } else {
-            _availability.value = ModelAvailability.Ready
+            // Keep status as Checking or Initializing until successfully loaded
+            _availability.value = ModelAvailability.Checking
         }
     }
 
-    @Synchronized
-    private fun getOrInitializeEngine(): Engine {
-        val existing = engine
-        if (existing != null) return existing
+    private val engineMutex = Mutex()
 
-        val file = File(FunctionGemmaModelConfig.MODEL_PATH)
-        if (!file.exists()) {
-            throw IllegalStateException("FunctionGemma model file is not installed at ${FunctionGemmaModelConfig.MODEL_PATH}")
+    private suspend fun getOrInitializeEngine(): Engine = withContext(Dispatchers.IO) {
+        engineMutex.withLock {
+            val existing = engine
+            if (existing != null) return@withLock existing
+
+            val file = modelFile
+            if (!file.exists()) {
+                _availability.value = ModelAvailability.NotInstalled
+                throw IllegalStateException("ModelNotInstalled")
+            }
+
+            _availability.value = ModelAvailability.Initializing
+            try {
+                val config = EngineConfig(
+                    modelPath = file.absolutePath,
+                    backend = Backend.CPU()
+                )
+                val newEngine = Engine(config)
+                newEngine.initialize()
+                engine = newEngine
+                _availability.value = ModelAvailability.Ready
+                newEngine
+            } catch (e: Exception) {
+                _availability.value = ModelAvailability.Failed("Model initialization failed.")
+                throw e
+            }
         }
-
-        val config = EngineConfig(
-            modelPath = FunctionGemmaModelConfig.MODEL_PATH,
-            backend = Backend.CPU()
-        )
-        val newEngine = Engine(config)
-        engine = newEngine
-        _availability.value = ModelAvailability.Ready
-        return newEngine
     }
 
     override suspend fun generateDraftReply(
         boundedContext: List<String>
     ): ProposalGenerationResult {
-        val file = File(FunctionGemmaModelConfig.MODEL_PATH)
+        val file = modelFile
         if (!file.exists()) {
             _availability.value = ModelAvailability.NotInstalled
             return ProposalGenerationResult.ModelNotInstalled
@@ -70,58 +84,72 @@ class GemmaModelAdapter : AssistantModelAdapter {
         try {
             val currentEngine = getOrInitializeEngine()
 
-            // Define the tool using LiteRT-LM ToolSet Kotlin pattern
-            var proposedReplyText: String? = null
-            val draftReplyToolSet = object : ToolSet {
-                @Tool(description = "Propose a short polite WhatsApp reply draft for the user to review and edit.")
-                fun draftReply(
-                    @ToolParam(description = "The proposed text draft for the reply.") replyText: String
-                ): String {
-                    proposedReplyText = replyText
-                    return "Reply draft proposed successfully."
+            // Define open api tool schema strictly as requested
+            val draftReplyOpenApiTool = object : OpenApiTool {
+                override fun getToolDescriptionJsonString(): String {
+                    return """
+                    {
+                      "name": "draft_reply",
+                      "description": "Propose one short editable WhatsApp reply draft. This tool does not send anything.",
+                      "parameters": {
+                        "type": "object",
+                        "properties": {
+                          "replyText": {
+                            "type": "string",
+                            "description": "A short polite reply draft for the user to review and edit."
+                          }
+                        },
+                        "required": ["replyText"]
+                      }
+                    }
+                    """.trimIndent()
+                }
+
+                override fun execute(paramsJsonString: String): String {
+                    return ""
                 }
             }
 
             val conversationConfig = ConversationConfig(
-                tools = listOf(tool(draftReplyToolSet)),
+                tools = listOf(tool(draftReplyOpenApiTool)),
                 automaticToolCalling = false
             )
 
-            val conversation = currentEngine.createConversation(conversationConfig)
-            val inputMessage = boundedContext.lastOrNull() ?: ""
-            val prompt = "Incoming message: $inputMessage\nPropose one short reply draft using the draftReply tool."
+            currentEngine.createConversation(conversationConfig).use { conversation ->
+                val inputMessage = boundedContext.lastOrNull() ?: ""
+                val prompt = "Incoming WhatsApp message:\n$inputMessage\n\nCall draft_reply with one short polite editable reply proposal.\nDo not send anything."
 
-            // Send standard Message using the non-deprecated user factory method
-            val response = conversation.sendMessage(Message.user(prompt))
+                // Send standard Message
+                val response = conversation.sendMessage(Message.user(prompt))
 
-            // If automaticToolCalling = false, check response.toolCalls
-            val toolCalls = response.toolCalls
-            if (toolCalls.isNotEmpty()) {
-                val call = toolCalls.first()
-                if (call.name == "draftReply") {
-                    val replyTextArg = call.arguments["replyText"]?.toString()
-                    if (!replyTextArg.isNullOrBlank()) {
-                        return ProposalGenerationResult.Success(replyTextArg)
+                // Strict tool-output checking: exactly one draft_reply tool call
+                val toolCalls = response.toolCalls
+                if (toolCalls.size == 1) {
+                    val call = toolCalls.first()
+                    if (call.name == "draft_reply") {
+                        val replyTextArg = call.arguments["replyText"]?.toString()
+                        if (!replyTextArg.isNullOrBlank()) {
+                            return ProposalGenerationResult.Success(replyTextArg)
+                        }
                     }
                 }
-            }
 
-            // Fallback parsing from response text if model returns plain text instead of tool call
-            val text = response.toString()
-            if (text.isNotBlank()) {
-                val cleanedText = text.take(500).trim()
-                return ProposalGenerationResult.Success(cleanedText)
+                return ProposalGenerationResult.InvalidOutput
             }
-
-            return ProposalGenerationResult.InvalidOutput
 
         } catch (e: Exception) {
-            return ProposalGenerationResult.Failed(e.message ?: "Unknown inference error")
+            if (e is IllegalStateException && e.message == "ModelNotInstalled") {
+                return ProposalGenerationResult.ModelNotInstalled
+            }
+            return ProposalGenerationResult.Failed("Local draft generation failed.")
         }
     }
 
-    fun close() {
-        engine?.close()
-        engine = null
+    override fun close() {
+        synchronized(this) {
+            engine?.close()
+            engine = null
+            _availability.value = ModelAvailability.Checking
+        }
     }
 }
