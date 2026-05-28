@@ -1,5 +1,7 @@
 package com.example.gemmacontrol.ui.main
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -146,6 +148,8 @@ fun VoiceAssistantScreen(
                     is VoiceAssistantState.ConfirmationRequired -> "Review Dictated Reply"
                     is VoiceAssistantState.SpeakingMessages -> "Reading latest messages"
                     is VoiceAssistantState.Failure -> "Error encountered"
+                    VoiceAssistantState.LanguagePackMissingError -> "Language Pack Missing"
+                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Allow System Recognition?"
                 }
 
                 Text(
@@ -158,13 +162,15 @@ fun VoiceAssistantScreen(
                     VoiceAssistantState.Idle -> "Tap microphone below to start speaking."
                     VoiceAssistantState.Listening -> {
                         val privacyNote = if (isOffline) {
-                            "🔒 Private on-device mode active."
+                            "Private on-device speech recognition active."
                         } else {
-                            "🌐 System recognition active (Google Services / Network)."
+                            "System recognition active — speech may be processed outside this device."
                         }
                         "$privacyNote\n\nTry: 'Read my latest messages' or 'Reply to the latest message: I am in a meeting'"
                     }
                     is VoiceAssistantState.Failure -> (state as VoiceAssistantState.Failure).safeReason
+                    VoiceAssistantState.LanguagePackMissingError -> "Offline language pack unavailable."
+                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Requires explicit consent to use network-based recognition."
                     else -> ""
                 }
 
@@ -458,6 +464,111 @@ fun VoiceAssistantScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text("Okay", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+
+                    VoiceAssistantState.LanguagePackMissingError -> {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Text(
+                                    text = "Offline speech language data is not installed for this language. Download it in speech settings, or explicitly allow system recognition.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    textAlign = TextAlign.Center
+                                )
+                                Button(
+                                    onClick = {
+                                        try {
+                                            context.startActivity(Intent("android.settings.VOICE_INPUT_SETTINGS"))
+                                        } catch (e: Exception) {
+                                            try {
+                                                context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                                            } catch (ex: Exception) {
+                                                context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Open Speech Settings")
+                                }
+                                Button(
+                                    onClick = { viewModel.requestSystemRecognitionConsent() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Allow System Recognition")
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.resetToIdle() },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Cancel")
+                                }
+                            }
+                        }
+                    }
+
+                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Text(
+                                    text = "System speech recognition may use Google services or network processing. Your spoken command may leave the device. Continue for this command?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.resetToIdle() },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Cancel")
+                                    }
+                                    Button(
+                                        onClick = { viewModel.allowSystemRecognitionAndStart() },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Continue")
+                                    }
                                 }
                             }
                         }

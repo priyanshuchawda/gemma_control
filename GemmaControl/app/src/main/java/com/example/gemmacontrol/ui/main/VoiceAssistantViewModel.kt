@@ -41,6 +41,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
     private var forceSystemRecognition = false
+    private var isCurrentRecognizerOnDevice: Boolean? = null
 
     init {
         initTextToSpeech()
@@ -103,14 +104,17 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
         // 3. Create SpeechRecognizer
         try {
-            destroySpeechRecognizer()
+            if (speechRecognizer == null || isCurrentRecognizerOnDevice != useOnDevice) {
+                destroySpeechRecognizer()
 
-            if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-                _isOffline.value = true
-            } else {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                _isOffline.value = false
+                if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                    _isOffline.value = true
+                } else {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                    _isOffline.value = false
+                }
+                isCurrentRecognizerOnDevice = useOnDevice
             }
 
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -136,12 +140,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 override fun onEndOfSpeech() {}
 
                 override fun onError(error: Int) {
-                    // Fall back if offline language pack is missing or not supported (codes 13 or 12)
                     if (useOnDevice && (error == 13 || error == 12)) {
-                        Log.w(TAG, "Offline recognition language pack unavailable (code $error). Falling back to system recognition.")
-                        forceSystemRecognition = true
-                        _isOffline.value = false
-                        startListening()
+                        Log.w(TAG, "Offline recognition language pack unavailable (code $error).")
+                        _state.value = VoiceAssistantState.LanguagePackMissingError
                         return
                     }
 
@@ -316,13 +317,27 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun requestSystemRecognitionConsent() {
+        _state.value = VoiceAssistantState.ConfirmSystemRecognitionConsent
+    }
+
+    fun allowSystemRecognitionAndStart() {
+        forceSystemRecognition = true
+        startListening()
+    }
+
     fun resetToIdle() {
+        forceSystemRecognition = false
         try {
             tts?.stop()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping TTS", e)
         }
-        destroySpeechRecognizer()
+        try {
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling SpeechRecognizer", e)
+        }
         _state.value = VoiceAssistantState.Idle
     }
 

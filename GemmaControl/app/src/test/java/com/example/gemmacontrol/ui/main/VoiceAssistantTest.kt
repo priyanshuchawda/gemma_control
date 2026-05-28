@@ -16,6 +16,12 @@ class VoiceAssistantTest {
 
         val cmd3 = VoiceCommandParser.parse("  Read My Notifications?  ")
         assertEquals(VoiceCommand.ReadLatestMessages, cmd3)
+
+        val cmd4 = VoiceCommandParser.parse("read")
+        assertEquals(VoiceCommand.ReadLatestMessages, cmd4)
+
+        val cmd5 = VoiceCommandParser.parse("read messages")
+        assertEquals(VoiceCommand.ReadLatestMessages, cmd5)
     }
 
     @Test
@@ -39,6 +45,14 @@ class VoiceAssistantTest {
         val cmd5 = VoiceCommandParser.parse("reply I'm busy")
         assertTrue(cmd5 is VoiceCommand.ReplyToLatestActiveMessage)
         assertEquals("I'm busy", (cmd5 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
+
+        val cmd6 = VoiceCommandParser.parse("say I am in a meeting")
+        assertTrue(cmd6 is VoiceCommand.ReplyToLatestActiveMessage)
+        assertEquals("I am in a meeting", (cmd6 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
+
+        val cmd7 = VoiceCommandParser.parse("tell them that I'll be late")
+        assertTrue(cmd7 is VoiceCommand.ReplyToLatestActiveMessage)
+        assertEquals("I'll be late", (cmd7 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
     }
 
     @Test
@@ -78,6 +92,6 @@ class VoiceAssistantTest {
     fun testParserReturnsDefaultUnsupportedForArbitraryText() {
         val cmd = VoiceCommandParser.parse("hello can you turn on the flashlight")
         assertTrue(cmd is VoiceCommand.Unsupported)
-        assertEquals("I can currently read recent captured messages or reply to the latest active message.", (cmd as VoiceCommand.Unsupported).reason)
+        assertEquals("I can currently read captured messages or reply to the latest active WhatsApp notification.", (cmd as VoiceCommand.Unsupported).reason)
     }
 }

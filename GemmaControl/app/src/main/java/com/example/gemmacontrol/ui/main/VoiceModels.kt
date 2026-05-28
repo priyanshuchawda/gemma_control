@@ -29,6 +29,8 @@ sealed interface VoiceAssistantState {
     data class ConfirmationRequired(val draft: PendingVoiceReply) : VoiceAssistantState
     data class SpeakingMessages(val count: Int) : VoiceAssistantState
     data class Failure(val safeReason: String) : VoiceAssistantState
+    data object LanguagePackMissingError : VoiceAssistantState
+    data object ConfirmSystemRecognitionConsent : VoiceAssistantState
 }
 
 object VoiceCommandParser {
@@ -53,13 +55,21 @@ object VoiceCommandParser {
 
         // Check for read messages
         val normalizedRead = lower.removeSuffix(".").removeSuffix("?").trim()
-        if (normalizedRead in listOf(
-                "read my latest messages",
-                "read latest messages",
-                "read my notifications",
-                "read current messages"
-            )
-        ) {
+        val readPhrases = listOf(
+            "read my latest messages",
+            "read latest messages",
+            "read my notifications",
+            "read current messages",
+            "read recent messages",
+            "read messages",
+            "read my messages",
+            "read notifications",
+            "read latest",
+            "read current",
+            "read recent",
+            "read"
+        )
+        if (normalizedRead in readPhrases) {
             return VoiceCommand.ReadLatestMessages
         }
 
@@ -79,6 +89,8 @@ object VoiceCommandParser {
             "send reply",
             "reply to it:",
             "reply to it",
+            "reply that:",
+            "reply that",
             "reply:",
             "reply",
             "send message that:",
@@ -88,7 +100,15 @@ object VoiceCommandParser {
             "send a message that:",
             "send a message that",
             "send a message:",
-            "send a message"
+            "send a message",
+            "say that:",
+            "say that",
+            "say:",
+            "say",
+            "tell them that:",
+            "tell them that",
+            "tell them:",
+            "tell them"
         )
         
         var matchedReplyPrefix = false
@@ -107,6 +127,6 @@ object VoiceCommandParser {
             }
         }
 
-        return VoiceCommand.Unsupported("I can currently read recent captured messages or reply to the latest active message.")
+        return VoiceCommand.Unsupported("I can currently read captured messages or reply to the latest active WhatsApp notification.")
     }
 }
