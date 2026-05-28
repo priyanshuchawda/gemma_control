@@ -1,7 +1,8 @@
 package com.example.gemmacontrol.data
 
 import com.example.gemmacontrol.data.crypto.EncryptedPayload
-import com.example.gemmacontrol.data.crypto.MessageBodyCipher
+import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
+import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
@@ -17,9 +18,10 @@ import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedMessagePreview
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
 import com.example.gemmacontrol.notifications.WhatsAppNotificationParser
-import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertFalse
-import junit.framework.TestCase.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -27,15 +29,23 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
+import java.util.UUID
 
 // ─── Cryptography Fake ────────────────────────────────────────────────────────
-class FakeMessageBodyCipher : MessageBodyCipher {
-    override fun encrypt(plaintext: String): EncryptedPayload {
+class FakeSensitiveTextCipher : SensitiveTextCipher {
+    override fun encrypt(plaintext: String, associatedData: ByteArray?): EncryptedPayload {
         return EncryptedPayload(plaintext.toByteArray(), byteArrayOf(1, 2, 3))
     }
 
-    override fun decrypt(payload: EncryptedPayload): String {
+    override fun decrypt(payload: EncryptedPayload, associatedData: ByteArray?): String {
         return String(payload.ciphertext)
+    }
+}
+
+class FakeDedupeTokenGenerator : DedupeTokenGenerator {
+    override fun generate(canonicalIdentityMaterial: String): String {
+        // Deterministic opaque mock token
+        return "token_${canonicalIdentityMaterial.hashCode()}"
     }
 }
 
@@ -52,7 +62,6 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override suspend fun setStorageEnabled(enabled: Boolean) {
         storageEnabledFlow.value = enabled
         if (enabled) {
-            // Set to 1L in the fake so that mock messages (with timestamp 1716900000000L) are always post-consent
             storageEnabledAtFlow.value = 1L
         } else {
             storageEnabledAtFlow.value = 0L
@@ -83,13 +92,13 @@ class FakeMessageEventDao(
 ) : MessageEventDao {
     val list = mutableListOf<MessageEventEntity>()
     override suspend fun insert(message: MessageEventEntity): Long {
-        if (list.any { it.dedupeHash == message.dedupeHash }) {
+        if (list.any { it.dedupeToken == message.dedupeToken }) {
             return -1L // Room OnConflictStrategy.IGNORE behavior
         }
         list.add(message)
         return list.size.toLong()
     }
-    override suspend fun getByDedupeHash(dedupeHash: String): MessageEventEntity? = list.find { it.dedupeHash == dedupeHash }
+    override suspend fun getByDedupeToken(dedupeToken: String): MessageEventEntity? = list.find { it.dedupeToken == dedupeToken }
     override fun getAllMessagesFlow(): Flow<List<MessageEventEntity>> = flow { emit(list) }
     override suspend fun getAllMessages(): List<MessageEventEntity> = list
     override fun getMessagesForConversationFlow(conversationId: String): Flow<List<MessageEventEntity>> = flow { emit(list.filter { it.conversationId == conversationId }) }
@@ -129,7 +138,8 @@ class NotificationPersistenceCoordinatorTest {
     private lateinit var conversationDao: FakeConversationDao
     private lateinit var messageEventDao: FakeMessageEventDao
     private lateinit var activeNotificationReferenceDao: FakeActiveNotificationReferenceDao
-    private lateinit var messageBodyCipher: FakeMessageBodyCipher
+    private lateinit var sensitiveTextCipher: FakeSensitiveTextCipher
+    private lateinit var dedupeTokenGenerator: FakeDedupeTokenGenerator
     private lateinit var preferencesRepository: FakeCapturePreferencesRepository
     private lateinit var repository: StoredInboxRepository
     private lateinit var coordinator: NotificationPersistenceCoordinator
@@ -139,14 +149,16 @@ class NotificationPersistenceCoordinatorTest {
         conversationDao = FakeConversationDao()
         activeNotificationReferenceDao = FakeActiveNotificationReferenceDao()
         messageEventDao = FakeMessageEventDao(conversationDao, activeNotificationReferenceDao)
-        messageBodyCipher = FakeMessageBodyCipher()
+        sensitiveTextCipher = FakeSensitiveTextCipher()
+        dedupeTokenGenerator = FakeDedupeTokenGenerator()
         preferencesRepository = FakeCapturePreferencesRepository()
         
         repository = StoredInboxRepository(
             conversationDao,
             messageEventDao,
             activeNotificationReferenceDao,
-            messageBodyCipher
+            sensitiveTextCipher,
+            dedupeTokenGenerator
         )
 
         coordinator = NotificationPersistenceCoordinator(
@@ -158,9 +170,7 @@ class NotificationPersistenceCoordinatorTest {
 
     @Test
     fun testSettingsDefaultToDisabled() = runTest {
-        // captureEnabled = true
         assertTrue(preferencesRepository.captureEnabledFlow.first())
-        // storageEnabled = false by default
         assertFalse(preferencesRepository.storageEnabledFlow.first())
     }
 
@@ -173,10 +183,8 @@ class NotificationPersistenceCoordinatorTest {
             text = "Dinner at 7"
         )
 
-        // storageEnabled is false by default
         coordinator.handleNotificationEvent(event)
 
-        // Verify nothing was persisted
         assertTrue(messageEventDao.list.isEmpty())
         assertTrue(conversationDao.list.isEmpty())
         assertTrue(activeNotificationReferenceDao.list.isEmpty())
@@ -195,12 +203,29 @@ class NotificationPersistenceCoordinatorTest {
 
         coordinator.handleNotificationEvent(event)
 
-        // Verify conversation and message are persisted
+        // 1. Verify conversation and message are persisted
         assertEquals(1, conversationDao.list.size)
-        assertEquals("Aunt May", conversationDao.list.first().id)
         assertEquals(1, messageEventDao.list.size)
-        assertEquals("Dinner at 7", String(messageEventDao.list.first().encryptedMessageText!!))
         assertEquals(1, activeNotificationReferenceDao.list.size)
+
+        // 2. Verify Conversation ID is opaque and NOT equal to plaintext display name
+        val conversationEntity = conversationDao.list.first()
+        assertNotEquals("Aunt May", conversationEntity.id)
+        
+        // 3. Verify display name is encrypted in the database (stored as ciphertext ByteArray)
+        assertEquals("Aunt May", sensitiveTextCipher.decrypt(EncryptedPayload(conversationEntity.encryptedDisplayName!!, conversationEntity.displayNameIv!!)))
+
+        // 4. Verify sender name and message body are encrypted in the database
+        val messageEntity = messageEventDao.list.first()
+        assertEquals("Aunt May", sensitiveTextCipher.decrypt(EncryptedPayload(messageEntity.encryptedSenderName!!, messageEntity.senderNameIv!!)))
+        assertEquals("Dinner at 7", sensitiveTextCipher.decrypt(EncryptedPayload(messageEntity.encryptedMessageText!!, messageEntity.messageTextIv!!)))
+
+        // 5. Verify dynamic dynamic decryption loads successfully at the repository boundary
+        val decryptedMessages = repository.getAllDecryptedMessages()
+        assertEquals(1, decryptedMessages.size)
+        assertEquals("Aunt May", decryptedMessages.first().conversationId) // Decrypted conversation title
+        assertEquals("Aunt May", decryptedMessages.first().senderName)       // Decrypted sender name
+        assertEquals("Dinner at 7", decryptedMessages.first().decryptedText)  // Decrypted message text
     }
 
     @Test
@@ -216,8 +241,6 @@ class NotificationPersistenceCoordinatorTest {
 
         coordinator.handleNotificationEvent(event)
 
-        // Under the new policy, fallback events remain volatile-only in debug feed
-        // and are NOT written to Room storage.
         assertTrue(messageEventDao.list.isEmpty())
     }
 
@@ -227,7 +250,6 @@ class NotificationPersistenceCoordinatorTest {
 
         val key = "key_same"
 
-        // 1. MESSAGING_STYLE event
         val canonicalEvent = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -236,7 +258,6 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(canonicalEvent)
 
-        // 2. EXTRAS_FALLBACK summary event with same key
         val fallbackEvent = createDummyEvent(
             key = key,
             source = NotificationParseSource.EXTRAS_FALLBACK,
@@ -252,7 +273,6 @@ class NotificationPersistenceCoordinatorTest {
     fun testIngestionPolicy_messagingStylePlusFallbackWithDifferentKeysPersistsOneRow() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
-        // 1. MESSAGING_STYLE event with key "key_canonical"
         val canonicalEvent = createDummyEvent(
             key = "key_canonical",
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -261,7 +281,6 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(canonicalEvent)
 
-        // 2. EXTRAS_FALLBACK summary event with different key "key_fallback"
         val fallbackEvent = createDummyEvent(
             key = "key_fallback",
             source = NotificationParseSource.EXTRAS_FALLBACK,
@@ -270,7 +289,6 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(fallbackEvent)
 
-        // Fallback is ignored, so we have exactly one persisted row
         assertEquals(1, messageEventDao.list.size)
     }
 
@@ -280,7 +298,6 @@ class NotificationPersistenceCoordinatorTest {
 
         val key = "key_dedupe"
 
-        // First message
         val event1 = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -292,7 +309,6 @@ class NotificationPersistenceCoordinatorTest {
         val firstMessageId = messageEventDao.list.first().id
         assertEquals(firstMessageId, activeNotificationReferenceDao.list.first().latestMessageEventId)
 
-        // Second message (duplicate of the first due to same dedupeHash)
         val event2 = createDummyEvent(
             key = key,
             source = NotificationParseSource.MESSAGING_STYLE,
@@ -302,16 +318,13 @@ class NotificationPersistenceCoordinatorTest {
         )
         coordinator.handleNotificationEvent(event2)
 
-        // List size remains 1
         assertEquals(1, messageEventDao.list.size)
-        // Reference latestMessageEventId must point to the existing message ID, NOT a random new one
         assertEquals(firstMessageId, activeNotificationReferenceDao.list.first().latestMessageEventId)
     }
 
     @Test
     fun testConsentBoundary_ignoresMessagePredatingStorageEnabledAt() = runTest {
         preferencesRepository.setStorageEnabled(true)
-        // Set storageEnabledAt to a future time
         val futureTime = System.currentTimeMillis() + 100000L
         preferencesRepository.storageEnabledAtFlow.value = futureTime
 
@@ -324,7 +337,6 @@ class NotificationPersistenceCoordinatorTest {
 
         coordinator.handleNotificationEvent(event)
 
-        // Verify nothing was persisted because the message timestamp predated storage consent
         assertTrue(messageEventDao.list.isEmpty())
     }
 
@@ -345,7 +357,6 @@ class NotificationPersistenceCoordinatorTest {
         assertFalse(messageEventDao.list.isEmpty())
         assertFalse(activeNotificationReferenceDao.list.isEmpty())
 
-        // Call repository delete-all path
         repository.deleteAllData()
 
         assertTrue(conversationDao.list.isEmpty())

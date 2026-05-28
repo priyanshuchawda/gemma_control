@@ -1,7 +1,10 @@
 package com.example.gemmacontrol
 
 import android.content.Context
-import com.example.gemmacontrol.data.crypto.AndroidKeystoreMessageBodyCipher
+import com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher
+import com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator
+import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
+import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
 import com.example.gemmacontrol.data.preferences.DataStoreCapturePreferencesRepository
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
@@ -17,7 +20,9 @@ object ServiceLocator {
     @Volatile
     private var persistenceCoordinator: NotificationPersistenceCoordinator? = null
     @Volatile
-    private var messageBodyCipher: AndroidKeystoreMessageBodyCipher? = null
+    private var sensitiveTextCipher: SensitiveTextCipher? = null
+    @Volatile
+    private var dedupeTokenGenerator: DedupeTokenGenerator? = null
 
     private fun getDatabase(context: Context): GemmaControlDatabase {
         return database ?: synchronized(this) {
@@ -31,9 +36,15 @@ object ServiceLocator {
         }
     }
 
-    private fun getMessageBodyCipher(): AndroidKeystoreMessageBodyCipher {
-        return messageBodyCipher ?: synchronized(this) {
-            messageBodyCipher ?: AndroidKeystoreMessageBodyCipher().also { messageBodyCipher = it }
+    private fun getSensitiveTextCipher(): SensitiveTextCipher {
+        return sensitiveTextCipher ?: synchronized(this) {
+            sensitiveTextCipher ?: AndroidKeystoreSensitiveTextCipher().also { sensitiveTextCipher = it }
+        }
+    }
+
+    private fun getDedupeTokenGenerator(): DedupeTokenGenerator {
+        return dedupeTokenGenerator ?: synchronized(this) {
+            dedupeTokenGenerator ?: AndroidKeystoreHmacDedupeTokenGenerator().also { dedupeTokenGenerator = it }
         }
     }
 
@@ -44,7 +55,8 @@ object ServiceLocator {
                 db.conversationDao(),
                 db.messageEventDao(),
                 db.activeNotificationReferenceDao(),
-                getMessageBodyCipher()
+                getSensitiveTextCipher(),
+                getDedupeTokenGenerator()
             ).also { storedInboxRepository = it }
         }
     }

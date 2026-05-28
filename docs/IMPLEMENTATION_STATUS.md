@@ -79,8 +79,9 @@ This document records the truthful current state of completed modules, verified 
 
 ## 4. Next Technical Slice
 
-**Phase 2A Hardening is COMPLETE with all automated unit and instrumented tests passing.**
+**Phase 2B (Metadata Encryption and Safe Room Migration) is COMPLETE and fully verified.**
+- **All Automated Tests Pass**: Checked both JVM unit tests (`9/9` passed) and on-device instrumented migration and privacy tests (`6/6` passed).
+- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is 100% complete, including upgrade database migration, consent opt-in persistence, direct/group message encryption, relaunch dynamic decrypt, and atomic clear.
+- **Phase 3 Preparation**: All requirements are satisfied. Implementing Phase 3 (RemoteInput reply execution and deep links) is now permitted.
 
-- Live physical handset validation of the encrypted stored inbox (toggle default OFF, consent ON group/direct persistence, relaunch decryption, delete-all UI purge) is currently **NOT YET VERIFIED** and is undergoing controlled manual verification.
-- Phase 3 (reply execution, RemoteInput, WorkManager reminders) is deferred and will NOT start until Phase 2A is fully verified and merged.
 

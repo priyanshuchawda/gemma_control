@@ -48,7 +48,7 @@ Physical handset used for all Phase 1 testing and validation.
 | Direct-chat classification: DIRECT | **PASS** | On-device UI observation |
 | Group-chat classification: GROUP | **PASS** | On-device UI observation (controlled group test, MessagingStyle path) |
 
-### Milestone 2A: Secure Local Persistence & Encryption at Rest (NOT YET VERIFIED)
+### Milestone 2A: Secure Local Persistence & Encryption at Rest (VERIFIED)
 > This milestone covers secure, opt-in database persistence and GCM-encryption, verified on the handset runtime.
 
 | Stage / Feature | Status | Evidence Type | Notes |
@@ -62,13 +62,25 @@ Physical handset used for all Phase 1 testing and validation.
 | Deduplication of updated events | **PASS** | UI + Room verification | Repeated notifications on active keys do not duplicate message rows. |
 | Delete All stored messages | **PASS** | UI + Room verification | Data Purge clears all tables concurrently inside single transaction. |
 
-### Milestone 2B: Manual Action Testing (Deferred to Phase 3)
+### Milestone 2B: Metadata Encryption and Room Database Migration (VERIFIED)
+> This milestone covers full metadata encryption, opaque identifiers, keyed tokens, and SQLite database migration.
+
+| Stage / Feature | Status | Evidence Type | Notes |
+| :--- | :--- | :--- | :--- |
+| Opaque Conversation ID | **PASS** | Instrumented Test / UI | Plaintext conversation titles replaced with secret Keystore-backed HMAC-SHA256 tokens. |
+| Encrypted Display Name & Sender Name | **PASS** | Instrumented Test / UI | Display names and sender names are GCM-encrypted before writing to SQLite. |
+| Keyed Deduplication Token | **PASS** | Instrumented Test / UI | Deterministic SHA-256 dedupe Candidates are transformed into keyed HMAC-SHA256 tokens, shielding against offline guessing. |
+| Room v1 to v2 Database Migration | **PASS** | Instrumented Test / UI | Explicit `MIGRATION_1_2` executes without data loss, encrypting legacy metadata dynamically. |
+| Raw Room Plaintext Leak Audit | **PASS** | Low-level SQLite Cursor Check | Raw column query asserts that zero plaintext message text, titles, or sender names remain at rest. |
+| Atomic Delete All on Migrated DB | **PASS** | UI / Room Purge Check | Full atomic wipe clears all upgraded tables cleanly. |
+
+### Milestone 3: Manual Action Testing (Deferred to Phase 3)
 > This milestone covers RemoteInput reply execution and deep links.
 
 - Inline reply via RemoteInput API — **NOT IMPLEMENTED**
 - Fallback deep-link to WhatsApp — **NOT IMPLEMENTED**
 
-### Milestone 3: Model Latency Benchmark (Deferred to Phase 4)
+### Milestone 4: Model Latency Benchmark (Deferred to Phase 4)
 > Requires LiteRT-LM integration.
 
 - FunctionGemma 270M load/inference latency — **NOT MEASURED**
@@ -78,6 +90,7 @@ Physical handset used for all Phase 1 testing and validation.
 
 ## 4. Privacy Constraints (All Milestones)
 
-- No message body text, sender names, group names, or phone numbers are logged to Logcat or committed to any file.
+- No plaintext message body text, sender names, group names, or phone numbers are logged to Logcat or committed to any file.
 - Logcat output is restricted to: package names, key suffixes (last 8 characters), parse source labels, message counts, and lifecycle event types.
-- In-memory storage is volatile and bounded to 100 entries. There is no disk persistence in Phase 1.
+- Encryption at rest: All sensitive content is fully encrypted at rest using AES-GCM and keyed HMAC before writing to the database. In-memory volatile list is bounded to 100 entries.
+

@@ -5,6 +5,10 @@ plugins {
   alias(libs.plugins.kotlin.ksp)
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.example.gemmacontrol"
     compileSdk = 36
