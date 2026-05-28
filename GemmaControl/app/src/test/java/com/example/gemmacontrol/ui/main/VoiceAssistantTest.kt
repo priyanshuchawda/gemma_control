@@ -94,4 +94,13 @@ class VoiceAssistantTest {
         assertTrue(cmd is VoiceCommand.Unsupported)
         assertEquals("I can currently read captured messages or reply to the latest active WhatsApp notification.", (cmd as VoiceCommand.Unsupported).reason)
     }
+
+    @Test
+    fun testRmsDbToAmplitudeIsClampedAndScaled() {
+        assertEquals(0, convertRmsDbToAmplitude(-20f))
+        assertEquals(0, convertRmsDbToAmplitude(-2f))
+        assertEquals(65535, convertRmsDbToAmplitude(100f))
+        assertEquals(65535, convertRmsDbToAmplitude(120f))
+        assertTrue(convertRmsDbToAmplitude(49f) in 32000..33000)
+    }
 }

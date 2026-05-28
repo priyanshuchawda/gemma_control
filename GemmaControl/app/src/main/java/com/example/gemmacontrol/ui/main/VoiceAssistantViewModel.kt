@@ -9,6 +9,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,6 +23,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+private const val AUDIO_METER_MIN_DB = -2.0f
+private const val AUDIO_METER_MAX_DB = 100.0f
+
 class VoiceAssistantViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
@@ -30,6 +34,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private val repository = ServiceLocator.getStoredInboxRepository(application)
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
+    private val toolProposalMapper = VoiceCommandToolProposalMapper()
 
     private val _state = MutableStateFlow<VoiceAssistantState>(VoiceAssistantState.Idle)
     val state: StateFlow<VoiceAssistantState> = _state.asStateFlow()
@@ -39,6 +44,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private val _partialTranscript = MutableStateFlow("")
     val partialTranscript: StateFlow<String> = _partialTranscript.asStateFlow()
+
+    private val _amplitude = MutableStateFlow(0)
+    val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
@@ -56,7 +64,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 isTtsInitialized = true
                 tts?.language = Locale.US
                 
-                tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
                         Log.d(TAG, "TTS started: $utteranceId")
                     }
@@ -68,8 +76,18 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                         }
                     }
 
+                    @Suppress("OVERRIDE_DEPRECATION")
                     override fun onError(utteranceId: String?) {
-                        Log.e(TAG, "TTS error: $utteranceId")
+                        handleTtsError(utteranceId, null)
+                    }
+
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        handleTtsError(utteranceId, errorCode)
+                    }
+
+                    private fun handleTtsError(utteranceId: String?, errorCode: Int?) {
+                        val suffix = errorCode?.let { " code=$it" }.orEmpty()
+                        Log.e(TAG, "TTS error: $utteranceId$suffix")
                         if (_state.value is VoiceAssistantState.SpeakingMessages) {
                             _state.value = VoiceAssistantState.Idle
                         }
@@ -137,7 +155,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onBeginningOfSpeech() {}
 
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) {
+                    _amplitude.value = convertRmsDbToAmplitude(rmsdB)
+                }
 
                 override fun onBufferReceived(buffer: ByteArray?) {}
 
@@ -145,6 +165,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onError(error: Int) {
                     _partialTranscript.value = ""
+                    _amplitude.value = 0
                     if (useOnDevice && (error == 13 || error == 12)) {
                         Log.w(TAG, "Offline recognition language pack unavailable (code $error).")
                         _state.value = VoiceAssistantState.LanguagePackMissingError
@@ -169,6 +190,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onResults(results: Bundle?) {
                     _partialTranscript.value = ""
+                    _amplitude.value = 0
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     val transcript = matches?.firstOrNull() ?: ""
                     if (transcript.isNotEmpty()) {
@@ -198,6 +220,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     fun stopListening() {
         try {
             speechRecognizer?.stopListening()
+            _amplitude.value = 0
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping SpeechRecognizer", e)
         }
@@ -237,6 +260,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             if (latestActiveMessage == null) {
                 // Fallback to active key directly if DB message is missing
                 val fallbackKey = activeKeys.first()
+                val proposal = toolProposalMapper.mapActiveNotificationReply(fallbackKey, replyText)
+                if (proposal is VoiceToolProposalResult.Invalid) {
+                    _state.value = VoiceAssistantState.Failure(proposal.reason)
+                    return@launch
+                }
                 _state.value = VoiceAssistantState.ConfirmationRequired(
                     PendingVoiceReply(
                         notificationKey = fallbackKey,
@@ -245,6 +273,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     )
                 )
             } else {
+                val proposal = toolProposalMapper.mapActiveNotificationReply(latestActiveMessage.notificationKey, replyText)
+                if (proposal is VoiceToolProposalResult.Invalid) {
+                    _state.value = VoiceAssistantState.Failure(proposal.reason)
+                    return@launch
+                }
                 _state.value = VoiceAssistantState.ConfirmationRequired(
                     PendingVoiceReply(
                         notificationKey = latestActiveMessage.notificationKey,
@@ -313,6 +346,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             Log.e(TAG, "Error stopping TTS", e)
         }
         _partialTranscript.value = ""
+        _amplitude.value = 0
         if (_state.value is VoiceAssistantState.SpeakingMessages) {
             _state.value = VoiceAssistantState.Idle
         }
@@ -339,6 +373,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     fun resetToIdle() {
         forceSystemRecognition = false
         _partialTranscript.value = ""
+        _amplitude.value = 0
         try {
             tts?.stop()
         } catch (e: Exception) {
@@ -354,6 +389,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private fun destroySpeechRecognizer() {
         _partialTranscript.value = ""
+        _amplitude.value = 0
         try {
             speechRecognizer?.destroy()
             speechRecognizer = null
@@ -372,4 +408,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             Log.e(TAG, "Error shutting down TTS", e)
         }
     }
+}
+
+internal fun convertRmsDbToAmplitude(rmsdB: Float): Int {
+    val clamped = rmsdB.coerceIn(AUDIO_METER_MIN_DB, AUDIO_METER_MAX_DB)
+    return ((clamped - AUDIO_METER_MIN_DB) * 65535f / (AUDIO_METER_MAX_DB - AUDIO_METER_MIN_DB)).toInt()
 }

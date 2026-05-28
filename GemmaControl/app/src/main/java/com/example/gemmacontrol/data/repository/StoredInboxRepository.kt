@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 import androidx.room.withTransaction
+import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
 
 class StoredInboxRepository(
@@ -26,7 +27,7 @@ class StoredInboxRepository(
     private val sensitiveTextCipher: SensitiveTextCipher,
     private val dedupeTokenGenerator: DedupeTokenGenerator,
     private val db: GemmaControlDatabase? = null
-) {
+) : LocalWhatsAppDataRepository {
     sealed interface PersistCanonicalResult {
         data class Stored(val messageId: String) : PersistCanonicalResult
         data object DuplicateReferenced : PersistCanonicalResult
@@ -255,7 +256,7 @@ class StoredInboxRepository(
         }
     }
 
-    suspend fun deleteAllData() {
+    override suspend fun deleteAllData() {
         messageEventDao.deleteAllData()
     }
 

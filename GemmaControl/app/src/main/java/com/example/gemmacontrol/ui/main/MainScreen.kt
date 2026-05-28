@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -156,7 +157,7 @@ fun GemmaTopBar(
         actions = {
             IconButton(onClick = onNavigateToVoice) {
                 Icon(
-                    imageVector = MicrophoneIcon,
+                    imageVector = Icons.Default.Mic,
                     contentDescription = "Voice Assistant",
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -576,7 +577,7 @@ fun VoiceAssistantHomeCard(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Icon(
-                    imageVector = MicrophoneIcon,
+                    imageVector = Icons.Default.Mic,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)

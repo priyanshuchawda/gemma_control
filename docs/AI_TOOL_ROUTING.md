@@ -1,0 +1,43 @@
+# AI Tool Routing Notes
+
+GemmaControl follows the Google AI Edge Gallery mobile-actions pattern at the architecture boundary, but keeps execution stricter for WhatsApp safety.
+
+## Gallery Pattern Referenced
+
+Gallery's Mobile Actions task uses:
+- a typed action model (`Action`, `FunctionCallDetails`)
+- a `ToolSet` with annotated tool functions
+- a task/viewmodel boundary that records function calls separately from UI rendering
+- model prompts that include current date/time context
+
+Current LiteRT-LM Kotlin docs also support manual tool execution by creating a conversation with `automaticToolCalling = false`. That is the required mode for this app because WhatsApp sends, data deletion, and capture changes must remain Kotlin/user-confirmed actions.
+
+## GemmaControl Adaptation
+
+The app now has a typed local tool contract in `ai/tools`:
+- `WhatsAppToolRegistry` mirrors all 16 documented WhatsApp tools.
+- `ToolSchemaExporter` exports each registry entry as LiteRT/OpenAPI-style JSON (`name`, `description`, `parameters`, `required`) so the same registry can feed a future `OpenApiTool`/`ToolProvider` adapter without duplicating schemas.
+- `ToolCallParser` accepts FunctionGemma-style JSON proposals and Gallery-style `functionCall` envelopes.
+- `ToolProposal` carries typed parameters and the safety level into UI/controller code.
+- `ToolSafetyRouter` converts a parsed proposal into an execution decision: read-only local execution, local data write, user confirmation, strict manual confirmation, or rejection.
+- `WhatsAppLocalToolExecutor` executes only confirmed local-safe operations that already have Kotlin repository boundaries, currently capture pause/resume and full local data deletion. Active notification replies are intentionally rejected here and must use the dedicated notification reply executor.
+- `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
+- `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency and truncated per message.
+- `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, release, and low-memory cleanup.
+- `GemmaEngine` defines the future LiteRT-LM runtime contract. `UnavailableGemmaEngine` reports a clear blocked state without leaking local model paths or pretending FunctionGemma is loaded.
+
+## Safety Boundary
+
+FunctionGemma is a proposal engine only. Kotlin must validate:
+- supported tool name
+- required parameters
+- parameter types
+- reply text length and non-blank content
+- E.164 phone numbers for click-to-chat
+- whether a tool requires manual confirmation
+- bounded prompt context size before any future model call
+- model lifecycle readiness before prompt submission
+- model release on memory pressure
+- final execution decision before any local repository write or Android system action
+
+The real LiteRT-LM engine implementation remains deferred. Do not pretend model binaries are loaded until the official local Android dependency, `.litertlm` model path, and device runtime behavior are verified.

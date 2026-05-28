@@ -2,7 +2,9 @@ package com.example.gemmacontrol.notifications
 
 import android.app.Notification
 import android.content.Context
+import android.os.Build
 import android.service.notification.StatusBarNotification
+import androidx.annotation.RequiresApi
 import java.nio.charset.StandardCharsets
 
 object WhatsAppNotificationParser {
@@ -45,85 +47,17 @@ object WhatsAppNotificationParser {
             null
         }
 
-        val style = recoverBuilder?.style
-        if (style is Notification.MessagingStyle) {
-            val isGroup = style.isGroupConversation
-            val conversationTitle = style.conversationTitle?.toString() ?: ""
-            val messages = style.messages ?: emptyList()
-
-            // Safe lookup for historic messages (available on API 28+)
-            val historicMessages = try {
-                style.historicMessages ?: emptyList()
-            } catch (e: NoSuchMethodError) {
-                emptyList()
-            } catch (e: Exception) {
-                emptyList()
-            }
-
-            val currentMsgPreviews = messages.map { msg ->
-                ParsedMessagePreview(
-                    senderName = msg.sender?.toString(),
-                    messageText = msg.text?.toString(),
-                    timestamp = msg.timestamp
-                )
-            }
-
-            val historicMsgPreviews = historicMessages.map { msg ->
-                ParsedMessagePreview(
-                    senderName = msg.sender?.toString(),
-                    messageText = msg.text?.toString(),
-                    timestamp = msg.timestamp
-                )
-            }
-
-            val allMessages = currentMsgPreviews + historicMsgPreviews
-            val latestMessage = currentMsgPreviews.lastOrNull()
-            val latestSender = latestMessage?.senderName ?: ""
-            val latestText = latestMessage?.messageText ?: ""
-
-            // Classification guidelines:
-            // Use GROUP only when MessagingStyle proves group conversation.
-            // Use DIRECT only when reliable.
-            // Otherwise use UNKNOWN.
-            val conversationType = if (isGroup) {
-                ConversationType.GROUP
-            } else {
-                if (conversationTitle.isEmpty() || conversationTitle == latestSender) {
-                    ConversationType.DIRECT
-                } else {
-                    ConversationType.UNKNOWN
-                }
-            }
-
-            val isContentUnavailable = currentMsgPreviews.isEmpty() || latestText.isEmpty()
-            val timestampToUse = latestMessage?.timestamp ?: notificationPostedAt
-
-            val dedupe = generateDedupeCandidate(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            parseMessagingStyle(
+                builder = recoverBuilder,
                 packageName = packageName,
-                notificationKey = key,
-                timestamp = timestampToUse,
-                conversationTitle = conversationTitle,
-                senderName = latestSender,
-                messageText = latestText
-            )
-
-            return ParsedWhatsAppNotificationEvent(
-                eventType = eventType,
-                notificationKey = key,
-                packageName = packageName,
+                key = key,
                 observedAt = observedAt,
                 notificationPostedAt = notificationPostedAt,
-                conversationTitle = conversationTitle.ifEmpty { latestSender.ifEmpty { null } },
-                conversationType = conversationType,
-                messages = allMessages,
-                currentMessageCount = currentMsgPreviews.size,
-                historicMessageCount = historicMsgPreviews.size,
-                hasReplyActionAtCaptureTime = hasReply,
-                parseSource = NotificationParseSource.MESSAGING_STYLE,
-                isContentUnavailable = isContentUnavailable,
-                dedupeCandidate = dedupe,
+                eventType = eventType,
+                hasReply = hasReply,
                 isCurrentlyActive = isCurrentlyActive
-            )
+            )?.let { return it }
         }
 
         // 2. Fallback to standard extras parsing
@@ -173,6 +107,91 @@ object WhatsAppNotificationParser {
             dedupeCandidate = dedupe,
             isCurrentlyActive = isCurrentlyActive
         )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun parseMessagingStyle(
+        builder: Notification.Builder?,
+        packageName: String,
+        key: String,
+        observedAt: Long,
+        notificationPostedAt: Long,
+        eventType: NotificationEventType,
+        hasReply: Boolean,
+        isCurrentlyActive: Boolean
+    ): ParsedWhatsAppNotificationEvent? {
+        val style = builder?.style
+        if (style !is Notification.MessagingStyle) return null
+
+        val isGroup = style.isGroupConversation
+        val conversationTitle = style.conversationTitle?.toString() ?: ""
+        val messages = style.messages ?: emptyList()
+        val historicMessages = style.historicMessages ?: emptyList()
+
+        val currentMsgPreviews = messages.map { msg ->
+            ParsedMessagePreview(
+                senderName = msg.senderDisplayName(),
+                messageText = msg.text?.toString(),
+                timestamp = msg.timestamp
+            )
+        }
+
+        val historicMsgPreviews = historicMessages.map { msg ->
+            ParsedMessagePreview(
+                senderName = msg.senderDisplayName(),
+                messageText = msg.text?.toString(),
+                timestamp = msg.timestamp
+            )
+        }
+
+        val allMessages = currentMsgPreviews + historicMsgPreviews
+        val latestMessage = currentMsgPreviews.lastOrNull()
+        val latestSender = latestMessage?.senderName ?: ""
+        val latestText = latestMessage?.messageText ?: ""
+
+        val conversationType = if (isGroup) {
+            ConversationType.GROUP
+        } else if (conversationTitle.isEmpty() || conversationTitle == latestSender) {
+            ConversationType.DIRECT
+        } else {
+            ConversationType.UNKNOWN
+        }
+
+        val isContentUnavailable = currentMsgPreviews.isEmpty() || latestText.isEmpty()
+        val timestampToUse = latestMessage?.timestamp ?: notificationPostedAt
+
+        val dedupe = generateDedupeCandidate(
+            packageName = packageName,
+            notificationKey = key,
+            timestamp = timestampToUse,
+            conversationTitle = conversationTitle,
+            senderName = latestSender,
+            messageText = latestText
+        )
+
+        return ParsedWhatsAppNotificationEvent(
+            eventType = eventType,
+            notificationKey = key,
+            packageName = packageName,
+            observedAt = observedAt,
+            notificationPostedAt = notificationPostedAt,
+            conversationTitle = conversationTitle.ifEmpty { latestSender.ifEmpty { null } },
+            conversationType = conversationType,
+            messages = allMessages,
+            currentMessageCount = currentMsgPreviews.size,
+            historicMessageCount = historicMsgPreviews.size,
+            hasReplyActionAtCaptureTime = hasReply,
+            parseSource = NotificationParseSource.MESSAGING_STYLE,
+            isContentUnavailable = isContentUnavailable,
+            dedupeCandidate = dedupe,
+            isCurrentlyActive = isCurrentlyActive
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun Notification.MessagingStyle.Message.senderDisplayName(): String? {
+        return senderPerson?.name?.toString() ?: sender?.toString()
     }
 
     /**

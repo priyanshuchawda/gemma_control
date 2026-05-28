@@ -20,6 +20,7 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 [ Local UI Chat View ] ← [ English User Command ]
                                    ↓
                          [ LiteRT-LM Engine ]
+                         (future runtime adapter)
                          (automaticToolCalling = false)
                                    ↓
                         [ Proposes JSON Tool ]
@@ -60,9 +61,15 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 - **NotificationPersistenceCoordinator (`data/repository`)**: Main ingestion controller that checks storage permissions, intercepts `REMOVED` events to mark active references, enforces `storageEnabledAt` post-consent gating, and discards `EXTRAS_FALLBACK` summary rollups from Room persistence completely (keeping them strictly volatile-only in the debug feed).
 
 ### D. Model Routing Module (`com.example.gemmacontrol.ai`)
-- **`FunctionGemmaEngine`**: Orchestrates offline inputs through Google's **LiteRT-LM Android SDK**.
-- **Inference Configuration**: Manually binds the 16-tool registry prompts. Crucially sets `automaticToolCalling = false` inside `ConversationConfig` to block model auto-executions.
-- **`ToolCallParser`**: Typed JSON parser that converts proposed model tool choices into local structured objects.
+- **`ai/tools/WhatsAppToolRegistry.kt`**: Typed Kotlin mirror of the documented 16-tool FunctionGemma contract. Each tool is assigned a safety level: read-only, local write, confirmation-required, or strict manual confirmation.
+- **`ai/tools/ToolSchemaExporter.kt`**: Converts the same typed registry to LiteRT/OpenAPI-style tool JSON so the future runtime adapter can register schemas without duplicating tool definitions.
+- **`ai/tools/ToolCallParser.kt`**: Strict JSON parser for model-proposed tool calls. It accepts the direct `{ "name", "parameters" }` shape and the Gallery-style `{ "functionCall": { "name", "args" } }` envelope, rejects unknown tools/parameters, and validates high-risk values such as reply text and E.164 phone numbers before UI presentation.
+- **`ai/tools/ToolSafetyRouter.kt`**: Converts validated proposals into explicit execution decisions. This keeps read-only local data access, local writes, standard confirmation, strict manual confirmation, and rejection separate from parsing.
+- **`ai/tools/WhatsAppLocalToolExecutor.kt`**: Executes only local repository/preference operations after routing and confirmation. It can pause/resume capture and delete all local WhatsApp data; Android `RemoteInput` replies remain outside this executor.
+- **`ai/tools/GemmaPromptBuilder.kt`**: Builds bounded, recency-sorted prompt context from selected local WhatsApp messages. It truncates message bodies and avoids whole-inbox dumps before any future model call.
+- **`ai/runtime/GemmaModelManager.kt`**: Owns the FunctionGemma lifecycle boundary: initialize once per config, reinitialize on model changes, block generation before readiness, release resources, and handle low-memory cleanup.
+- **`ai/runtime/GemmaEngine.kt`**: Defines the runtime interface and explicit unavailable adapter. The real LiteRT-LM engine/conversation lifecycle is intentionally not faked; future work can implement this interface with Gallery's engine/conversation pattern after the official runtime dependency and model-loading path are verified locally.
+- **`ServiceLocator.getGemmaModelManager()`**: Exposes one app-wide model manager instance without requiring Android context, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---
 
@@ -73,11 +80,15 @@ To prevent untrusted actions or silent auto-sends, all execution triggers obey t
 ```text
 Proposed Tool Call (from FunctionGemma)
             ↓
-    JSON Schema Check (Rejects malformed params)
+  GemmaModelManager (Must be Ready)
             ↓
-   Resolve Parameters (Validates type mappings)
+    ToolCallParser (Rejects malformed/unknown params)
             ↓
-  Is Confirmation Needed? (Tool 10, 11, 12, 13, 16)
+   Typed ToolProposal (Validates type mappings)
+            ↓
+    ToolSafetyRouter (Allow / Confirm / Reject)
+            ↓
+  Is Confirmation Needed? (Tool 10, 11, 12, 13, 14, 15, 16)
    ├── YES:
    │    Show Modal Compose Sheet
    │    Wait for User Click

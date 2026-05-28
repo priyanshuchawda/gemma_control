@@ -214,10 +214,12 @@ abstract class GemmaControlDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATION_1_2 = getMigration_1_2(
-            com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher(),
-            com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator()
-        )
+        val MIGRATION_1_2: Migration by lazy {
+            getMigration_1_2(
+                com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher(),
+                com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator()
+            )
+        }
 
         fun getDatabase(context: Context): GemmaControlDatabase {
             return INSTANCE ?: synchronized(this) {

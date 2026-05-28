@@ -12,6 +12,7 @@ app/build/
 GemmaControl/app/build/
 GemmaControl/build/
 GemmaControl/.gradle/
+GemmaControl/.kotlin/
 GemmaControl/.idea/
 GemmaControl/local.properties
 
@@ -26,8 +27,18 @@ skills-lock.json
 *.tflite
 *.bin
 
+# Android build artifacts
+*.apk
+*.aab
+
 # Log files
 *.log
+
+# Local/private visual captures
+screenshots/
+Screenshots/
+*.screen.png
+*.screenshot.png
 
 # System Files
 .DS_Store

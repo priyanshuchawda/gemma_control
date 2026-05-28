@@ -18,8 +18,10 @@ This document records the truthful current state of completed modules, verified 
 | Group Classification | **VERIFIED** — On-device UI displayed `GROUP` for controlled group-chat test |
 | Dual-notification behavior | **UNDERSTOOD** — WhatsApp posts one `MESSAGING_STYLE` + one summary `EXTRAS_FALLBACK` per message (both correct) |
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
-| Direct Reply Execution | **NOT IMPLEMENTED** — Deferred to manual-action phase (Phase 3) |
-| FunctionGemma / LiteRT-LM | **NOT IMPLEMENTED** — Deferred to Phase 4 |
+| Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
+| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, and active-notification reply confirmation exist |
+| FunctionGemma / LiteRT-LM Runtime | **NOT IMPLEMENTED** — Lifecycle manager and unavailable adapter exist; real runtime/model-loading path remains deferred |
+| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
 
 ---
 
@@ -38,6 +40,16 @@ This document records the truthful current state of completed modules, verified 
 - `WhatsAppNotificationListener.kt` — `NotificationListenerService` subclass with POSTED/UPDATED/REMOVED coroutine-driven state flow, 100-entry history cap, safe key suffix logging
 - `MainScreen.kt` — Fully scrollable Compose UI with event cards, color-coded badges, permission status card, lock icon leading to Stored Inbox
 - `MainScreenViewModel.kt` — Exposes `StateFlow<MainScreenUiState>` bridging the listener's `capturedNotifications` flow
+- `ai/tools/WhatsAppToolRegistry.kt` — Kotlin mirror of the documented 16-tool FunctionGemma proposal contract
+- `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for a future runtime adapter
+- `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
+- `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions
+- `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed local-only tool decisions for capture pause/resume and full local data deletion
+- `ai/tools/GemmaPromptBuilder.kt` — Bounded prompt/context builder for future FunctionGemma calls
+- `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
+- `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with duplicate-init protection and low-memory release
+- `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
+- `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
 
 ### Documentation
 - `docs/ARCHITECTURE.md` — MVVM & Cryptography architecture reference
@@ -79,10 +91,10 @@ This document records the truthful current state of completed modules, verified 
 
 ## 4. Next Technical Slice
 
-**Phase 2B (Metadata Encryption and Safe Room Migration) is undergoing security hotfix and is NOT YET RE-VERIFIED.**
-- **All Automated Tests Pass**: Checked both JVM unit tests (`12/12` passed) and on-device instrumented migration and privacy tests (`7/7` passed).
-- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is currently **PENDING RE-VERIFICATION** during this security hotfix pass.
-- **Phase 3 Preparation**: Implementing Phase 3 is deferred and will NOT start until the security hotfix is fully validated and merged.
+**Current local slice: FunctionGemma proposal boundary preparation.**
+- **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
+- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is still required for microphone behavior, TTS, notification listener binding, and `RemoteInput` reply execution.
+- **Next AI Runtime Slice**: Implement the real LiteRT-LM `GemmaEngine` behind `GemmaModelManager` only after the official dependency/model-loading path is verified. The required runtime mode is manual tool execution (`automaticToolCalling = false`), so model output remains a typed proposal until Kotlin validates it and the user confirms high-risk actions.
 
 
 

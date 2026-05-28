@@ -5,7 +5,7 @@ This document outlines the core functional scope, V1 capability maps, strict pro
 ---
 
 ## 1. Product Definition
-An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, supports reminders and follow-ups, and enables safe user-confirmed WhatsApp replies.
+An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, and enables safe user-confirmed WhatsApp replies. Reminder and follow-up tools are part of the typed V1 contract but still require executor/storage implementation before they can be enabled.
 
 This implementation acts as a secure, daily-use tool-calling manager on your physical **Xiaomi Android 16 handset** rather than a simple alert reader demo.
 
@@ -24,9 +24,9 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **Actionable Inbox View**: Allows the user to view recent unresolved, pending, and prioritized items.
 
 ### B. Productivity Actions
-- **Follow-Ups**: Save specific notification events as actionable tasks (`create_follow_up_from_message`).
-- **Reminders**: Schedule local reminders using the Android system `WorkManager` framework (`schedule_reminder_for_message`).
-- **Prioritization**: Flag important messages to pin them inside the local Compose inbox.
+- **Follow-Ups**: Contract defined for saving specific notification events as actionable tasks (`create_follow_up_from_message`); executor/storage implementation is deferred.
+- **Reminders**: Contract defined for scheduling local reminders (`schedule_reminder_for_message`); WorkManager execution is deferred.
+- **Prioritization**: Contract defined for flagging important messages; local executor implementation is deferred.
 - **Inbox Cleanup**: Dismiss and hide noise from the local inbox without clearing notifications inside WhatsApp.
 
 ### C. Safe Action Executors (Android 16 UI Architecture)
@@ -44,7 +44,8 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **No Multi-App Scope (V1)**: The ingestion pipeline targets `"com.whatsapp"` or `"com.whatsapp.w4b"` exclusively in V1.
 - **No Python/Streamlit Elements**: Zero Python servers, desktop apps, or Streamlit dashboards.
 - **No Auto-Sending**: Headless automated sends are structurally blocked.
-- **No Speech Input in V1**: Dictation and voice recognition are not supported in V1.
+- **No Automatic Tool Execution**: LiteRT-LM tool calls must run with automatic execution disabled. FunctionGemma may propose one JSON tool call, but Kotlin validates and routes it.
+- **Limited Speech Input in V1**: English voice commands are supported for reading recent captured messages and preparing a reply to the latest active WhatsApp notification. Sending still requires manual confirmation.
 - **No Multilingual Examples**: Strictly English-only inputs, training sets, and user interfaces. No Hindi or Hinglish commands.
 - **No Unofficial APIs**: No Baileys, whatsapp-web.js, or AccessibilityService UI scripting.
 - **No Vector Embeddings in V1**: EmbeddingGemma integration is deferred to V2.

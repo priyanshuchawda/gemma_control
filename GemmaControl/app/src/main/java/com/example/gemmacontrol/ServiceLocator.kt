@@ -1,6 +1,7 @@
 package com.example.gemmacontrol
 
 import android.content.Context
+import com.example.gemmacontrol.ai.runtime.GemmaModelManager
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator
 import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
@@ -19,6 +20,8 @@ object ServiceLocator {
     private var storedInboxRepository: StoredInboxRepository? = null
     @Volatile
     private var persistenceCoordinator: NotificationPersistenceCoordinator? = null
+    @Volatile
+    private var gemmaModelManager: GemmaModelManager? = null
     @Volatile
     private var sensitiveTextCipher: SensitiveTextCipher? = null
     @Volatile
@@ -71,6 +74,12 @@ object ServiceLocator {
                 getPreferencesRepository(context),
                 db.activeNotificationReferenceDao()
             ).also { persistenceCoordinator = it }
+        }
+    }
+
+    fun getGemmaModelManager(): GemmaModelManager {
+        return gemmaModelManager ?: synchronized(this) {
+            gemmaModelManager ?: GemmaModelManager().also { gemmaModelManager = it }
         }
     }
 }
