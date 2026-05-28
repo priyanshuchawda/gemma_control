@@ -29,6 +29,7 @@ fun MainNavigation() {
         entryProvider = entryProvider {
             entry<Setup> {
                 SetupScreen(
+                    viewModel = setupViewModel,
                     onSetupComplete = {
                         // Replace the Setup entry with Main (no back arrow to Setup)
                         backStack.removeLastOrNull()

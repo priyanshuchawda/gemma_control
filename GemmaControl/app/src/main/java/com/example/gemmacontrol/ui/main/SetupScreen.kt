@@ -57,8 +57,9 @@ fun SetupScreen(
     viewModel: SetupViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val batteryExempt by viewModel.batteryOptExempt.collectAsStateWithLifecycle()
-    val listenerEnabled by viewModel.notificationListenerEnabled.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    var showWarningDialog by remember { mutableStateOf(false) }
 
     // Refresh on every resume (user might have toggled settings and come back)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -72,13 +73,19 @@ fun SetupScreen(
 
     LaunchedEffect(Unit) { viewModel.refreshPermissions(context) }
 
-    // Auto-proceed once both permissions are granted
-    LaunchedEffect(batteryExempt, listenerEnabled) {
-        if (batteryExempt && listenerEnabled) onSetupComplete()
+    // Auto-proceed once reliability is complete
+    LaunchedEffect(uiState) {
+        if (uiState.reliabilitySetupComplete) {
+            onSetupComplete()
+        }
     }
 
-    val allDone = batteryExempt && listenerEnabled
-    val doneCount = listOf(batteryExempt, listenerEnabled).count { it }
+    val totalSteps = if (uiState.isXiaomiLikeDevice) 3 else 2
+    val displayDoneCount = listOf(
+        uiState.notificationAccessEnabled,
+        uiState.batteryOptimizationIgnored,
+        uiState.xiaomiAutostartAcknowledged
+    ).take(totalSteps).count { it }
 
     Box(
         modifier = modifier
@@ -126,7 +133,7 @@ fun SetupScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Grant two permissions so the notification listener can run reliably in the background.",
+                        "Configure notification access and background reliability settings to enable capture.",
                         fontSize = 14.sp,
                         color = TextMuted,
                         textAlign = TextAlign.Center,
@@ -136,20 +143,35 @@ fun SetupScreen(
             }
 
             // Progress indicator
-            ProgressBadge(done = doneCount, total = 2)
+            ProgressBadge(done = displayDoneCount, total = totalSteps)
 
-            // Step 1 – Battery Optimization
+            // Step 1 – Notification Listener (Core Requirement)
             SetupStepCard(
                 step = 1,
-                icon = Icons.Default.Battery5Bar,
-                title = "Disable Battery Optimization",
-                description = "Android limits background services to save battery. Allow GemmaControl to run unrestricted so it never misses a notification.",
-                isGranted = batteryExempt,
-                buttonLabel = "Disable Restriction",
+                icon = Icons.Default.Notifications,
+                title = "Grant Notification Access",
+                description = "Allows GemmaControl to read WhatsApp notifications on-device. Nothing is sent off your phone.",
+                isGranted = uiState.notificationAccessEnabled,
+                buttonLabel = "Open Notification Access",
                 onAction = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            )
+
+            // Step 2 – Battery Settings
+            SetupStepCard(
+                step = 2,
+                icon = Icons.Default.Battery5Bar,
+                title = "Configure Battery Settings",
+                description = "On the tested Redmi 13 5G, notification capture resumed after allowing unrestricted battery usage and enabling Autostart. Xiaomi/HyperOS background controls may affect reliability.",
+                isGranted = uiState.batteryOptimizationIgnored,
+                buttonLabel = "Open Battery Settings",
+                onAction = {
+                    try {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (e: Exception) {
                         val intent = Intent(
-                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.parse("package:${context.packageName}")
                         )
                         context.startActivity(intent)
@@ -157,62 +179,124 @@ fun SetupScreen(
                 }
             )
 
-            // Step 2 – Notification Listener
-            SetupStepCard(
-                step = 2,
-                icon = Icons.Default.Notifications,
-                title = "Grant Notification Access",
-                description = "Allows GemmaControl to read WhatsApp notifications on-device. Nothing is sent off your phone.",
-                isGranted = listenerEnabled,
-                buttonLabel = "Open Notification Access",
-                onAction = {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
-            )
+            // Step 3 – MIUI Autostart (Xiaomi-specific)
+            if (uiState.isXiaomiLikeDevice) {
+                MiuiAutostartCard(
+                    acknowledged = uiState.xiaomiAutostartAcknowledged,
+                    onAcknowledge = { viewModel.acknowledgeAutostart(it) }
+                )
+            }
 
-            // Step 3 – MIUI Autostart (informational only — can't request programmatically)
-            MiuiAutostartCard()
-
-            // Refresh + Continue button
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { viewModel.refreshPermissions(context) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentBlue.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
+            // Status message if complete
+            if (uiState.reliabilitySetupComplete) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentGreen.copy(alpha = 0.15f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, AccentGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Refresh Status", fontWeight = FontWeight.SemiBold)
-                }
-                Button(
-                    onClick = onSetupComplete,
-                    enabled = listenerEnabled, // at minimum need the listener
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (allDone) AccentGreen else AccentBlue,
-                        disabledContainerColor = CardBorder
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        if (allDone) Icons.Default.CheckCircle else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
                     Text(
-                        if (allDone) "All Set!" else "Continue",
-                        fontWeight = FontWeight.Bold
+                        text = "Ready for reliable background capture on this tested device configuration.",
+                        color = AccentGreen,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(12.dp)
                     )
                 }
             }
+
+            // Refresh + Continue / Continue anyway buttons
+            Spacer(Modifier.height(4.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.refreshPermissions(context) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentBlue.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Refresh Status", fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = onSetupComplete,
+                        enabled = uiState.reliabilitySetupComplete,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (uiState.reliabilitySetupComplete) AccentGreen else AccentBlue,
+                            disabledContainerColor = CardBorder
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            if (uiState.reliabilitySetupComplete) Icons.Default.CheckCircle else Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (uiState.reliabilitySetupComplete) "All Set!" else "Continue",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // If Notification Access is enabled but reliability setup is incomplete, show "Continue anyway"
+                if (uiState.notificationAccessEnabled && !uiState.reliabilitySetupComplete) {
+                    TextButton(
+                        onClick = { showWarningDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange)
+                    ) {
+                        Text("Continue anyway", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+            }
         }
+    }
+
+    // Warning Dialog for Continuing anyway
+    if (showWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showWarningDialog = false },
+            title = { Text("Unreliable Capture Warning", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Background notification capture may be unreliable until battery and Autostart settings are configured.",
+                    color = TextMuted,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showWarningDialog = false
+                        onSetupComplete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
+                ) {
+                    Text("Continue Anyway", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWarningDialog = false }) {
+                    Text("Go Back", color = TextMuted)
+                }
+            },
+            containerColor = CardBg,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -231,7 +315,7 @@ private fun ProgressBadge(done: Int, total: Int) {
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
     ) {
         Text(
-            "$done / $total permissions granted",
+            "$done / $total steps configured",
             color = color,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -306,7 +390,7 @@ private fun SetupStepCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        "✓  Permission granted",
+                        "✓  Configured",
                         fontSize = 13.sp,
                         color = AccentGreen,
                         fontWeight = FontWeight.SemiBold,
@@ -321,12 +405,13 @@ private fun SetupStepCard(
 
 // ── MIUI Autostart guidance card ──────────────────────────────────────────────
 @Composable
-private fun MiuiAutostartCard() {
-    // Only show on MIUI / HyperOS devices (detected by manufacturer string)
-    val isMiui = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) ||
-                 Build.MANUFACTURER.equals("Redmi", ignoreCase = true) ||
-                 Build.MANUFACTURER.equals("POCO", ignoreCase = true)
+private fun MiuiAutostartCard(
+    acknowledged: Boolean,
+    onAcknowledge: (Boolean) -> Unit
+) {
     val context = LocalContext.current
+    val accentColor = if (acknowledged) AccentGreen else AccentOrange
+    val borderColor = if (acknowledged) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f)
 
     // Try to detect a running MIUI security app component for the autostart shortcut
     val miuiAutostartIntent = remember {
@@ -338,40 +423,42 @@ private fun MiuiAutostartCard() {
         intent
     }
 
-    if (!isMiui) return  // Samsung/Pixel users don't need this
-
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CardBg,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, AccentOrange.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .background(AccentOrange.copy(alpha = 0.12f), CircleShape),
+                        .background(accentColor.copy(alpha = 0.12f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("MI", color = AccentOrange, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    Text("MI", color = accentColor, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "XIAOMI / MIUI",
+                        "Step 3 · XIAOMI / MIUI",
                         fontSize = 11.sp,
-                        color = AccentOrange,
+                        color = accentColor,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.8.sp
                     )
                     Text("Enable Autostart", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
-                Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(24.dp))
+                if (acknowledged) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Confirmed manually", tint = AccentGreen, modifier = Modifier.size(24.dp))
+                } else {
+                    Icon(Icons.Default.Warning, contentDescription = "Unacknowledged", tint = AccentOrange, modifier = Modifier.size(24.dp))
+                }
             }
 
             Text(
-                "MIUI aggressively kills background services. You must whitelist GemmaControl in Security Settings → Autostart, otherwise the notification listener will stop after the app is swiped away.",
+                "MIUI aggressively kills background services. You must whitelist GemmaControl in Security Settings → Autostart, otherwise notification capture will fail in the background.",
                 fontSize = 13.sp,
                 color = TextMuted,
                 lineHeight = 18.sp
@@ -387,7 +474,7 @@ private fun MiuiAutostartCard() {
                     "5. Also disable Battery Saver for GemmaControl"
                 ).forEach { step ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("›", color = AccentOrange, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("›", color = accentColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(step, fontSize = 13.sp, color = TextMuted, lineHeight = 18.sp)
                     }
                 }
@@ -410,6 +497,51 @@ private fun MiuiAutostartCard() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Open Autostart Settings", fontWeight = FontWeight.SemiBold)
+            }
+
+            HorizontalDivider(color = CardBorder)
+
+            Text(
+                text = "Autostart status cannot be verified automatically. Confirm only after enabling it manually in Xiaomi settings.",
+                fontSize = 12.sp,
+                color = TextMuted,
+                lineHeight = 16.sp
+            )
+
+            if (!acknowledged) {
+                Button(
+                    onClick = { onAcknowledge(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("I enabled Autostart for GemmaControl", fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AccentGreen.copy(alpha = 0.1f))
+                        .padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Confirmed manually",
+                        fontSize = 13.sp,
+                        color = AccentGreen,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(
+                        onClick = { onAcknowledge(false) },
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.height(20.dp)
+                    ) {
+                        Text("Undo", color = AccentRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
