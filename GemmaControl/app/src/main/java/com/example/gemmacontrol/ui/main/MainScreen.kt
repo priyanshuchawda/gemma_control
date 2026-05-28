@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
+import com.example.gemmacontrol.StoredInbox
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
@@ -82,7 +83,7 @@ fun MainScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { GemmaTopBar() }
+        topBar = { GemmaTopBar(onNavigateToInbox = { onItemClick(StoredInbox) }) }
     ) { innerPadding ->
         when (val currentState = state) {
             MainScreenUiState.Loading -> {
@@ -110,7 +111,7 @@ fun MainScreen(
 // ─── Top App Bar ──────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GemmaTopBar() {
+fun GemmaTopBar(onNavigateToInbox: () -> Unit) {
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -136,6 +137,15 @@ fun GemmaTopBar() {
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
+            }
+        },
+        actions = {
+            IconButton(onClick = onNavigateToInbox) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = "Stored Inbox",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(

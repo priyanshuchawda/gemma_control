@@ -88,19 +88,27 @@ val text  = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 
 ---
 
-## 4. Deduplication Candidate
+## 4. Deduplication Candidate & Room Persistence Policy
 
-To prevent duplicate in-memory entries when WhatsApp reposts a notification for an existing conversation, the parser generates a deterministic SHA-256 hash:
+In Phase 2A, the deduplication candidate is actively used to prevent duplicate message rows in the secure database. When WhatsApp reposts or refreshes a notification card with the same unread stack contents:
+1. The parser generates the deterministic SHA-256 `dedupeCandidate` hash.
+2. The `MessageEventEntity` stores this hash in `dedupeHash` which is backed by a **UNIQUE SQLite index**.
+3. The `MessageEventDao.insert()` operation utilizes `OnConflictStrategy.IGNORE` which silently ignores insertions with duplicate hashes. This ensures that repeating or updated notifications do not create duplicate historical rows on disk.
 
-```text
-dedupeCandidate = SHA-256(
-    packageName | notificationKey | timestamp | conversationTitle | senderName | messageText
-)
-```
+### Dual-Notification Normalization Policy
+During controlled tests on the Redmi 13 5G handset, we observed that each incoming WhatsApp message triggered two separate notifications:
+1. A canonical `MESSAGING_STYLE` individual chat notification.
+2. A paired `EXTRAS_FALLBACK` rollup summary notification.
 
-Different inputs always produce different hashes. Identical inputs always produce the same hash. This was validated by `testDedupeCandidate_isDeterministic`.
+To normalize this pattern and prevent two duplicate inbox entries:
+- **Debug volatile feed** continues to show both raw captures to maintain visibility.
+- **Persistent Secure Inbox** implements a strict canonicalization policy inside `NotificationPersistenceCoordinator`:
+  - `MESSAGING_STYLE` events are treated as primary canonical sources and persisted directly.
+  - An `EXTRAS_FALLBACK` summary rollup is discarded if a corresponding canonical `MESSAGING_STYLE` event has already been handled for that active notification key.
+  - If a fallback-only notification arrives with no matching canonical event, it is saved conservatively in an unclassified state (`ConversationType.UNKNOWN`) without silent deletion.
 
-> The deduplication candidate is **not** used for database deduplication in Phase 1 because there is no Room persistence. It is computed and stored in the model for Phase 2 use.
+> [!WARNING]
+> **Scope Warning**: This dual-notification pattern was observed during controlled physical tests on the Xiaomi Redmi 13 5G with the specific installed WhatsApp version. It must **not** be generalized as guaranteed baseline behavior across every Android version or WhatsApp build.
 
 ---
 

@@ -18,29 +18,40 @@ The application implements a **Zero-Cloud, Absolute Local Architecture**:
 To protect user message records from compromise or local unauthorized inspection, all sensitive message text is encrypted before writing to Room SQLite.
 
 ### A. Key Provisioning in Android Keystore
-The application generates a 256-bit symmetric AES key inside Android's secure hardware-backed container:
+The application generates a 256-bit symmetric AES key inside Android's secure hardware-backed container using `AndroidKeystoreMessageBodyCipher`:
 
 ```kotlin
-object CryptographyManager {
-    private const val KEY_ALIAS = "GemmaControlKey"
-    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-    private const val TRANSFORMATION = "AES/GCM/NoPadding"
+class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
 
-    fun getSecretKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        val existingKey = keyStore.getKey(KEY_ALIAS, null) as? SecretKey
-        if (existingKey != null) return existingKey
+    private val provider = "AndroidKeyStore"
+    private val keyAlias = "gemma_control_message_key"
+    private val transformation = "AES/GCM/NoPadding"
 
-        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
-        val spec = KeyGenParameterSpec.Builder(
-            KEY_ALIAS,
-            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-        )
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .build()
-        keyGenerator.init(spec)
-        return keyGenerator.generateKey()
+    init {
+        initKeyStore()
+    }
+
+    private fun initKeyStore() {
+        try {
+            val keyStore = KeyStore.getInstance(provider)
+            keyStore.load(null)
+            if (!keyStore.containsAlias(keyAlias)) {
+                val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, provider)
+                keyGenerator.init(
+                    KeyGenParameterSpec.Builder(
+                        keyAlias,
+                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                    )
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build()
+                )
+                keyGenerator.generateKey()
+            }
+        } catch (e: Exception) {
+            // Handle gracefully (e.g. in environments where KeyStore is mocked)
+        }
     }
 }
 ```

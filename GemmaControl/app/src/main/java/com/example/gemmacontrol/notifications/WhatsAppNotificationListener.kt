@@ -3,12 +3,20 @@ package com.example.gemmacontrol.notifications
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import com.example.gemmacontrol.ServiceLocator
 
 class WhatsAppNotificationListener : NotificationListenerService() {
+
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         private const val TAG = "WhatsAppListener"
@@ -100,34 +108,49 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
         val key = sbn.key ?: ""
         val keySuffix = if (key.length > 8) key.takeLast(8) else key
-        
-        val isUpdate = synchronized(activeKeys) {
-            val contains = activeKeys.contains(key)
-            activeKeys.add(key)
-            contains
-        }
 
-        val eventType = if (isUpdate) NotificationEventType.UPDATED else NotificationEventType.POSTED
-        Log.d(TAG, "Supported package observed: $packageName, Event Type: $eventType, Key Suffix: $keySuffix")
-
-        val parsed = WhatsAppNotificationParser.parse(this, sbn, eventType, isCurrentlyActive = true)
-        if (parsed == null) {
-            Log.e(TAG, "Failed to parse notification. Key Suffix: $keySuffix")
-            return
-        }
-
-        Log.d(TAG, "Parse success! Source: ${parsed.parseSource}, Messages: ${parsed.currentMessageCount}")
-
-        _capturedNotifications.update { current ->
-            // Mark previous items of this key as inactive
-            val updatedPrevious = current.map {
-                if (it.notificationKey == key) {
-                    it.copy(isCurrentlyActive = false)
-                } else {
-                    it
-                }
+        serviceScope.launch {
+            val prefs = ServiceLocator.getPreferencesRepository(this@WhatsAppNotificationListener)
+            val captureEnabled = prefs.captureEnabledFlow.first()
+            if (!captureEnabled) {
+                Log.d(TAG, "Capture is disabled. Ignoring notification. Key Suffix: $keySuffix")
+                return@launch
             }
-            (listOf(parsed) + updatedPrevious).take(MAX_HISTORY_LIMIT)
+
+            val isUpdate = synchronized(activeKeys) {
+                val contains = activeKeys.contains(key)
+                activeKeys.add(key)
+                contains
+            }
+
+            val eventType = if (isUpdate) NotificationEventType.UPDATED else NotificationEventType.POSTED
+            Log.d(TAG, "Supported package observed: $packageName, Event Type: $eventType, Key Suffix: $keySuffix")
+
+            val parsed = WhatsAppNotificationParser.parse(this@WhatsAppNotificationListener, sbn, eventType, isCurrentlyActive = true)
+            if (parsed == null) {
+                Log.e(TAG, "Failed to parse notification. Key Suffix: $keySuffix")
+                return@launch
+            }
+
+            Log.d(TAG, "Parse success! Source: ${parsed.parseSource}, Messages: ${parsed.currentMessageCount}")
+
+            _capturedNotifications.update { current ->
+                val updatedPrevious = current.map {
+                    if (it.notificationKey == key) {
+                        it.copy(isCurrentlyActive = false)
+                    } else {
+                        it
+                    }
+                }
+                (listOf(parsed) + updatedPrevious).take(MAX_HISTORY_LIMIT)
+            }
+
+            try {
+                val coordinator = ServiceLocator.getPersistenceCoordinator(this@WhatsAppNotificationListener)
+                coordinator.handleNotificationEvent(parsed)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error persisting notification event. Key Suffix: $keySuffix", e)
+            }
         }
     }
 
@@ -139,15 +162,19 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         val key = sbn.key ?: ""
         val keySuffix = if (key.length > 8) key.takeLast(8) else key
 
-        val existed = synchronized(activeKeys) {
-            activeKeys.remove(key)
-        }
-        if (!existed) return // Ignore if not currently active
+        serviceScope.launch {
+            val prefs = ServiceLocator.getPreferencesRepository(this@WhatsAppNotificationListener)
+            val captureEnabled = prefs.captureEnabledFlow.first()
+            if (!captureEnabled) return@launch
 
-        Log.d(TAG, "Notification removed: $packageName, Event Type: REMOVED, Key Suffix: $keySuffix")
+            val existed = synchronized(activeKeys) {
+                activeKeys.remove(key)
+            }
+            if (!existed) return@launch
 
-        _capturedNotifications.update { current ->
-            val lastEvent = current.firstOrNull { it.notificationKey == key }
+            Log.d(TAG, "Notification removed: $packageName, Event Type: REMOVED, Key Suffix: $keySuffix")
+
+            val lastEvent = _capturedNotifications.value.firstOrNull { it.notificationKey == key }
             val removedEvent = ParsedWhatsAppNotificationEvent(
                 eventType = NotificationEventType.REMOVED,
                 notificationKey = key,
@@ -166,15 +193,23 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 isCurrentlyActive = false
             )
 
-            // Mark previous items of this key as inactive
-            val updatedPrevious = current.map {
-                if (it.notificationKey == key) {
-                    it.copy(isCurrentlyActive = false)
-                } else {
-                    it
+            _capturedNotifications.update { current ->
+                val updatedPrevious = current.map {
+                    if (it.notificationKey == key) {
+                        it.copy(isCurrentlyActive = false)
+                    } else {
+                        it
+                    }
                 }
+                (listOf(removedEvent) + updatedPrevious).take(MAX_HISTORY_LIMIT)
             }
-            (listOf(removedEvent) + updatedPrevious).take(MAX_HISTORY_LIMIT)
+
+            try {
+                val coordinator = ServiceLocator.getPersistenceCoordinator(this@WhatsAppNotificationListener)
+                coordinator.handleNotificationEvent(removedEvent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error persisting REMOVED event. Key Suffix: $keySuffix", e)
+            }
         }
     }
 }

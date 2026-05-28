@@ -48,10 +48,13 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 - **`WhatsAppNotificationParser`**: Extracts unread history from `Notification.MessagingStyle` structures, isolates group conversation headers from message sender display names, and constructs a deduplication hash (`dedupe_hash`) to avoid duplicate row creation on repost events.
 - **WhatsApp Package Constraint**: The service parses alert payloads belonging to `"com.whatsapp"` or `"com.whatsapp.w4b"`. Since WhatsApp is currently not detected on the device profile checked through ADB, physical notification intercepts require installing and activating WhatsApp on the handset.
 
-### C. Storage Module (`com.example.gemmacontrol.data`)
-- **Entities**: Room-backed definitions for `ConversationEntity`, `MessageEventEntity`, `ActiveNotificationReferenceEntity`, `FollowUpEntity`, `ReminderEntity`, `DraftReplyEntity`, and `AssistantActionEntity`.
-- **Database Wrapper**: Configured with a cascade delete logic structure (e.g. wiping a message event automatically deletes its follow-ups and reminders).
-- **Keystore Cipher**: A local cipher that generates an AES-GCM 256-bit key protected by Android Keystore. Plaintext is decrypted purely in memory when presenting screen lists.
+### C. Storage and Persistence Module (`com.example.gemmacontrol.data`)
+- **Entities (`data/local/entity`)**: Room-backed definitions for `ConversationEntity`, `MessageEventEntity`, and `ActiveNotificationReferenceEntity` mapped to SQLite tables. `MessageEventEntity` references `ConversationEntity` via a cascade foreign key constraint.
+- **Room Database (`data/local/GemmaControlDatabase.kt`)**: Room SQLite database subclass with custom `RoomTypeConverters` for `ConversationType` and `NotificationParseSource` enums.
+- **Keystore Cryptography (`data/crypto`)**: `MessageBodyCipher` interface and `AndroidKeystoreMessageBodyCipher` production implementation. Generates a 256-bit AES key securely inside the hardware-backed `AndroidKeyStore` container. Utilizes `AES/GCM/NoPadding` with fresh random initialization vectors (IV) for every encryption operation.Ciphertext and IV are persisted; message plaintext is decrypted dynamically in-memory when fetching rows for local UI display.
+- **Preferences settings (`data/preferences`)**: `CapturePreferencesRepository` interface and `DataStoreCapturePreferencesRepository` implementation backed by Preferences DataStore. Manages opt-in persistence consents: `captureEnabled` (defaults to `true`) and `storageEnabled` (defaults to `false` until explicit confirmation).
+- **StoredInboxRepository (`data/repository`)**: Dynamic boundary that encrypts payloads before Room writes and decrypts them on load, managing conversations, messages, references, and purging database tables under single transactions.
+- **NotificationPersistenceCoordinator (`data/repository`)**: Main ingestion controller that checks storage permissions, intercepts `REMOVED` events to mark active references, and filters out `EXTRAS_FALLBACK` summary rollups when a `MESSAGING_STYLE` event is already recorded for that key.
 
 ### D. Model Routing Module (`com.example.gemmacontrol.ai`)
 - **`FunctionGemmaEngine`**: Orchestrates offline inputs through Google's **LiteRT-LM Android SDK**.
