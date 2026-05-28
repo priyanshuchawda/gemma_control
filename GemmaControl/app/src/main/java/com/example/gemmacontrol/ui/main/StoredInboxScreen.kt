@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.data.repository.StoredInboxRepository.DecryptedMessage
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -52,15 +53,25 @@ fun StoredInboxScreen(
     val captureEnabled by viewModel.captureEnabled.collectAsStateWithLifecycle()
     val storageEnabled by viewModel.storageEnabled.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val activeRepliesAvailability by viewModel.activeRepliesAvailability.collectAsStateWithLifecycle()
 
     var showStorageConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    var activeReplyMessage by remember { mutableStateOf<DecryptedMessage?>(null) }
+    var replyText by remember { mutableStateOf("") }
+    var showReplyDialog by remember { mutableStateOf(false) }
+    var showReplyConfirmDialog by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     val formatter = remember { SimpleDateFormat("MMM dd, HH:mm:ss", Locale.US) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -262,7 +273,17 @@ fun StoredInboxScreen(
                     items = messages,
                     key = { it.id }
                 ) { message ->
-                    StoredMessageRow(message = message, formatter = formatter)
+                    val isReplyAvailable = activeRepliesAvailability[message.notificationKey] ?: false
+                    StoredMessageRow(
+                        message = message,
+                        formatter = formatter,
+                        isReplyAvailable = isReplyAvailable,
+                        onReplyClick = {
+                            activeReplyMessage = message
+                            replyText = ""
+                            showReplyDialog = true
+                        }
+                    )
                 }
             }
         }
@@ -320,12 +341,148 @@ fun StoredInboxScreen(
             }
         )
     }
+
+    // Reply Composer Dialog
+    if (showReplyDialog && activeReplyMessage != null) {
+        val message = activeReplyMessage!!
+        AlertDialog(
+            onDismissRequest = {
+                showReplyDialog = false
+                replyText = ""
+                activeReplyMessage = null
+            },
+            title = {
+                Text(
+                    text = "Reply to ${message.conversationId}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Preview bubble of what is being replied to
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            if (message.senderName != null && message.senderName != message.conversationId) {
+                                Text(
+                                    text = message.senderName,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = message.decryptedText ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = replyText,
+                        onValueChange = { if (it.length <= 1000) replyText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        label = { Text("Your reply") },
+                        placeholder = { Text("Type your reply...") },
+                        maxLines = 5,
+                        supportingText = {
+                            Text(
+                                text = "${replyText.length} / 1000",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (replyText.trim().isNotEmpty()) {
+                            showReplyConfirmDialog = true
+                        }
+                    },
+                    enabled = replyText.trim().isNotEmpty()
+                ) {
+                    Text("Review Send")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showReplyDialog = false
+                        replyText = ""
+                        activeReplyMessage = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Final Confirmation Dialog
+    if (showReplyConfirmDialog && activeReplyMessage != null) {
+        val message = activeReplyMessage!!
+        AlertDialog(
+            onDismissRequest = { showReplyConfirmDialog = false },
+            title = { Text("Confirm Send?") },
+            text = {
+                Text("Send this reply through the active WhatsApp notification?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showReplyConfirmDialog = false
+                        showReplyDialog = false
+
+                        val result = viewModel.sendConfirmedReply(message.notificationKey, replyText)
+
+                        replyText = ""
+                        activeReplyMessage = null
+
+                        scope.launch {
+                            val msg = when (result) {
+                                com.example.gemmacontrol.notifications.ReplySendResult.Success ->
+                                    "Reply sent through active notification."
+                                com.example.gemmacontrol.notifications.ReplySendResult.NoActiveReplyAction,
+                                com.example.gemmacontrol.notifications.ReplySendResult.NotificationExpired ->
+                                    "Reply unavailable. The notification may have expired or been cleared."
+                                else ->
+                                    "Reply could not be sent safely. Try from a new notification."
+                            }
+                            snackbarHostState.showSnackbar(msg)
+                        }
+                    }
+                ) {
+                    Text("Confirm Send")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplyConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun StoredMessageRow(
     message: DecryptedMessage,
-    formatter: SimpleDateFormat
+    formatter: SimpleDateFormat,
+    isReplyAvailable: Boolean,
+    onReplyClick: () -> Unit
 ) {
     val dateStr = formatter.format(Date(message.postedAt))
     
@@ -408,6 +565,32 @@ fun StoredMessageRow(
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f)
                 )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isReplyAvailable) {
+                    Button(
+                        onClick = onReplyClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Reply", style = MaterialTheme.typography.labelMedium)
+                    }
+                } else {
+                    Text(
+                        text = "Reply unavailable — notification is no longer active",
+                        style = MaterialTheme.typography.labelSmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
             }
         }
     }

@@ -24,6 +24,21 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
     val messages: StateFlow<List<StoredInboxRepository.DecryptedMessage>> = storedInboxRepository.getAllDecryptedMessagesFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val activeRepliesAvailability: StateFlow<Map<String, Boolean>> = com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry.availabilityFlow
+
+    private val replyExecutor = com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor()
+
+    fun sendConfirmedReply(
+        notificationKey: String,
+        text: String
+    ): com.example.gemmacontrol.notifications.ReplySendResult {
+        return replyExecutor.sendConfirmedReply(
+            context = getApplication(),
+            notificationKey = notificationKey,
+            text = text
+        )
+    }
+
     fun setCaptureEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setCaptureEnabled(enabled)

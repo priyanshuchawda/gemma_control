@@ -135,6 +135,13 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
             Log.d(TAG, "Parse success! Source: ${parsed.parseSource}, Messages: ${parsed.currentMessageCount}")
 
+            InMemoryActiveReplyActionRegistry.registerFromNotification(
+                notificationKey = key,
+                packageName = packageName,
+                notification = sbn.notification,
+                capturedAt = System.currentTimeMillis()
+            )
+
             _capturedNotifications.update { current ->
                 val updatedPrevious = current.map {
                     if (it.notificationKey == key) {
@@ -174,6 +181,8 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             if (!existed) return@launch
 
             Log.d(TAG, "Notification removed: $packageName, Event Type: REMOVED, Key Suffix: $keySuffix")
+
+            InMemoryActiveReplyActionRegistry.remove(key)
 
             val lastEvent = _capturedNotifications.value.firstOrNull { it.notificationKey == key }
             val removedEvent = ParsedWhatsAppNotificationEvent(
@@ -216,6 +225,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        InMemoryActiveReplyActionRegistry.clear()
         serviceScope.cancel()
     }
 }
