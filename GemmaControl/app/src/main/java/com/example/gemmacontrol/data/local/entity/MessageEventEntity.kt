@@ -18,21 +18,22 @@ import com.example.gemmacontrol.notifications.NotificationParseSource
     ],
     indices = [
         Index(value = ["conversationId"]),
-        Index(value = ["dedupeHash"], unique = true)
+        Index(value = ["dedupeToken"], unique = true)
     ]
 )
 data class MessageEventEntity(
     @PrimaryKey
     val id: String,
-    val conversationId: String,
-    val senderName: String?,
+    val conversationId: String, // opaque conversation ID
+    val encryptedSenderName: ByteArray?,
+    val senderNameIv: ByteArray?,
     val encryptedMessageText: ByteArray?,
-    val encryptionIv: ByteArray?,
+    val messageTextIv: ByteArray?,
     val postedAt: Long,
     val notificationKey: String,
     val sourcePackage: String,
     val parseSource: NotificationParseSource,
-    val dedupeHash: String,
+    val dedupeToken: String, // HMAC token, not plaintext SHA-256
     val isContentUnavailable: Boolean,
     val createdAt: Long
 ) {
@@ -44,20 +45,27 @@ data class MessageEventEntity(
 
         if (id != other.id) return false
         if (conversationId != other.conversationId) return false
-        if (senderName != other.senderName) return false
+        if (encryptedSenderName != null) {
+            if (other.encryptedSenderName == null) return false
+            if (!encryptedSenderName.contentEquals(other.encryptedSenderName)) return false
+        } else if (other.encryptedSenderName != null) return false
+        if (senderNameIv != null) {
+            if (other.senderNameIv == null) return false
+            if (!senderNameIv.contentEquals(other.senderNameIv)) return false
+        } else if (other.senderNameIv != null) return false
         if (encryptedMessageText != null) {
             if (other.encryptedMessageText == null) return false
             if (!encryptedMessageText.contentEquals(other.encryptedMessageText)) return false
         } else if (other.encryptedMessageText != null) return false
-        if (encryptionIv != null) {
-            if (other.encryptionIv == null) return false
-            if (!encryptionIv.contentEquals(other.encryptionIv)) return false
-        } else if (other.encryptionIv != null) return false
+        if (messageTextIv != null) {
+            if (other.messageTextIv == null) return false
+            if (!messageTextIv.contentEquals(other.messageTextIv)) return false
+        } else if (other.messageTextIv != null) return false
         if (postedAt != other.postedAt) return false
         if (notificationKey != other.notificationKey) return false
         if (sourcePackage != other.sourcePackage) return false
         if (parseSource != other.parseSource) return false
-        if (dedupeHash != other.dedupeHash) return false
+        if (dedupeToken != other.dedupeToken) return false
         if (isContentUnavailable != other.isContentUnavailable) return false
         if (createdAt != other.createdAt) return false
 
@@ -67,14 +75,15 @@ data class MessageEventEntity(
     override fun hashCode(): Int {
         var result = id.hashCode()
         result = 31 * result + conversationId.hashCode()
-        result = 31 * result + (senderName?.hashCode() ?: 0)
+        result = 31 * result + (encryptedSenderName?.contentHashCode() ?: 0)
+        result = 31 * result + (senderNameIv?.contentHashCode() ?: 0)
         result = 31 * result + (encryptedMessageText?.contentHashCode() ?: 0)
-        result = 31 * result + (encryptionIv?.contentHashCode() ?: 0)
+        result = 31 * result + (messageTextIv?.contentHashCode() ?: 0)
         result = 31 * result + postedAt.hashCode()
         result = 31 * result + notificationKey.hashCode()
         result = 31 * result + sourcePackage.hashCode()
         result = 31 * result + parseSource.hashCode()
-        result = 31 * result + dedupeHash.hashCode()
+        result = 31 * result + dedupeToken.hashCode()
         result = 31 * result + isContentUnavailable.hashCode()
         result = 31 * result + createdAt.hashCode()
         return result

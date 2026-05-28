@@ -13,8 +13,8 @@ interface MessageEventDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(message: MessageEventEntity): Long
 
-    @Query("SELECT * FROM message_events WHERE dedupeHash = :dedupeHash LIMIT 1")
-    suspend fun getByDedupeHash(dedupeHash: String): MessageEventEntity?
+    @Query("SELECT * FROM message_events WHERE dedupeToken = :dedupeToken LIMIT 1")
+    suspend fun getByDedupeToken(dedupeToken: String): MessageEventEntity?
 
     @Query("SELECT * FROM message_events ORDER BY postedAt DESC")
     fun getAllMessagesFlow(): Flow<List<MessageEventEntity>>

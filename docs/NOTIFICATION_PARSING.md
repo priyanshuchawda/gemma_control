@@ -19,7 +19,7 @@ Design reference for the `WhatsApp Notification Listener` and `WhatsApp Notifica
               ↓
 [ WhatsAppNotificationParser.parse() ]
               ↓  (MessagingStyle or Extras fallback)
-[ SHA-256 dedupeCandidate generated ]
+[ Deterministic volatile dedupeCandidate hash generated ]
               ↓
 [ Prepend to in-memory MutableStateFlow (cap: 100) ]
               ↓
@@ -88,12 +88,13 @@ val text  = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 
 ---
 
-## 4. Deduplication Candidate & Room Persistence Policy
+## 4. Keyed Deduplication & Room Persistence Policy
 
-In Phase 2A, the deduplication candidate is actively used to prevent duplicate message rows in the secure database. When WhatsApp reposts or refreshes a notification card with the same unread stack contents:
-1. The parser generates the deterministic SHA-256 `dedupeCandidate` hash.
-2. The `MessageEventEntity` stores this hash in `dedupeHash` which is backed by a **UNIQUE SQLite index**.
-3. The `MessageEventDao.insert()` operation utilizes `OnConflictStrategy.IGNORE` which silently ignores insertions with duplicate hashes. This ensures that repeating or updated notifications do not create duplicate historical rows on disk.
+When WhatsApp reposts or refreshes a notification card with the same unread stack contents, the system prevents duplicate message rows in the secure database using a privacy-safe, keyed token:
+1. The parser generates a deterministic SHA-256 `dedupeCandidate` string in memory for volatile logging and lifecycle tracking.
+2. The `StoredInboxRepository` translates this candidate into a secure database `dedupeToken` using `AndroidKeystoreHmacDedupeTokenGenerator`, which hashes the candidate using a hardware-locked Keystore HMAC key.
+3. The `MessageEventEntity` stores this `dedupeToken` inside a unique database column backed by a **UNIQUE SQLite index**.
+4. The `MessageEventDao.insert()` operation utilizes `OnConflictStrategy.IGNORE` which silently ignores insertions with duplicate tokens. This ensures that repeating notifications do not leak plaintext-derived fingerprints or create duplicate historical rows on disk.
 
 ### Dual-Notification Normalization Policy
 During controlled tests on the Redmi 13 5G handset, we observed that each incoming WhatsApp message triggered two separate notifications:
@@ -113,9 +114,9 @@ To normalize this pattern and prevent duplicate inbox entries:
 
 ## 5. Privacy Constraints
 
-- **No message body text, sender names, or group names are logged to Logcat.**
+- **No plaintext message body text, sender names, or group names are logged to Logcat or written to disk.**
 - Logcat output is limited to: package name, key suffix (last 8 chars), parse source label, message count.
-- The `ParsedMessagePreview.senderName` and `messageText` fields are held **in volatile in-memory only** and never written to disk or logged.
+- Encrypted data at rest: `messageText`, `senderName`, and `conversationTitle` are encrypted using Android Keystore-backed AES-GCM before writing to the database, ensuring absolute privacy at rest.
 
 ---
 

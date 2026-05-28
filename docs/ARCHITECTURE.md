@@ -50,9 +50,12 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 
 ### C. Storage and Persistence Module (`com.example.gemmacontrol.data`)
 - **Entities (`data/local/entity`)**: Room-backed definitions for `ConversationEntity`, `MessageEventEntity`, and `ActiveNotificationReferenceEntity` mapped to SQLite tables. `MessageEventEntity` references `ConversationEntity` via a cascade foreign key constraint.
-- **Room Database (`data/local/GemmaControlDatabase.kt`)**: Room SQLite database subclass with custom `RoomTypeConverters` for `ConversationType` and `NotificationParseSource` enums.
-- **Keystore Cryptography (`data/crypto`)**: `MessageBodyCipher` interface and `AndroidKeystoreMessageBodyCipher` production implementation. Generates a 256-bit AES key securely inside the secure `AndroidKeyStore` container. Utilizes `AES/GCM/NoPadding` with fresh random initialization vectors (IV) for every encryption operation. Ciphertext and IV are persisted; message plaintext is decrypted dynamically in-memory when fetching rows for local UI display.
+- **Room Database (`data/local/GemmaControlDatabase.kt`)**: Room SQLite database upgraded to Version 2. Standardizes schema validation and bundles explicit `MIGRATION_1_2` logic to dynamically encrypt legacy databases.
+- **Keystore Cryptography (`data/crypto`)**:
+  - `SensitiveTextCipher` boundary and `AndroidKeystoreSensitiveTextCipher` production implementation. Dynamically encrypts all human-readable metadata columns (titles, names, body text) at rest using AES-GCM with secure random 12-byte IV parameters per record.
+  - `DedupeTokenGenerator` boundary and `AndroidKeystoreHmacDedupeTokenGenerator` production implementation. Generates secure, keyed HMAC-SHA256 tokens linked to hardware-protected Keystore HMAC keys, preventing offline guessing dictionary exploits.
 - **Preferences settings (`data/preferences`)**: `CapturePreferencesRepository` interface and `DataStoreCapturePreferencesRepository` implementation backed by Preferences DataStore. Manages opt-in persistence consents: `captureEnabled` (defaults to `true`), `storageEnabled` (defaults to `false` until explicit confirmation), and `storageEnabledAt` consent timestamp gating.
+
 - **StoredInboxRepository (`data/repository`)**: Dynamic boundary that encrypts payloads before Room writes and decrypts them on load, managing conversations, messages, references, and purging database tables atomically under a single Room transaction.
 - **NotificationPersistenceCoordinator (`data/repository`)**: Main ingestion controller that checks storage permissions, intercepts `REMOVED` events to mark active references, enforces `storageEnabledAt` post-consent gating, and discards `EXTRAS_FALLBACK` summary rollups from Room persistence completely (keeping them strictly volatile-only in the debug feed).
 

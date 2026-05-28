@@ -15,13 +15,13 @@ The application implements a **Zero-Cloud, Absolute Local Architecture**:
 
 ## 2. In-App AES-GCM Key Encryption at Rest
 
-To protect user message records from compromise or local unauthorized inspection, all sensitive message text is encrypted before writing to Room SQLite.
+To protect user message records and metadata from compromise or local unauthorized inspection, all sensitive text content is encrypted before writing to Room SQLite.
 
 ### A. Key Provisioning in Android Keystore
-The application generates a 256-bit symmetric AES key inside Android's secure Keystore container using `AndroidKeystoreMessageBodyCipher`:
+The application generates a 256-bit symmetric AES key inside Android's secure Keystore container using `AndroidKeystoreSensitiveTextCipher`:
 
 ```kotlin
-class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
+class AndroidKeystoreSensitiveTextCipher : SensitiveTextCipher {
 
     private val provider = "AndroidKeyStore"
     private val keyAlias = "gemma_control_message_key"
@@ -50,15 +50,25 @@ class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
                 keyGenerator.generateKey()
             }
         } catch (e: Exception) {
-            // Handle gracefully (e.g. in environments where KeyStore is mocked)
+            // Handle gracefully
         }
     }
 }
 ```
 
 ### B. Payload Encryption Procedures
-- Encrypted Columns: `encrypted_message_text` inside `MessageEventEntity`, and `encrypted_message_text` inside `DraftReplyEntity`.
-- **Initialization Vector (IV)**: A cryptographically secure random 12-byte IV is generated for each encryption transaction, prepended to the ciphertext, and stored as an encrypted binary blob/string in SQLite.
+- **Encrypted Columns**:
+  - `ConversationEntity.encryptedDisplayName` (contact/group display name)
+  - `ConversationEntity.encryptedVerifiedPhoneNumberE164` (phone numbers if parsed)
+  - `MessageEventEntity.encryptedSenderName` (message sender display name)
+  - `MessageEventEntity.encryptedMessageText` (message body text)
+- **Initialization Vector (IV)**: A cryptographically secure random 12-byte IV is generated for each field encryption transaction and stored alongside the ciphertext in the database as a separate binary BLOB.
+- **Dynamic Decryption**: plain text is decrypted dynamically in-memory only when fetching rows at the repository boundary, preventing any plaintext storage at rest.
+
+### C. Keyed Deduplication Fingerprints & Opaque Identifiers
+To prevent dictionary attacks and offline guesses by attackers who copy the SQLite database, structural identifiers are hashed using a secret 256-bit HMAC-SHA256 key (`gemma_control_hmac_key`) locked inside the Android Keystore:
+- **Opaque Conversation ID**: `conversationOpaqueId = HMAC-SHA256("Title-Type")`. The database never stores the raw plaintext title as its primary key.
+- **Opaque Dedupe Token**: `dedupeToken = HMAC-SHA256("FingerprintMaterial")`. Plaintext-derived SHA-256 strings are not written to SQLite.
 
 ---
 
@@ -67,23 +77,21 @@ class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
 Encrypting database columns at rest introduces a technical limitation: SQLite FTS5 or `LIKE` queries cannot index ciphertext natively.
 
 ### The Plaintext Metadata & Memory Trade-off
-To maintain search efficiency without compromising security, we adopt a **hybrid storage strategy**:
-- **Searchable Metadata**: Non-sensitive structural fields remain in plaintext within Room:
-  - `sender_name` (parsed contact name)
-  - `conversation_id` (structural conversation matching row)
-  - `posted_at` (timestamps)
-  - `priority` / `status` tags
-- **Encrypted Content**: The raw body of the message preview and drafted replies are encrypted using AES-GCM.
-- **Search Operations (V1 Plan)**:
-  - SQLite queries filter records by contact name and timestamp limits in plaintext.
-  - When the user searches using text keyword FTS queries, Room fetches the candidate encrypted records (e.g. top 100 matching timestamps/contacts), decodes them in memory, and applies English keyword search logic.
-  - This design provides robust encryption at rest while maintaining offline search capabilities. We honestly document this design rather than claiming "encrypted searchable databases."
+To maintain search efficiency without compromising security, we adopt an **in-memory decryption strategy**:
+- **Non-Sensitive Metadata**: Only non-sensitive, operational structural metadata remains in plaintext:
+  - `postedAt` (timestamps)
+  - `sourcePackage` (e.g. `"com.whatsapp"`)
+  - `parseSource` (e.g. `"MESSAGING_STYLE"`)
+  - `notificationKey` (required for active references)
+- **Search Operations**:
+  - SQLite queries can filter records by timestamps or parse source in plaintext.
+  - For full-text keyword searches, the repository loads the candidates (which are bounded by the 100-entry inbox history limit), decrypts them dynamically in-memory, and filters matches. This provides absolute privacy at rest with high execution speeds.
 
 ---
 
 ## 4. Cascading Purge Compliance
 
-When the user triggers a deletion via `delete_local_whatsapp_data`, the app guarantees cascading wiping across SQLite entities:
-- Wiping a `MessageEventEntity` row automatically deletes associated `FollowUpEntity`, `ReminderEntity`, and `DraftReplyEntity` records via SQL ForeignKey cascade rules (`onDelete = ForeignKey.CASCADE`).
-- Wiping a `ConversationEntity` clears matching message indices.
-- A full database purge clears the Room database and resets internal encryption IVs.
+When the user triggers a deletion via `Delete All` in the UI, the app guarantees cascading wiping across SQLite entities:
+- Wiping a `MessageEventEntity` row automatically deletes associated records.
+- Purging all data wipes `message_events`, `conversations`, and `active_notification_references` atomically inside a single transaction.
+

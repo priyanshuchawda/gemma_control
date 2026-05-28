@@ -9,7 +9,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
+class AndroidKeystoreSensitiveTextCipher : SensitiveTextCipher {
 
     private val provider = "AndroidKeyStore"
     private val keyAlias = "gemma_control_message_key"
@@ -38,7 +38,7 @@ class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
                 keyGenerator.generateKey()
             }
         } catch (e: Exception) {
-            // Log or handle gracefully (e.g. in environments where KeyStore is mocked)
+            // Handle gracefully (e.g. in environments where KeyStore is mocked)
         }
     }
 
@@ -48,17 +48,23 @@ class AndroidKeystoreMessageBodyCipher : MessageBodyCipher {
         return keyStore.getKey(keyAlias, null) as SecretKey
     }
 
-    override fun encrypt(plaintext: String): EncryptedPayload {
+    override fun encrypt(plaintext: String, associatedData: ByteArray?): EncryptedPayload {
         val cipher = Cipher.getInstance(transformation)
         cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
+        if (associatedData != null) {
+            cipher.updateAAD(associatedData)
+        }
         val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
         return EncryptedPayload(ciphertext, cipher.iv)
     }
 
-    override fun decrypt(payload: EncryptedPayload): String {
+    override fun decrypt(payload: EncryptedPayload, associatedData: ByteArray?): String {
         val cipher = Cipher.getInstance(transformation)
         val spec = GCMParameterSpec(128, payload.iv)
         cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
+        if (associatedData != null) {
+            cipher.updateAAD(associatedData)
+        }
         val decryptedBytes = cipher.doFinal(payload.ciphertext)
         return String(decryptedBytes, StandardCharsets.UTF_8)
     }
