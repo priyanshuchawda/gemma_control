@@ -37,6 +37,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.gemmacontrol.StoredInbox
+import com.example.gemmacontrol.VoiceAssistant
+import com.example.gemmacontrol.AppSettings
+import androidx.compose.material.icons.filled.Settings
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
@@ -83,7 +86,13 @@ fun MainScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { GemmaTopBar(onNavigateToInbox = { onItemClick(StoredInbox) }) }
+        topBar = {
+            GemmaTopBar(
+                onNavigateToInbox = { onItemClick(StoredInbox) },
+                onNavigateToVoice = { onItemClick(VoiceAssistant) },
+                onNavigateToSettings = { onItemClick(AppSettings) }
+            )
+        }
     ) { innerPadding ->
         when (val currentState = state) {
             MainScreenUiState.Loading -> {
@@ -97,6 +106,7 @@ fun MainScreen(
                     modifier = Modifier.padding(innerPadding),
                     notifications = currentState.notifications,
                     isPermissionGranted = currentState.isPermissionGranted,
+                    onNavigateToVoice = { onItemClick(VoiceAssistant) },
                     onRequestPermission = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     },
@@ -111,7 +121,11 @@ fun MainScreen(
 // ─── Top App Bar ──────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GemmaTopBar(onNavigateToInbox: () -> Unit) {
+fun GemmaTopBar(
+    onNavigateToInbox: () -> Unit,
+    onNavigateToVoice: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -140,6 +154,20 @@ fun GemmaTopBar(onNavigateToInbox: () -> Unit) {
             }
         },
         actions = {
+            IconButton(onClick = onNavigateToVoice) {
+                Icon(
+                    imageVector = MicrophoneIcon,
+                    contentDescription = "Voice Assistant",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(onClick = onNavigateToSettings) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             IconButton(onClick = onNavigateToInbox) {
                 Icon(
                     Icons.Default.Lock,
@@ -149,7 +177,7 @@ fun GemmaTopBar(onNavigateToInbox: () -> Unit) {
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = TopAppBarDefaults.topAppBarColors().containerColor // fallback, using system default
         )
     )
 }
@@ -160,6 +188,7 @@ internal fun MainScreenContent(
     modifier: Modifier = Modifier,
     notifications: List<ParsedWhatsAppNotificationEvent>,
     isPermissionGranted: Boolean,
+    onNavigateToVoice: () -> Unit,
     onRequestPermission: () -> Unit,
     onClearNotifications: () -> Unit,
     onCheckPermission: () -> Unit,
@@ -178,6 +207,11 @@ internal fun MainScreenContent(
                 onRequestPermission = onRequestPermission,
                 onCheckPermission = onCheckPermission
             )
+        }
+
+        // Voice Assistant Card
+        item(key = "voice_assistant") {
+            VoiceAssistantHomeCard(onNavigateToVoice = onNavigateToVoice)
         }
 
         // Privacy notice (collapsed, less dominant)
@@ -505,3 +539,51 @@ private fun Chip(label: String) {
 
 @Composable
 fun rememberFormatter(): SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
+
+@Composable
+fun VoiceAssistantHomeCard(
+    onNavigateToVoice: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Voice Assistant",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                text = "Speak commands for your recent WhatsApp notifications.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+            )
+            Spacer(Modifier.height(4.dp))
+            Button(
+                onClick = onNavigateToVoice,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = MicrophoneIcon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Tap to speak", color = Color.White)
+            }
+        }
+    }
+}
