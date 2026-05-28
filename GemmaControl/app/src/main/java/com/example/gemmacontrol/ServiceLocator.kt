@@ -56,10 +56,12 @@ object ServiceLocator {
                 db.messageEventDao(),
                 db.activeNotificationReferenceDao(),
                 getSensitiveTextCipher(),
-                getDedupeTokenGenerator()
+                getDedupeTokenGenerator(),
+                db
             ).also { storedInboxRepository = it }
         }
     }
+
 
     fun getPersistenceCoordinator(context: Context): NotificationPersistenceCoordinator {
         return persistenceCoordinator ?: synchronized(this) {

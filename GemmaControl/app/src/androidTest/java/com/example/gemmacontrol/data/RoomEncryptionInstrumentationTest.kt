@@ -383,4 +383,150 @@ class RoomEncryptionInstrumentationTest {
         migratedDb.close()
         context.deleteDatabase("test_migration_database")
     }
+
+    @Test
+    fun testExplicitSchemaMigrationFailure_v1_to_v2_RollsBackCleanly() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val dbPath = context.getDatabasePath("test_migration_failure_database").absolutePath
+        context.deleteDatabase("test_migration_failure_database")
+
+        // 1. Manually create a version-1 SQLite database
+        val helper = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("test_migration_failure_database")
+                .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(1) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("""
+                            CREATE TABLE IF NOT EXISTS `conversations` (
+                                `id` TEXT NOT NULL, 
+                                `displayName` TEXT NOT NULL, 
+                                `conversationType` TEXT NOT NULL, 
+                                `verifiedPhoneNumberE164` TEXT, 
+                                `createdAt` INTEGER NOT NULL, 
+                                `updatedAt` INTEGER NOT NULL, 
+                                PRIMARY KEY(`id`)
+                            )
+                        """.trimIndent())
+
+                        db.execSQL("""
+                            CREATE TABLE IF NOT EXISTS `message_events` (
+                                `id` TEXT NOT NULL, 
+                                `conversationId` TEXT NOT NULL, 
+                                `senderName` TEXT, 
+                                `encryptedMessageText` BLOB, 
+                                `encryptionIv` BLOB, 
+                                `postedAt` INTEGER NOT NULL, 
+                                `notificationKey` TEXT NOT NULL, 
+                                `sourcePackage` TEXT NOT NULL, 
+                                `parseSource` TEXT NOT NULL, 
+                                `dedupeHash` TEXT NOT NULL, 
+                                `isContentUnavailable` INTEGER NOT NULL, 
+                                `createdAt` INTEGER NOT NULL, 
+                                PRIMARY KEY(`id`), 
+                                FOREIGN KEY(`conversationId`) REFERENCES `conversations`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE 
+                            )
+                        """.trimIndent())
+
+                        db.execSQL("""
+                            CREATE TABLE IF NOT EXISTS `active_notification_references` (
+                                `notificationKey` TEXT NOT NULL, 
+                                `latestMessageEventId` TEXT, 
+                                `hadReplyActionWhenSeen` INTEGER NOT NULL, 
+                                `lastSeenActiveAt` INTEGER NOT NULL, 
+                                `removedAt` INTEGER, 
+                                PRIMARY KEY(`notificationKey`)
+                            )
+                        """.trimIndent())
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build()
+        )
+
+        val writeDb = helper.writableDatabase
+
+        // Seed v1 plaintext records
+        val convValues = android.content.ContentValues().apply {
+            put("id", "Spidey")
+            put("displayName", "Spidey Chat")
+            put("conversationType", "DIRECT")
+            putNull("verifiedPhoneNumberE164")
+            put("createdAt", 1716900000000L)
+            put("updatedAt", 1716900000000L)
+        }
+        writeDb.insert("conversations", 0, convValues)
+
+        val payloadMsg = cipher.encrypt("Meet me at Bugle!")
+        val msgValues = android.content.ContentValues().apply {
+            put("id", "msg_1")
+            put("conversationId", "Spidey")
+            put("senderName", "Peter Parker")
+            put("encryptedMessageText", payloadMsg.ciphertext)
+            put("encryptionIv", payloadMsg.iv)
+            put("postedAt", 1716900000000L)
+            put("notificationKey", "notif_1")
+            put("sourcePackage", "com.whatsapp")
+            put("parseSource", "MESSAGING_STYLE")
+            put("dedupeHash", "fingerprint_123")
+            put("isContentUnavailable", 0)
+            put("createdAt", 1716900000000L)
+        }
+        writeDb.insert("message_events", 0, msgValues)
+        writeDb.close()
+
+        // 2. Instantiate a deliberately failing token generator
+        val failingTokenGen = object : com.example.gemmacontrol.data.crypto.DedupeTokenGenerator {
+            override fun generate(canonicalIdentityMaterial: String): String {
+                throw com.example.gemmacontrol.data.crypto.TokenGenerationFailure(Exception("Simulated Keystore crash during migration"))
+            }
+        }
+
+        val failingMigration = GemmaControlDatabase.getMigration_1_2(cipher, failingTokenGen)
+
+        // 3. Open database under Room and execute MIGRATION_1_2, expecting it to crash and rollback
+        val failingDb = Room.databaseBuilder(
+            context,
+            GemmaControlDatabase::class.java,
+            "test_migration_failure_database"
+        )
+        .addMigrations(failingMigration)
+        .build()
+
+        var migrationFailed = false
+        try {
+            runBlocking {
+                failingDb.conversationDao().getAllConversations()
+            }
+        } catch (e: Exception) {
+            migrationFailed = true
+            // Verify the exception is propagated cleanly to rollback SQLite transaction
+            assertTrue(e.message?.contains("Migration failed") == true || e.cause?.message?.contains("Migration failed") == true)
+        } finally {
+            failingDb.close()
+        }
+
+        assertTrue("Migration must fail closed", migrationFailed)
+
+        // 4. Confirm original v1 database is still intact and recoverable (transaction rolled back safely)
+        val recoveryHelper = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("test_migration_failure_database")
+                .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(1) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build()
+        )
+        val readDb = recoveryHelper.readableDatabase
+        val cursorRecovery = readDb.query("SELECT * FROM conversations")
+        assertTrue(cursorRecovery.moveToFirst())
+        // Verified plaintext v1 columns and data still exist cleanly, confirming safe rollback!
+        val dispIdx = cursorRecovery.getColumnIndex("displayName")
+        assertNotEquals(-1, dispIdx)
+        assertEquals("Spidey Chat", cursorRecovery.getString(dispIdx))
+        cursorRecovery.close()
+        readDb.close()
+
+        context.deleteDatabase("test_migration_failure_database")
+    }
 }

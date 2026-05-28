@@ -1,8 +1,6 @@
 package com.example.gemmacontrol.data
 
-import com.example.gemmacontrol.data.crypto.EncryptedPayload
-import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
-import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
+import com.example.gemmacontrol.data.crypto.*
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
@@ -363,6 +361,109 @@ class NotificationPersistenceCoordinatorTest {
         assertTrue(messageEventDao.list.isEmpty())
         assertTrue(activeNotificationReferenceDao.list.isEmpty())
     }
+
+    @Test
+    fun testRepository_throwingHmacGeneratorProducesZeroPersistedRows() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val throwingHmac = object : DedupeTokenGenerator {
+            override fun generate(canonicalIdentityMaterial: String): String {
+                throw TokenGenerationFailure(Exception("Simulated HMAC failure"))
+            }
+        }
+
+        val repositoryWithHmacFailure = StoredInboxRepository(
+            conversationDao,
+            messageEventDao,
+            activeNotificationReferenceDao,
+            sensitiveTextCipher,
+            throwingHmac
+        )
+
+        val failingCoordinator = NotificationPersistenceCoordinator(
+            repositoryWithHmacFailure,
+            preferencesRepository,
+            activeNotificationReferenceDao
+        )
+
+        val event = createDummyEvent(
+            key = "key_hmac_fail",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Aunt May",
+            text = "Dinner at 7"
+        )
+
+        failingCoordinator.handleNotificationEvent(event)
+
+        // Assert fail-closed: absolutely nothing is persisted
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
+
+        // Assert direct call returns SecureStorageUnavailable
+        val result = repositoryWithHmacFailure.persistCanonicalEvent(event)
+        assertEquals(StoredInboxRepository.PersistCanonicalResult.SecureStorageUnavailable, result)
+    }
+
+    @Test
+    fun testRepository_throwingSensitiveTextCipherProducesZeroPersistedRows() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val throwingCipher = object : SensitiveTextCipher {
+            override fun encrypt(plaintext: String, associatedData: ByteArray?): EncryptedPayload {
+                throw EncryptionFailure(Exception("Simulated cipher encryption failure"))
+            }
+            override fun decrypt(payload: EncryptedPayload, associatedData: ByteArray?): String {
+                throw EncryptionFailure(Exception("Simulated cipher decryption failure"))
+            }
+        }
+
+        val repositoryWithCipherFailure = StoredInboxRepository(
+            conversationDao,
+            messageEventDao,
+            activeNotificationReferenceDao,
+            throwingCipher,
+            dedupeTokenGenerator
+        )
+
+        val failingCoordinator = NotificationPersistenceCoordinator(
+            repositoryWithCipherFailure,
+            preferencesRepository,
+            activeNotificationReferenceDao
+        )
+
+        val event = createDummyEvent(
+            key = "key_cipher_fail",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Aunt May",
+            text = "Dinner at 7"
+        )
+
+        failingCoordinator.handleNotificationEvent(event)
+
+        // Assert fail-closed: absolutely nothing is persisted
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
+
+        // Assert direct call returns SecureStorageUnavailable
+        val result = repositoryWithCipherFailure.persistCanonicalEvent(event)
+        assertEquals(StoredInboxRepository.PersistCanonicalResult.SecureStorageUnavailable, result)
+    }
+
+    @Test
+    fun testDedupeTokenGeneratorProductionThrowsExceptionsOnJvm() {
+        try {
+            val generator = AndroidKeystoreHmacDedupeTokenGenerator()
+            generator.generate("test_identity")
+            org.junit.Assert.fail("Should have thrown SecureStorageFailure on JVM")
+        } catch (e: SecureStorageFailure) {
+            // Success: the production generator throws when Keystore is missing instead of failing open
+        } catch (e: Exception) {
+            // Success: also acceptable if framework dependencies fail closed
+        }
+    }
+
 
     private fun createDummyEvent(
         key: String,

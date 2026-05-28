@@ -15,46 +15,53 @@ class AndroidKeystoreHmacDedupeTokenGenerator : DedupeTokenGenerator {
     private val algorithm = "HmacSHA256"
 
     init {
-        initHmacKey()
+        try {
+            initHmacKey()
+        } catch (e: Exception) {
+            throw KeyUnavailableFailure(e)
+        }
     }
 
     private fun initHmacKey() {
-        try {
-            val keyStore = KeyStore.getInstance(provider)
-            keyStore.load(null)
-            if (!keyStore.containsAlias(keyAlias)) {
-                val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, provider)
-                keyGenerator.init(
-                    KeyGenParameterSpec.Builder(
-                        keyAlias,
-                        KeyProperties.PURPOSE_SIGN
-                    )
-                    .setKeySize(256)
-                    .build()
+        val keyStore = KeyStore.getInstance(provider)
+        keyStore.load(null)
+        if (!keyStore.containsAlias(keyAlias)) {
+            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, provider)
+            keyGenerator.init(
+                KeyGenParameterSpec.Builder(
+                    keyAlias,
+                    KeyProperties.PURPOSE_SIGN
                 )
-                keyGenerator.generateKey()
-            }
-        } catch (e: Exception) {
-            // Handle gracefully (e.g. in environments where KeyStore is mocked)
+                .setKeySize(256)
+                .build()
+            )
+            keyGenerator.generateKey()
         }
     }
 
     private fun getSecretKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(provider)
-        keyStore.load(null)
-        return keyStore.getKey(keyAlias, null) as SecretKey
+        return try {
+            val keyStore = KeyStore.getInstance(provider)
+            keyStore.load(null)
+            val key = keyStore.getKey(keyAlias, null) as? SecretKey
+            key ?: throw KeyUnavailableFailure(Exception("HMAC key alias not found: $keyAlias"))
+        } catch (e: Exception) {
+            throw KeyUnavailableFailure(e)
+        }
     }
 
     override fun generate(canonicalIdentityMaterial: String): String {
-        return try {
+        try {
+            val secretKey = getSecretKey()
             val mac = Mac.getInstance(algorithm)
-            mac.init(getSecretKey())
+            mac.init(secretKey)
             val hmacBytes = mac.doFinal(canonicalIdentityMaterial.toByteArray(StandardCharsets.UTF_8))
-            hmacBytes.joinToString("") { "%02x".format(it) }
+            return hmacBytes.joinToString("") { "%02x".format(it) }
+        } catch (e: SecureStorageFailure) {
+            throw e
         } catch (e: Exception) {
-            // Fallback to simple hex mapping if Keystore is unavailable in test fakes
-            val fallbackBytes = canonicalIdentityMaterial.toByteArray(StandardCharsets.UTF_8)
-            fallbackBytes.joinToString("") { "%02x".format(it) }
+            throw TokenGenerationFailure(e)
         }
     }
 }
+

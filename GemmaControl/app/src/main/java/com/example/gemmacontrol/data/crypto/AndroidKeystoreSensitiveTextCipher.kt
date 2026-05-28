@@ -16,56 +16,76 @@ class AndroidKeystoreSensitiveTextCipher : SensitiveTextCipher {
     private val transformation = "AES/GCM/NoPadding"
 
     init {
-        initKeyStore()
+        try {
+            initKeyStore()
+        } catch (e: Exception) {
+            throw KeyUnavailableFailure(e)
+        }
     }
 
     private fun initKeyStore() {
-        try {
-            val keyStore = KeyStore.getInstance(provider)
-            keyStore.load(null)
-            if (!keyStore.containsAlias(keyAlias)) {
-                val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, provider)
-                keyGenerator.init(
-                    KeyGenParameterSpec.Builder(
-                        keyAlias,
-                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-                    )
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setKeySize(256)
-                    .build()
+        val keyStore = KeyStore.getInstance(provider)
+        keyStore.load(null)
+        if (!keyStore.containsAlias(keyAlias)) {
+            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, provider)
+            keyGenerator.init(
+                KeyGenParameterSpec.Builder(
+                    keyAlias,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
                 )
-                keyGenerator.generateKey()
-            }
-        } catch (e: Exception) {
-            // Handle gracefully (e.g. in environments where KeyStore is mocked)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build()
+            )
+            keyGenerator.generateKey()
         }
     }
 
     private fun getSecretKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(provider)
-        keyStore.load(null)
-        return keyStore.getKey(keyAlias, null) as SecretKey
+        return try {
+            val keyStore = KeyStore.getInstance(provider)
+            keyStore.load(null)
+            val key = keyStore.getKey(keyAlias, null) as? SecretKey
+            key ?: throw KeyUnavailableFailure(Exception("Key alias not found: $keyAlias"))
+        } catch (e: Exception) {
+            throw KeyUnavailableFailure(e)
+        }
     }
 
     override fun encrypt(plaintext: String, associatedData: ByteArray?): EncryptedPayload {
-        val cipher = Cipher.getInstance(transformation)
-        cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
-        if (associatedData != null) {
-            cipher.updateAAD(associatedData)
+        try {
+            val secretKey = getSecretKey()
+            val cipher = Cipher.getInstance(transformation)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+            if (associatedData != null) {
+                cipher.updateAAD(associatedData)
+            }
+            val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
+            return EncryptedPayload(ciphertext, cipher.iv)
+        } catch (e: SecureStorageFailure) {
+            throw e
+        } catch (e: Exception) {
+            throw EncryptionFailure(e)
         }
-        val ciphertext = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
-        return EncryptedPayload(ciphertext, cipher.iv)
     }
 
     override fun decrypt(payload: EncryptedPayload, associatedData: ByteArray?): String {
-        val cipher = Cipher.getInstance(transformation)
-        val spec = GCMParameterSpec(128, payload.iv)
-        cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
-        if (associatedData != null) {
-            cipher.updateAAD(associatedData)
+        try {
+            val secretKey = getSecretKey()
+            val cipher = Cipher.getInstance(transformation)
+            val spec = GCMParameterSpec(128, payload.iv)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+            if (associatedData != null) {
+                cipher.updateAAD(associatedData)
+            }
+            val decryptedBytes = cipher.doFinal(payload.ciphertext)
+            return String(decryptedBytes, StandardCharsets.UTF_8)
+        } catch (e: SecureStorageFailure) {
+            throw e
+        } catch (e: Exception) {
+            throw EncryptionFailure(e)
         }
-        val decryptedBytes = cipher.doFinal(payload.ciphertext)
-        return String(decryptedBytes, StandardCharsets.UTF_8)
     }
 }
+

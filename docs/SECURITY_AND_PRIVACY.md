@@ -89,9 +89,15 @@ To maintain search efficiency without compromising security, we adopt an **in-me
 
 ---
 
-## 4. Cascading Purge Compliance
+## 4. Cascading Purge Compliance & SQLite Forensic Erasure
 
 When the user triggers a deletion via `Delete All` in the UI, the app guarantees cascading wiping across SQLite entities:
 - Wiping a `MessageEventEntity` row automatically deletes associated records.
 - Purging all data wipes `message_events`, `conversations`, and `active_notification_references` atomically inside a single transaction.
+
+### SQLite Deletion & Forensic Erasure Limits
+Dropping legacy tables and deleting SQLite rows removes active columns and data from the active database schema catalog. However, in standard SQLite databases, deleted content is normally not immediately overwritten in the underlying database pages or journal/WAL structures:
+- **Mitigation**: During database migrations (such as `MIGRATION_1_2`), the system executes `PRAGMA secure_delete=ON` before dropping legacy plaintext tables. This tells SQLite to actively overwrite dropped tables and deleted content with zeroes in the database file.
+- **Forensic Erasure Disclaimer**: While `secure_delete` mitigates direct byte leakage inside SQLite pages, forensic erasure of historical bytes from rollback journals, WAL (Write-Ahead Logging) files, or raw block storage sectors is **not** claimed unless separately implemented and verified.
+
 
