@@ -7,6 +7,8 @@ import com.example.gemmacontrol.ServiceLocator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,6 +29,55 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
     val activeRepliesAvailability: StateFlow<Map<String, Boolean>> = com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry.availabilityFlow
 
     private val replyExecutor = com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor()
+    private val modelAdapter = com.example.gemmacontrol.ai.GemmaModelAdapter()
+
+    private val _aiDraftState = MutableStateFlow<AiDraftState>(AiDraftState.Idle)
+    val aiDraftState: StateFlow<AiDraftState> = _aiDraftState.asStateFlow()
+
+    sealed interface AiDraftState {
+        data object Idle : AiDraftState
+        data object Loading : AiDraftState
+        data class Success(val draft: com.example.gemmacontrol.ai.AssistantToolProposal.DraftReply) : AiDraftState
+        data class Failure(val error: String) : AiDraftState
+        data object ModelNotInstalled : AiDraftState
+    }
+
+    fun generateAiProposal(message: StoredInboxRepository.DecryptedMessage) {
+        viewModelScope.launch {
+            _aiDraftState.value = AiDraftState.Loading
+            val text = message.decryptedText ?: ""
+            if (text.isEmpty()) {
+                _aiDraftState.value = AiDraftState.Failure("Message text is empty")
+                return@launch
+            }
+
+            val result = modelAdapter.generateDraftReply(listOf(text))
+
+            when (result) {
+                is com.example.gemmacontrol.ai.ProposalGenerationResult.Success -> {
+                    _aiDraftState.value = AiDraftState.Success(
+                        com.example.gemmacontrol.ai.AssistantToolProposal.DraftReply(
+                            notificationKey = message.notificationKey,
+                            replyText = result.proposalText
+                        )
+                    )
+                }
+                is com.example.gemmacontrol.ai.ProposalGenerationResult.ModelNotInstalled -> {
+                    _aiDraftState.value = AiDraftState.ModelNotInstalled
+                }
+                is com.example.gemmacontrol.ai.ProposalGenerationResult.Failed -> {
+                    _aiDraftState.value = AiDraftState.Failure(result.safeReason)
+                }
+                is com.example.gemmacontrol.ai.ProposalGenerationResult.InvalidOutput -> {
+                    _aiDraftState.value = AiDraftState.Failure("Invalid model output format")
+                }
+            }
+        }
+    }
+
+    fun clearAiProposal() {
+        _aiDraftState.value = AiDraftState.Idle
+    }
 
     fun sendConfirmedReply(
         notificationKey: String,
