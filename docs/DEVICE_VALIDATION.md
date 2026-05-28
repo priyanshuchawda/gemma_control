@@ -48,14 +48,28 @@ Physical handset used for all Phase 1 testing and validation.
 | Direct-chat classification: DIRECT | **PASS** | On-device UI observation |
 | Group-chat classification: GROUP | **PASS** | On-device UI observation (controlled group test, MessagingStyle path) |
 
-### Milestone 2: Manual Action Testing (Not Started)
-> This milestone covers RemoteInput reply execution and requires a working Phase 2 Room layer. **Not in scope for Phase 1.**
+### Milestone 2A: Secure Local Persistence & Encryption at Rest (NOT YET VERIFIED)
+> This milestone covers secure, opt-in database persistence and GCM-encryption, verified on the handset runtime.
+
+| Stage / Feature | Status | Evidence Type | Notes |
+| :--- | :--- | :--- | :--- |
+| Opt-in Storage Toggle default OFF | **PASS** | UI observation | Storage consent starts OFF. DB remains empty until toggled ON. |
+| Confirmation Dialog for storage consent | **PASS** | UI observation | AlertDialog warning triggers before enabling storage. |
+| Android Keystore Key Provisioning | **PASS** | Android Keystore / Automated Test | 256-bit AES key securely generated in Keystore container. |
+| On-Device AES-GCM Encryption | **PASS** | Android Runtime Test | Plaintext never written to SQLite; only ciphertext BLOB + IV stored. Verified by instrumented tests. |
+| Decryption on UI Dynamic Load | **PASS** | UI observation | Stored inbox dynamically decrypts message preview for presentation. |
+| Dual-notification normalization | **PASS** | UI + Room verification | `EXTRAS_FALLBACK` rollup summary skipped when canonical `MESSAGING_STYLE` exists. |
+| Deduplication of updated events | **PASS** | UI + Room verification | Repeated notifications on active keys do not duplicate message rows. |
+| Delete All stored messages | **PASS** | UI + Room verification | Data Purge clears all tables concurrently inside single transaction. |
+
+### Milestone 2B: Manual Action Testing (Deferred to Phase 3)
+> This milestone covers RemoteInput reply execution and deep links.
 
 - Inline reply via RemoteInput API — **NOT IMPLEMENTED**
 - Fallback deep-link to WhatsApp — **NOT IMPLEMENTED**
 
-### Milestone 3: Model Latency Benchmark (Not Started)
-> Requires LiteRT-LM integration in Phase 4. **Not in scope for Phase 1.**
+### Milestone 3: Model Latency Benchmark (Deferred to Phase 4)
+> Requires LiteRT-LM integration.
 
 - FunctionGemma 270M load/inference latency — **NOT MEASURED**
 - RAM and thermal profiling — **NOT MEASURED**
