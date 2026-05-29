@@ -136,5 +136,39 @@ class ToolCallParserTest {
             ToolCallParseResult.Invalid("Invalid since_minutes: must be greater than 0"),
             badSinceMinutes
         )
+
+        val lowMessagePriority = parser.parse(
+            """
+            {
+              "name": "mark_message_priority",
+              "parameters": {
+                "message_event_id": "message-1",
+                "priority": "LOW"
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            ToolCallParseResult.Invalid("Invalid priority for mark_message_priority: expected HIGH or NORMAL"),
+            lowMessagePriority
+        )
+
+        val blankDraftConversation = parser.parse(
+            """
+            {
+              "name": "draft_whatsapp_reply",
+              "parameters": {
+                "conversation_name": "   ",
+                "message_text": "Hello"
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            ToolCallParseResult.Invalid("Invalid conversation_name: must not be blank"),
+            blankDraftConversation
+        )
     }
 }

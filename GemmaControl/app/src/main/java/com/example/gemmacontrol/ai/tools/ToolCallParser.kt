@@ -109,6 +109,20 @@ class ToolCallParser(
             }
         }
 
+        if (
+            proposal.name == WhatsAppToolName.MarkMessagePriority &&
+                proposal.string("priority") == "LOW"
+        ) {
+            return ToolCallParseResult.Invalid("Invalid priority for mark_message_priority: expected HIGH or NORMAL")
+        }
+
+        if (
+            proposal.name == WhatsAppToolName.DraftWhatsAppReply &&
+                proposal.string("conversation_name").orEmpty().isBlank()
+        ) {
+            return ToolCallParseResult.Invalid("Invalid conversation_name: must not be blank")
+        }
+
         proposal.string("status")?.let { status ->
             if (status !in setOf("PENDING", "COMPLETED")) {
                 return ToolCallParseResult.Invalid("Invalid status: expected PENDING or COMPLETED")
