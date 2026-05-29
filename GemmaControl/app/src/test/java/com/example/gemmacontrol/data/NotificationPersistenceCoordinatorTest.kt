@@ -5,13 +5,16 @@ import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
+import com.example.gemmacontrol.data.local.dao.ReminderDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
 import com.example.gemmacontrol.data.local.entity.FollowUpEntity
 import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
+import com.example.gemmacontrol.data.local.entity.ReminderEntity
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import com.example.gemmacontrol.data.reminder.ReminderScheduler
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 import com.example.gemmacontrol.notifications.ConversationType
@@ -196,6 +199,49 @@ class FakeFollowUpDao : FollowUpDao {
     }
 }
 
+class FakeReminderDao : ReminderDao {
+    val list = mutableListOf<ReminderEntity>()
+
+    override suspend fun insert(reminder: ReminderEntity): Long {
+        list.add(reminder)
+        return list.size.toLong()
+    }
+
+    override suspend fun getById(id: String): ReminderEntity? = list.find { it.id == id }
+
+    override suspend fun setScheduledWorkName(id: String, workName: String): Int {
+        val index = list.indexOfFirst { it.id == id }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(scheduledWorkName = workName)
+        return 1
+    }
+
+    override suspend fun markDelivered(id: String, deliveredAt: Long): Int {
+        val index = list.indexOfFirst { it.id == id && it.deliveredAt == null }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(deliveredAt = deliveredAt)
+        return 1
+    }
+}
+
+class FakeReminderScheduler : ReminderScheduler {
+    val calls = mutableListOf<ScheduledReminderCall>()
+
+    override suspend fun schedule(reminderId: String, remindAtEpochMillis: Long): String {
+        calls += ScheduledReminderCall(reminderId, remindAtEpochMillis)
+        return "reminder:$reminderId"
+    }
+}
+
+data class ScheduledReminderCall(
+    val reminderId: String,
+    val remindAtEpochMillis: Long
+)
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 class NotificationPersistenceCoordinatorTest {
 
@@ -203,6 +249,8 @@ class NotificationPersistenceCoordinatorTest {
     private lateinit var messageEventDao: FakeMessageEventDao
     private lateinit var activeNotificationReferenceDao: FakeActiveNotificationReferenceDao
     private lateinit var followUpDao: FakeFollowUpDao
+    private lateinit var reminderDao: FakeReminderDao
+    private lateinit var reminderScheduler: FakeReminderScheduler
     private lateinit var sensitiveTextCipher: FakeSensitiveTextCipher
     private lateinit var dedupeTokenGenerator: FakeDedupeTokenGenerator
     private lateinit var preferencesRepository: FakeCapturePreferencesRepository
@@ -215,6 +263,8 @@ class NotificationPersistenceCoordinatorTest {
         activeNotificationReferenceDao = FakeActiveNotificationReferenceDao()
         messageEventDao = FakeMessageEventDao(conversationDao, activeNotificationReferenceDao)
         followUpDao = FakeFollowUpDao()
+        reminderDao = FakeReminderDao()
+        reminderScheduler = FakeReminderScheduler()
         conversationDao.onDeleteById = { conversationId ->
             messageEventDao.list.removeAll { it.conversationId == conversationId }
         }
@@ -234,7 +284,9 @@ class NotificationPersistenceCoordinatorTest {
             activeNotificationReferenceDao,
             sensitiveTextCipher,
             dedupeTokenGenerator,
-            followUpDao = followUpDao
+            followUpDao = followUpDao,
+            reminderDao = reminderDao,
+            reminderScheduler = reminderScheduler
         )
 
         coordinator = NotificationPersistenceCoordinator(
@@ -519,6 +571,34 @@ class NotificationPersistenceCoordinatorTest {
 
         val decryptedMessages = repository.getAllDecryptedMessages()
         assertEquals("HIGH", decryptedMessages.single().priority)
+    }
+
+    @Test
+    fun testRepository_scheduleReminderEncryptsNoteAndEnqueuesWork() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_reminder",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Aunt May",
+                text = "Call me tomorrow"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        val reminderId = repository.scheduleReminder(
+            messageEventId = messageId,
+            remindAt = "2026-05-30T09:00:00+05:30",
+            reminderNote = "Call back"
+        )
+
+        assertTrue(reminderId != null)
+        val reminder = reminderDao.list.single()
+        assertEquals(messageId, reminder.messageEventId)
+        assertEquals("Call back", sensitiveTextCipher.decrypt(EncryptedPayload(reminder.encryptedReminderNote!!, reminder.reminderNoteIv!!)))
+        assertEquals(reminderId, reminderScheduler.calls.single().reminderId)
+        assertTrue(reminderScheduler.calls.single().remindAtEpochMillis > System.currentTimeMillis())
     }
 
     @Test

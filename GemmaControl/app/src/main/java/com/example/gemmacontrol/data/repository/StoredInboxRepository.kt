@@ -11,11 +11,15 @@ import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
+import com.example.gemmacontrol.data.local.dao.ReminderDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
 import com.example.gemmacontrol.data.local.entity.FollowUpEntity
 import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
+import com.example.gemmacontrol.data.local.entity.ReminderEntity
+import com.example.gemmacontrol.data.reminder.ReminderScheduler
+import com.example.gemmacontrol.data.reminder.ReminderTimeParser
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
@@ -31,7 +35,10 @@ class StoredInboxRepository(
     private val sensitiveTextCipher: SensitiveTextCipher,
     private val dedupeTokenGenerator: DedupeTokenGenerator,
     private val db: GemmaControlDatabase? = null,
-    private val followUpDao: FollowUpDao? = null
+    private val followUpDao: FollowUpDao? = null,
+    private val reminderDao: ReminderDao? = null,
+    private val reminderScheduler: ReminderScheduler? = null,
+    private val nowProvider: () -> Long = System::currentTimeMillis
 ) : LocalWhatsAppDataRepository {
     sealed interface PersistCanonicalResult {
         data class Stored(val messageId: String) : PersistCanonicalResult
@@ -314,6 +321,47 @@ class StoredInboxRepository(
         }
         val parsedPriority = parseMessagePriority(priority) ?: return false
         return messageEventDao.updatePriority(cleanMessageEventId, parsedPriority) > 0
+    }
+
+    override suspend fun scheduleReminder(
+        messageEventId: String,
+        remindAt: String,
+        reminderNote: String?
+    ): String? {
+        val dao = reminderDao ?: return null
+        val scheduler = reminderScheduler ?: return null
+        val cleanMessageEventId = messageEventId.trim()
+        if (cleanMessageEventId.isBlank() || messageEventDao.getById(cleanMessageEventId) == null) {
+            return null
+        }
+        val remindAtEpochMillis = ReminderTimeParser.parseEpochMillis(remindAt) ?: return null
+        if (remindAtEpochMillis <= nowProvider()) {
+            return null
+        }
+
+        val encryptedNote = try {
+            reminderNote?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { sensitiveTextCipher.encrypt(it) }
+        } catch (e: Exception) {
+            return null
+        }
+        val reminderId = UUID.randomUUID().toString()
+        dao.insert(
+            ReminderEntity(
+                id = reminderId,
+                messageEventId = cleanMessageEventId,
+                encryptedReminderNote = encryptedNote?.ciphertext,
+                reminderNoteIv = encryptedNote?.iv,
+                remindAtEpochMillis = remindAtEpochMillis,
+                createdAt = nowProvider(),
+                scheduledWorkName = null,
+                deliveredAt = null
+            )
+        )
+        val workName = scheduler.schedule(reminderId, remindAtEpochMillis)
+        dao.setScheduledWorkName(reminderId, workName)
+        return reminderId
     }
 
     private fun decryptConversationTitle(entity: ConversationEntity): String {

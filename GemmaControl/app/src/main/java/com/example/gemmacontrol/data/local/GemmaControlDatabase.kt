@@ -11,19 +11,22 @@ import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
+import com.example.gemmacontrol.data.local.dao.ReminderDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
 import com.example.gemmacontrol.data.local.entity.FollowUpEntity
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
+import com.example.gemmacontrol.data.local.entity.ReminderEntity
 
 @Database(
     entities = [
         ConversationEntity::class,
         MessageEventEntity::class,
         ActiveNotificationReferenceEntity::class,
-        FollowUpEntity::class
+        FollowUpEntity::class,
+        ReminderEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -33,6 +36,7 @@ abstract class GemmaControlDatabase : RoomDatabase() {
     abstract fun messageEventDao(): MessageEventDao
     abstract fun activeNotificationReferenceDao(): ActiveNotificationReferenceDao
     abstract fun followUpDao(): FollowUpDao
+    abstract fun reminderDao(): ReminderDao
 
     companion object {
         @Volatile
@@ -249,6 +253,30 @@ abstract class GemmaControlDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `reminders` (
+                        `id` TEXT NOT NULL,
+                        `messageEventId` TEXT NOT NULL,
+                        `encryptedReminderNote` BLOB,
+                        `reminderNoteIv` BLOB,
+                        `remindAtEpochMillis` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `scheduledWorkName` TEXT,
+                        `deliveredAt` INTEGER,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`messageEventId`) REFERENCES `message_events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_messageEventId` ON `reminders` (`messageEventId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_remindAtEpochMillis` ON `reminders` (`remindAtEpochMillis`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reminders_deliveredAt` ON `reminders` (`deliveredAt`)")
+            }
+        }
+
         fun getDatabase(context: Context): GemmaControlDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -256,7 +284,7 @@ abstract class GemmaControlDatabase : RoomDatabase() {
                     GemmaControlDatabase::class.java,
                     "gemma_control_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
                 INSTANCE = instance
                 instance

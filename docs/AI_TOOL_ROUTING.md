@@ -22,7 +22,7 @@ The app now has a typed local tool contract in `ai/tools`:
 - `ToolCallParser` accepts FunctionGemma-style JSON proposals and Gallery-style `functionCall` envelopes.
 - `ToolProposal` carries typed parameters and the safety level into UI/controller code.
 - `ToolSafetyRouter` converts a parsed proposal into an execution decision: read-only local execution, local data write, user confirmation, strict manual confirmation, or rejection.
-- `WhatsAppLocalToolExecutor` executes only local-safe operations that already have Kotlin repository boundaries, currently capture pause/resume, follow-up create/list/complete, message priority updates, plus all-data or conversation-scoped local deletion. Active notification replies are intentionally rejected here and must use the dedicated notification reply executor.
+- `WhatsAppLocalToolExecutor` executes only local-safe operations that already have Kotlin repository boundaries, currently capture pause/resume, follow-up create/list/complete, message priority updates, encrypted reminder scheduling, plus all-data or conversation-scoped local deletion. Active notification replies are intentionally rejected here and must use the dedicated notification reply executor.
 - `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
 - `FunctionGemmaVoiceProposalHandler` maps validated FunctionGemma proposal results back into existing voice UI states. Read-latest, active-notification replies, pause/resume capture, and delete-all-local-data are wired; unsupported or stale proposals become safe failures.
 - Model-proposed local mutations still require a Compose confirmation card before `WhatsAppLocalToolExecutor` runs.

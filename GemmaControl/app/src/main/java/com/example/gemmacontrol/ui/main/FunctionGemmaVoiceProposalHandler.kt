@@ -48,6 +48,7 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.ResumeWhatsAppCapture,
             WhatsAppToolName.CreateFollowUpFromMessage,
             WhatsAppToolName.MarkFollowUpCompleted,
+            WhatsAppToolName.ScheduleReminderForMessage,
             WhatsAppToolName.MarkMessagePriority,
             WhatsAppToolName.DeleteLocalWhatsAppData -> {
                 toLocalToolConfirmationState()
@@ -83,6 +84,13 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Mark follow-up complete?",
                 description = "GemmaControl will mark this local follow-up task as completed.",
                 confirmText = "Mark Complete",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.ScheduleReminderForMessage -> PendingLocalToolAction(
+                title = "Schedule reminder?",
+                description = "GemmaControl will store the reminder locally and post a notification at the requested time.",
+                confirmText = "Schedule Reminder",
                 proposal = proposal,
                 decision = decision
             )

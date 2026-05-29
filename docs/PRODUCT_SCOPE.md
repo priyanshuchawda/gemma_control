@@ -5,7 +5,7 @@ This document outlines the core functional scope, V1 capability maps, strict pro
 ---
 
 ## 1. Product Definition
-An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, persists local follow-ups and priority flags, and enables safe user-confirmed WhatsApp replies. Reminder scheduling remains part of the typed V1 contract but still requires a notification executor before it can be enabled.
+An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, persists local follow-ups, priority flags, encrypted reminders, and enables safe user-confirmed WhatsApp replies.
 
 This implementation acts as a secure, daily-use tool-calling manager on your physical **Xiaomi Android 16 handset** rather than a simple alert reader demo.
 
@@ -25,7 +25,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 
 ### B. Productivity Actions
 - **Follow-Ups**: Save specific notification events as local actionable tasks (`create_follow_up_from_message`), list pending follow-ups, and mark them completed.
-- **Reminders**: Contract defined for scheduling local reminders (`schedule_reminder_for_message`); WorkManager execution is deferred.
+- **Reminders**: Schedule local encrypted reminder rows and WorkManager notification delivery (`schedule_reminder_for_message`).
 - **Prioritization**: Flag important captured messages with a local high/normal priority value.
 - **Inbox Cleanup**: Dismiss and hide noise from the local inbox without clearing notifications inside WhatsApp.
 
@@ -57,4 +57,5 @@ The functional scope is governed entirely by an English-only interaction paradig
 
 - **Database Sandbox**: The assistant cannot access WhatsApp's private database. It reads *only* notifications displayed while the service is BINDed and active.
 - **Internet Permission**: The application declares `android.permission.INTERNET` only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification content, prompts, tool calls, and replies stay private and local. Network delivery of messages is delegated to WhatsApp.
+- **Notification Permission**: The application declares `android.permission.POST_NOTIFICATIONS` only for user-confirmed local reminders on Android 13+.
 - **Model Importation**: The offline `.litertlm` model binary can be imported via local storage/ADB during development or downloaded through the scoped WorkManager model download flow.

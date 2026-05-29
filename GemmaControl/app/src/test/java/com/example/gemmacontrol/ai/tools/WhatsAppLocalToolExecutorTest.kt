@@ -253,6 +253,42 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun confirmedScheduleReminderDelegatesToRepository() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "schedule_reminder_for_message",
+                  "parameters": {
+                    "message_event_id": "message-1",
+                    "remind_at": "2026-05-30T09:00:00+05:30",
+                    "reminder_note": "Call back"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("Reminder scheduled."), result)
+        assertEquals(
+            listOf(
+                ScheduleReminderCall(
+                    messageEventId = "message-1",
+                    remindAt = "2026-05-30T09:00:00+05:30",
+                    reminderNote = "Call back"
+                )
+            ),
+            repository.scheduleReminderCalls
+        )
+    }
+
+    @Test
     fun doesNotExecuteActiveNotificationRepliesInLocalExecutor() = runTest {
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -327,6 +363,12 @@ class WhatsAppLocalToolExecutorTest {
         val priority: String?
     )
 
+    private data class ScheduleReminderCall(
+        val messageEventId: String,
+        val remindAt: String,
+        val reminderNote: String?
+    )
+
     private class FakeLocalWhatsAppDataRepository(
         private val conversationDeleteResult: Boolean = true,
         private val pendingFollowUps: List<LocalFollowUp> = emptyList()
@@ -338,6 +380,7 @@ class WhatsAppLocalToolExecutorTest {
         val markPriorityCalls = mutableListOf<MarkPriorityCall>()
         val completedFollowUpCalls = mutableListOf<String>()
         val listPendingFollowUpsCalls = mutableListOf<ListPendingFollowUpsCall>()
+        val scheduleReminderCalls = mutableListOf<ScheduleReminderCall>()
 
         override suspend fun deleteAllData() {
             deleteAllCalls += 1
@@ -371,6 +414,15 @@ class WhatsAppLocalToolExecutorTest {
         override suspend fun markFollowUpCompleted(followUpId: String): Boolean {
             completedFollowUpCalls += followUpId
             return true
+        }
+
+        override suspend fun scheduleReminder(
+            messageEventId: String,
+            remindAt: String,
+            reminderNote: String?
+        ): String? {
+            scheduleReminderCalls += ScheduleReminderCall(messageEventId, remindAt, reminderNote)
+            return "reminder-1"
         }
     }
 }

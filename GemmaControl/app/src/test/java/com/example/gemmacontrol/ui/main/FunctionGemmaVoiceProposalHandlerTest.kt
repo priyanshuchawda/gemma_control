@@ -158,6 +158,26 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsScheduleReminderProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "schedule_reminder_for_message",
+                params = mapOf(
+                    "message_event_id" to "message-1",
+                    "remind_at" to "2026-05-30T09:00:00+05:30",
+                    "reminder_note" to "Call back"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Schedule reminder?", action.title)
+        assertEquals("Schedule Reminder", action.confirmText)
+    }
+
+    @Test
     fun mapsConversationScopedDeleteProposalToSpecificConfirmation() {
         val state = handler.resolve(
             result = proposalResult(

@@ -14,6 +14,11 @@ interface LocalWhatsAppDataRepository {
     suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp>
     suspend fun markFollowUpCompleted(followUpId: String): Boolean
     suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean
+    suspend fun scheduleReminder(
+        messageEventId: String,
+        remindAt: String,
+        reminderNote: String?
+    ): String?
 }
 
 data class LocalFollowUp(
@@ -57,6 +62,7 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.CreateFollowUpFromMessage -> createFollowUp(proposal)
             WhatsAppToolName.ListPendingFollowUps -> listPendingFollowUps(proposal)
             WhatsAppToolName.MarkFollowUpCompleted -> markFollowUpCompleted(proposal)
+            WhatsAppToolName.ScheduleReminderForMessage -> scheduleReminder(proposal)
             WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
@@ -136,6 +142,28 @@ class WhatsAppLocalToolExecutor(
             "- ${followUp.title} [${followUp.priority}]$due"
         }
         return ToolExecutionResult.Success(summary)
+    }
+
+    private suspend fun scheduleReminder(proposal: ToolProposal): ToolExecutionResult {
+        val messageEventId = proposal.string("message_event_id")?.trim().orEmpty()
+        val remindAt = proposal.string("remind_at")?.trim().orEmpty()
+        if (messageEventId.isBlank()) {
+            return ToolExecutionResult.Rejected("Reminder proposals require message_event_id.")
+        }
+        if (remindAt.isBlank()) {
+            return ToolExecutionResult.Rejected("Reminder proposals require remind_at.")
+        }
+
+        val reminderId = localDataRepository.scheduleReminder(
+            messageEventId = messageEventId,
+            remindAt = remindAt,
+            reminderNote = proposal.string("reminder_note")?.trim()?.takeIf { it.isNotBlank() }
+        )
+        return if (reminderId != null) {
+            ToolExecutionResult.Success("Reminder scheduled.")
+        } else {
+            ToolExecutionResult.Rejected("Reminder could not be scheduled for that message and time.")
+        }
     }
 
     private suspend fun markMessagePriority(proposal: ToolProposal): ToolExecutionResult {

@@ -9,6 +9,7 @@ import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
 import com.example.gemmacontrol.data.preferences.DataStoreCapturePreferencesRepository
+import com.example.gemmacontrol.data.reminder.WorkManagerReminderScheduler
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 
@@ -62,7 +63,9 @@ object ServiceLocator {
                 getSensitiveTextCipher(),
                 getDedupeTokenGenerator(),
                 db,
-                db.followUpDao()
+                db.followUpDao(),
+                db.reminderDao(),
+                WorkManagerReminderScheduler(context.applicationContext)
             ).also { storedInboxRepository = it }
         }
     }
