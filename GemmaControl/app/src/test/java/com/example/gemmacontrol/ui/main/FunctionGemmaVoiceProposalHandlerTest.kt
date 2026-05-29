@@ -1,0 +1,123 @@
+package com.example.gemmacontrol.ui.main
+
+import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
+import com.example.gemmacontrol.ai.tools.ToolCallParser
+import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class FunctionGemmaVoiceProposalHandlerTest {
+    private val registry = WhatsAppToolRegistry.default()
+    private val parser = ToolCallParser(registry)
+    private val handler = FunctionGemmaVoiceProposalHandler()
+
+    @Test
+    fun mapsActiveNotificationReplyProposalToConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "send_reply_to_active_whatsapp_notification",
+                params = mapOf(
+                    "notification_key" to "active-key-1",
+                    "message_text" to "On my way"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(
+                activeNotificationKeys = setOf("active-key-1"),
+                conversationTitleByNotificationKey = mapOf("active-key-1" to "Mom")
+            )
+        )
+
+        assertTrue(state is VoiceAssistantState.ConfirmationRequired)
+        val draft = (state as VoiceAssistantState.ConfirmationRequired).draft
+        assertEquals("active-key-1", draft.notificationKey)
+        assertEquals("On my way", draft.replyText)
+        assertEquals("Mom", draft.conversationTitle)
+    }
+
+    @Test
+    fun rejectsReplyProposalForExpiredNotificationKey() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "send_reply_to_active_whatsapp_notification",
+                params = mapOf(
+                    "notification_key" to "expired-key",
+                    "message_text" to "On my way"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(
+            VoiceAssistantState.Failure("The proposed WhatsApp notification is no longer active."),
+            state
+        )
+    }
+
+    @Test
+    fun mapsReadLatestProposalToCommandReady() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "list_recent_whatsapp_messages",
+                params = mapOf("limit" to 3)
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(VoiceAssistantState.CommandReady(VoiceCommand.ReadLatestMessages), state)
+    }
+
+    @Test
+    fun rejectsUnsupportedProposalThatIsNotWiredToVoiceUi() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "open_whatsapp_share_draft",
+                params = mapOf("message_text" to "Hello")
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(
+            VoiceAssistantState.Failure("FunctionGemma proposed open_whatsapp_share_draft, but that action is not wired to the voice UI yet."),
+            state
+        )
+    }
+
+    @Test
+    fun mapsInvalidModelOutputToSafeFailure() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.ProposalText(
+                rawText = "{}",
+                parseResult = parser.parse("{}")
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.Failure)
+    }
+
+    private fun proposalResult(
+        name: String,
+        params: Map<String, Any>
+    ): GemmaEngineResult.ProposalText {
+        val json = buildJsonObject {
+            put("name", name)
+            putJsonObject("parameters") {
+                params.forEach { (key, value) ->
+                    when (value) {
+                        is String -> put(key, value)
+                        is Int -> put(key, value)
+                        is Boolean -> put(key, value)
+                    }
+                }
+            }
+        }.toString()
+        return GemmaEngineResult.ProposalText(
+            rawText = json,
+            parseResult = parser.parse(json)
+        )
+    }
+}

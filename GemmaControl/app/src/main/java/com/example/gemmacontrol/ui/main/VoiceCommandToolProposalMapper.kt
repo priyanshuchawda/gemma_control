@@ -27,7 +27,7 @@ class VoiceCommandToolProposalMapper(
 ) {
     fun mapReadLatestMessages(limit: Int): VoiceToolProposalResult {
         val definition = registry.require(WhatsAppToolName.ListRecentWhatsAppMessages.value)
-        return route(
+        return mapToolProposal(
             ToolProposal(
                 name = definition.name,
                 arguments = mapOf("limit" to ToolArgument.IntegerValue(limit)),
@@ -49,12 +49,19 @@ class VoiceCommandToolProposalMapper(
         }.toString()
 
         return when (val result = parser.parse(json)) {
-            is ToolCallParseResult.Valid -> route(result.proposal)
+            is ToolCallParseResult.Valid -> mapToolProposal(result.proposal)
             is ToolCallParseResult.Invalid -> VoiceToolProposalResult.Invalid(result.reason)
         }
     }
 
-    private fun route(proposal: ToolProposal): VoiceToolProposalResult {
+    fun mapParseResult(result: ToolCallParseResult): VoiceToolProposalResult {
+        return when (result) {
+            is ToolCallParseResult.Valid -> mapToolProposal(result.proposal)
+            is ToolCallParseResult.Invalid -> VoiceToolProposalResult.Invalid(result.reason)
+        }
+    }
+
+    fun mapToolProposal(proposal: ToolProposal): VoiceToolProposalResult {
         return when (val decision = safetyRouter.route(proposal)) {
             is ToolExecutionDecision.AllowLocalExecution -> VoiceToolProposalResult.Valid(proposal, decision)
             is ToolExecutionDecision.RequireUserConfirmation -> VoiceToolProposalResult.Valid(proposal, decision)

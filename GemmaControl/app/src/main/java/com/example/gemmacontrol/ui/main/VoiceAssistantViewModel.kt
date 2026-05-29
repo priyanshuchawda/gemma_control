@@ -16,6 +16,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.gemmacontrol.ServiceLocator
 import com.example.gemmacontrol.ai.model.FunctionGemmaModelResolver
 import com.example.gemmacontrol.ai.model.InstalledFunctionGemmaModel
+import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
+import com.example.gemmacontrol.ai.tools.GemmaMessageContext
+import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
+import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
@@ -48,6 +52,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     )
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
     private val toolProposalMapper = VoiceCommandToolProposalMapper()
+    private val functionGemmaProposalHandler = FunctionGemmaVoiceProposalHandler(toolProposalMapper)
+    private val gemmaPromptBuilder = GemmaPromptBuilder()
+    private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
 
     private val _state = MutableStateFlow<VoiceAssistantState>(VoiceAssistantState.Idle)
     val state: StateFlow<VoiceAssistantState> = _state.asStateFlow()
@@ -81,12 +88,19 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private fun initializeFunctionGemmaIfInstalled() {
         viewModelScope.launch {
-            when (val model = functionGemmaModelResolver.resolveMobileActionsModel()) {
-                is InstalledFunctionGemmaModel.Ready -> {
-                    gemmaModelManager.initialize(model.config)
-                }
-                is InstalledFunctionGemmaModel.Missing -> Unit
+            ensureFunctionGemmaReady()
+        }
+    }
+
+    private suspend fun ensureFunctionGemmaReady(): Boolean {
+        if (gemmaModelManager.isReady) {
+            return true
+        }
+        return when (val model = functionGemmaModelResolver.resolveMobileActionsModel()) {
+            is InstalledFunctionGemmaModel.Ready -> {
+                gemmaModelManager.initialize(model.config) == GemmaEngineResult.Ready
             }
+            is InstalledFunctionGemmaModel.Missing -> false
         }
     }
 
@@ -276,18 +290,61 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private fun processTranscript(transcript: String) {
         _state.value = VoiceAssistantState.TranscriptReady(transcript)
         val command = VoiceCommandParser.parse(transcript)
-        _state.value = VoiceAssistantState.CommandReady(command)
 
         when (command) {
             is VoiceCommand.ReadLatestMessages -> {
+                _state.value = VoiceAssistantState.CommandReady(command)
                 // ReadLatestMessages does not immediately speak; wait for user confirmation
             }
             is VoiceCommand.ReplyToLatestActiveMessage -> {
+                _state.value = VoiceAssistantState.CommandReady(command)
                 prepareVoiceReply(command.replyText)
             }
             is VoiceCommand.Unsupported -> {
-                _state.value = VoiceAssistantState.Failure(command.reason)
+                requestFunctionGemmaProposal(transcript, command.reason)
             }
+        }
+    }
+
+    private fun requestFunctionGemmaProposal(transcript: String, fallbackReason: String) {
+        viewModelScope.launch {
+            if (!ensureFunctionGemmaReady()) {
+                _state.value = VoiceAssistantState.Failure(fallbackReason)
+                return@launch
+            }
+
+            _state.value = VoiceAssistantState.Streaming("")
+            val decryptedMessages = repository.getAllDecryptedMessages()
+            val promptContext = decryptedMessages.map { message ->
+                GemmaMessageContext.fromDecryptedMessage(
+                    messageEventId = message.id,
+                    notificationKey = message.notificationKey,
+                    conversationName = message.conversationId,
+                    senderName = message.senderName,
+                    decryptedText = message.decryptedText,
+                    postedAt = message.postedAt
+                )
+            }
+            val prompt = gemmaPromptBuilder.buildForUserCommand(
+                userCommand = transcript,
+                messages = promptContext
+            )
+            val result = gemmaModelManager.generateToolProposal(
+                prompt = prompt,
+                registry = whatsAppToolRegistry
+            ) { partialText ->
+                _state.value = VoiceAssistantState.Streaming(partialText)
+            }
+            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            val conversationTitleByNotificationKey = decryptedMessages
+                .associate { it.notificationKey to it.conversationId }
+            _state.value = functionGemmaProposalHandler.resolve(
+                result = result,
+                context = FunctionGemmaVoiceProposalContext(
+                    activeNotificationKeys = activeKeys,
+                    conversationTitleByNotificationKey = conversationTitleByNotificationKey
+                )
+            )
         }
     }
 

@@ -19,7 +19,7 @@ This document records the truthful current state of completed modules, verified 
 | Dual-notification behavior | **UNDERSTOOD** — WhatsApp posts one `MESSAGING_STYLE` + one summary `EXTRAS_FALLBACK` per message (both correct) |
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
-| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, and active-notification reply confirmation exist |
+| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, and active-notification reply confirmation exist |
 | FunctionGemma / LiteRT-LM Runtime | **PARTIAL LOCAL IMPLEMENTATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, and installed MobileActions model resolver exist; physical runtime validation remains deferred |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, and app-private model install path resolution exist; UI progress wiring and physical download validation remain deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, Gallery-style annotated ToolSet adapter, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
@@ -61,6 +61,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/model/ModelDownloadManager.kt` — Unique WorkManager enqueue/cancel boundary for model downloads
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
+- `FunctionGemmaVoiceProposalHandler.kt` — JVM-testable bridge from validated FunctionGemma proposal results to voice UI states
 - `VoiceHoldToSpeakInteraction.kt` — Testable hold-to-speak release/cancel decisions and Gallery-style stop delay constants
 
 ### Documentation
@@ -107,7 +108,7 @@ This document records the truthful current state of completed modules, verified 
 **Current local slice: FunctionGemma model path and download preparation.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
 - **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is still required for microphone behavior, TTS, notification listener binding, and `RemoteInput` reply execution.
-- **Next AI Runtime Slice**: Add model download/progress UX and connect generated FunctionGemma proposals into the voice command path. The required runtime mode is manual tool execution (`automaticToolCalling = false`), so model output remains a typed proposal until Kotlin validates it and the user confirms high-risk actions.
+- **Next AI Runtime Slice**: Add model download/progress UX and expand wired proposal execution beyond read-latest and active-notification replies. The required runtime mode is manual tool execution (`automaticToolCalling = false`), so model output remains a typed proposal until Kotlin validates it and the user confirms high-risk actions.
 
 
 
