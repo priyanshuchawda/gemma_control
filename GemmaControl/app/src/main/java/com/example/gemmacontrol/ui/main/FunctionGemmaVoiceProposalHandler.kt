@@ -47,6 +47,7 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.PauseWhatsAppCapture,
             WhatsAppToolName.ResumeWhatsAppCapture,
             WhatsAppToolName.CreateFollowUpFromMessage,
+            WhatsAppToolName.ListPendingFollowUps,
             WhatsAppToolName.MarkFollowUpCompleted,
             WhatsAppToolName.ScheduleReminderForMessage,
             WhatsAppToolName.MarkMessagePriority,
@@ -77,6 +78,13 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Create follow-up?",
                 description = "GemmaControl will save this as a local follow-up task for the selected WhatsApp message.",
                 confirmText = "Save Follow-Up",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.ListPendingFollowUps -> PendingLocalToolAction(
+                title = "Show pending follow-ups?",
+                description = "GemmaControl will read pending local follow-up tasks from encrypted app storage.",
+                confirmText = "Show Follow-Ups",
                 proposal = proposal,
                 decision = decision
             )
