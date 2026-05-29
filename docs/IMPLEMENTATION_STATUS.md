@@ -44,7 +44,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/WhatsAppToolRegistry.kt` — Kotlin mirror of the documented 16-tool FunctionGemma proposal contract
 - `ai/tools/WhatsAppTools.kt` — LiteRT-LM annotated `ToolSet` adapter for high-level WhatsApp actions
 - `ai/tools/WhatsAppToolActionHandler.kt` — JVM-testable action callback boundary used by the annotated adapter
-- `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for a future runtime adapter
+- `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for schema-based runtime adapters
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
 - `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions
 - `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed local-only tool decisions for capture pause/resume and full local data deletion

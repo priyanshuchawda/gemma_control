@@ -49,7 +49,7 @@ class UnavailableGemmaEngine : GemmaEngine {
 
     override suspend fun initialize(config: GemmaEngineConfig): GemmaEngineResult {
         return GemmaEngineResult.Blocked(
-            "LiteRT-LM runtime is not wired yet; cannot initialize FunctionGemma."
+            "LiteRT-LM runtime is unavailable in this execution path; cannot initialize FunctionGemma."
         )
     }
 
@@ -64,7 +64,8 @@ class UnavailableGemmaEngine : GemmaEngine {
     override fun close() = Unit
 
     private companion object {
-        const val BLOCKED_REASON = "LiteRT-LM runtime is not wired yet; cannot generate FunctionGemma proposals."
+        const val BLOCKED_REASON =
+            "LiteRT-LM runtime is unavailable in this execution path; cannot generate FunctionGemma proposals."
     }
 }
 

@@ -42,7 +42,7 @@ FunctionGemma is a proposal engine only. Kotlin must validate:
 - reply text length and non-blank content
 - E.164 phone numbers for click-to-chat
 - whether a tool requires manual confirmation
-- bounded prompt context size before any future model call
+- bounded prompt context size before any model call
 - model lifecycle readiness before prompt submission
 - installed model resolution before LiteRT initialization
 - active notification liveness before a model-proposed reply reaches confirmation

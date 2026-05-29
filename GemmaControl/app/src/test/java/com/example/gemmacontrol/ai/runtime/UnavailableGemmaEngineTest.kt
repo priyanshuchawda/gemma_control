@@ -21,7 +21,7 @@ class UnavailableGemmaEngineTest {
         assertTrue(result is GemmaEngineResult.Blocked)
         assertFalse(engine.isReady)
         val reason = (result as GemmaEngineResult.Blocked).reason
-        assertTrue(reason.contains("LiteRT-LM runtime is not wired"))
+        assertTrue(reason.contains("LiteRT-LM runtime is unavailable in this execution path"))
         assertFalse(reason.contains("C:/models/functiongemma.litertlm"))
     }
 
@@ -35,7 +35,7 @@ class UnavailableGemmaEngineTest {
         )
 
         assertEquals(
-            GemmaEngineResult.Blocked("LiteRT-LM runtime is not wired yet; cannot generate FunctionGemma proposals."),
+            GemmaEngineResult.Blocked("LiteRT-LM runtime is unavailable in this execution path; cannot generate FunctionGemma proposals."),
             result
         )
     }

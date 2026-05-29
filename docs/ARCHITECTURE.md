@@ -20,7 +20,7 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 [ Local UI Chat View ] ← [ English User Command ]
                                    ↓
                          [ LiteRT-LM Engine ]
-                         (future runtime adapter)
+                         (LiteRtGemmaEngine)
                          (automaticToolCalling = false)
                                    ↓
                         [ Proposes JSON Tool ]
@@ -65,11 +65,11 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **`ai/tools/WhatsAppToolRegistry.kt`**: Typed Kotlin mirror of the documented 16-tool FunctionGemma contract. Each tool is assigned a safety level: read-only, local write, confirmation-required, or strict manual confirmation.
 - **`ai/tools/WhatsAppTools.kt`**: Gallery-style LiteRT-LM `ToolSet` adapter using `@Tool` / `@ToolParam` annotations for high-level WhatsApp actions. It is intentionally thin and delegates to a JVM-testable handler.
 - **`ai/tools/WhatsAppToolActionHandler.kt`**: Dependency-free action boundary for model tool callbacks. It validates reply text, normalizes sender names, captures typed `WhatsAppToolAction` values, and returns model-safe result maps.
-- **`ai/tools/ToolSchemaExporter.kt`**: Converts the same typed registry to LiteRT/OpenAPI-style tool JSON so the future runtime adapter can register schemas without duplicating tool definitions.
+- **`ai/tools/ToolSchemaExporter.kt`**: Converts the same typed registry to LiteRT/OpenAPI-style tool JSON so schema-based runtime adapters can register tools without duplicating definitions.
 - **`ai/tools/ToolCallParser.kt`**: Strict JSON parser for model-proposed tool calls. It accepts the direct `{ "name", "parameters" }` shape and the Gallery-style `{ "functionCall": { "name", "args" } }` envelope, rejects unknown tools/parameters, and validates high-risk values such as reply text and E.164 phone numbers before UI presentation.
 - **`ai/tools/ToolSafetyRouter.kt`**: Converts validated proposals into explicit execution decisions. This keeps read-only local data access, local writes, standard confirmation, strict manual confirmation, and rejection separate from parsing.
 - **`ai/tools/WhatsAppLocalToolExecutor.kt`**: Executes only local repository/preference operations after routing and confirmation. It can pause/resume capture and delete all local WhatsApp data; Android `RemoteInput` replies remain outside this executor.
-- **`ai/tools/GemmaPromptBuilder.kt`**: Builds bounded, recency-sorted prompt context from selected local WhatsApp messages. It truncates message bodies and avoids whole-inbox dumps before any future model call.
+- **`ai/tools/GemmaPromptBuilder.kt`**: Builds bounded, recency-sorted prompt context from selected local WhatsApp messages. It truncates message bodies and avoids whole-inbox dumps before model calls.
 - **`ui/main/FunctionGemmaVoiceProposalHandler.kt`**: Converts validated FunctionGemma proposal results into existing voice UI states. It accepts read-latest proposals, live active-notification reply proposals, and confirmed local actions for pause/resume capture or delete-all-local-data; it rejects expired notification keys and fails safely for tools not yet wired to the voice UI.
 - **`ai/runtime/GemmaModelManager.kt`**: Owns the FunctionGemma lifecycle boundary: initialize once per config, reinitialize on model changes, block generation before readiness, emit streaming partial text, cancel in-flight responses, release idle background resources, and handle low-memory cleanup.
 - **`ai/runtime/LiteRtGemmaEngine.kt`**: Isolated LiteRT-LM engine/conversation adapter following Gallery's engine initialize, createConversation, sendMessageAsync, and close pattern. It is backend-aware and keeps LiteRT automatic tool calling disabled.
@@ -79,7 +79,7 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **`ai/model/ModelDownloadManager.kt`**: Unique-work enqueue/cancel boundary for model downloads, constrained to connected-network execution.
 - **`ai/model/ModelDownloadUiState.kt`**: Maps WorkManager progress/output data into stable UI states for progress, transfer rate, ETA, verified output path, and safe errors.
 - **`ui/main/SettingsScreen.kt`**: Hosts the FunctionGemma MobileActions download card, including HTTPS URL/SHA-256 inputs, WorkManager enqueue/cancel, installed-path status, and progress display.
-- **`ServiceLocator.getGemmaModelManager()`**: Exposes one app-wide model manager instance without requiring Android context, keeping model lifecycle separate from Room and notification ingestion singletons.
+- **`ServiceLocator.getGemmaModelManager(context)`**: Exposes one app-wide Android model manager instance with lazy LiteRT engine creation, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---
 

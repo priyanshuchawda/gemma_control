@@ -124,10 +124,8 @@ object VoiceCommandParser {
             "tell them"
         )
         
-        var matchedReplyPrefix = false
         for (prefix in prefixes) {
             if (lower.startsWith(prefix)) {
-                matchedReplyPrefix = true
                 val rawText = trimmed.substring(prefix.length).trim()
                 val cleaned = rawText.removePrefix(":").removePrefix("that").trim().removePrefix(":").trim()
                 if (cleaned.isEmpty()) {
