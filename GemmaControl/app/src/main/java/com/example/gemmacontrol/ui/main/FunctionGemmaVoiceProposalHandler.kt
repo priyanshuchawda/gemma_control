@@ -48,6 +48,7 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.ResumeWhatsAppCapture,
             WhatsAppToolName.SearchWhatsAppMessages,
             WhatsAppToolName.GetWhatsAppMessageDetails,
+            WhatsAppToolName.GetActionableInbox,
             WhatsAppToolName.CreateFollowUpFromMessage,
             WhatsAppToolName.ListPendingFollowUps,
             WhatsAppToolName.MarkFollowUpCompleted,
@@ -87,6 +88,13 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Show message details?",
                 description = "GemmaControl will read one locally stored WhatsApp message row.",
                 confirmText = "Show Details",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.GetActionableInbox -> PendingLocalToolAction(
+                title = "Show actionable inbox?",
+                description = "GemmaControl will read local pending follow-ups and high-priority WhatsApp message flags.",
+                confirmText = "Show Inbox",
                 proposal = proposal,
                 decision = decision
             )

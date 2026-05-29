@@ -363,6 +363,69 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun getActionableInboxReturnsReadableSummary() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            actionableInbox = listOf(
+                LocalActionableInboxItem(
+                    id = "follow-up-1",
+                    messageEventId = "message-1",
+                    type = "FOLLOW_UP",
+                    title = "Call back",
+                    conversationName = "Mom",
+                    text = "Call me tomorrow",
+                    priority = "HIGH",
+                    status = "PENDING",
+                    dueAt = "2026-05-30T09:00:00+05:30",
+                    updatedAt = 1000L
+                ),
+                LocalActionableInboxItem(
+                    id = "message-2",
+                    messageEventId = "message-2",
+                    type = "PRIORITY_MESSAGE",
+                    title = "High priority message",
+                    conversationName = "Peter",
+                    text = "Deadline moved earlier",
+                    priority = "HIGH",
+                    status = "PENDING",
+                    dueAt = null,
+                    updatedAt = 900L
+                )
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "get_actionable_inbox",
+                  "parameters": {
+                    "status": "PENDING",
+                    "priority": "HIGH",
+                    "limit": 10
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(
+            ToolExecutionResult.Success(
+                "- [FOLLOW_UP] Call back (Mom) [HIGH/PENDING] due 2026-05-30T09:00:00+05:30: Call me tomorrow\n" +
+                    "- [PRIORITY_MESSAGE] High priority message (Peter) [HIGH/PENDING]: Deadline moved earlier"
+            ),
+            result
+        )
+        assertEquals(
+            listOf(GetActionableInboxCall(status = "PENDING", priority = "HIGH", limit = 10)),
+            repository.actionableInboxCalls
+        )
+    }
+
+    @Test
     fun doesNotExecuteActiveNotificationRepliesInLocalExecutor() = runTest {
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -448,11 +511,18 @@ class WhatsAppLocalToolExecutorTest {
         val conversationName: String?
     )
 
+    private data class GetActionableInboxCall(
+        val status: String?,
+        val priority: String?,
+        val limit: Int
+    )
+
     private class FakeLocalWhatsAppDataRepository(
         private val conversationDeleteResult: Boolean = true,
         private val pendingFollowUps: List<LocalFollowUp> = emptyList(),
         private val searchResults: List<LocalWhatsAppMessage> = emptyList(),
-        private val messageDetails: LocalWhatsAppMessage? = null
+        private val messageDetails: LocalWhatsAppMessage? = null,
+        private val actionableInbox: List<LocalActionableInboxItem> = emptyList()
     ) : LocalWhatsAppDataRepository {
         var deleteAllCalls = 0
             private set
@@ -464,6 +534,7 @@ class WhatsAppLocalToolExecutorTest {
         val scheduleReminderCalls = mutableListOf<ScheduleReminderCall>()
         val searchMessagesCalls = mutableListOf<SearchMessagesCall>()
         val messageDetailsCalls = mutableListOf<String>()
+        val actionableInboxCalls = mutableListOf<GetActionableInboxCall>()
 
         override suspend fun deleteAllData() {
             deleteAllCalls += 1
@@ -497,6 +568,15 @@ class WhatsAppLocalToolExecutorTest {
         override suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage? {
             messageDetailsCalls += messageEventId
             return messageDetails
+        }
+
+        override suspend fun getActionableInbox(
+            status: String?,
+            priority: String?,
+            limit: Int
+        ): List<LocalActionableInboxItem> {
+            actionableInboxCalls += GetActionableInboxCall(status, priority, limit)
+            return actionableInbox
         }
 
         override suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean {

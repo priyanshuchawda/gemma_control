@@ -102,5 +102,22 @@ class ToolCallParserTest {
             ToolCallParseResult.Invalid("Invalid message_text: must not be blank"),
             emptyReply
         )
+
+        val badStatus = parser.parse(
+            """
+            {
+              "name": "get_actionable_inbox",
+              "parameters": {
+                "status": "OPEN",
+                "limit": 10
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            ToolCallParseResult.Invalid("Invalid status: expected PENDING or COMPLETED"),
+            badStatus
+        )
     }
 }

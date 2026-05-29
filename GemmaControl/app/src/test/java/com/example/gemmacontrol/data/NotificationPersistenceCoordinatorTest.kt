@@ -185,6 +185,21 @@ class FakeFollowUpDao : FollowUpDao {
             .take(limit)
     }
 
+    override suspend fun getByStatus(status: String?, priority: InboxPriority?, limit: Int): List<FollowUpEntity> {
+        return list
+            .filter { followUp ->
+                status == null ||
+                    (status == "PENDING" && followUp.completedAt == null) ||
+                    (status == "COMPLETED" && followUp.completedAt != null)
+            }
+            .filter { priority == null || it.priority == priority }
+            .sortedWith(
+                compareBy<FollowUpEntity> { if (it.completedAt == null) 0 else 1 }
+                    .thenByDescending { it.createdAt }
+            )
+            .take(limit)
+    }
+
     override suspend fun markCompleted(id: String, completedAt: Long): Int {
         val index = list.indexOfFirst { it.id == id && it.completedAt == null }
         if (index == -1) {
@@ -648,6 +663,57 @@ class NotificationPersistenceCoordinatorTest {
         assertEquals(messageId, result?.id)
         assertEquals("Mom", result?.conversationName)
         assertEquals("Dinner at 7", result?.text)
+    }
+
+    @Test
+    fun testRepository_getActionableInboxReturnsPendingFollowUpsAndPriorityMessages() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_actionable_follow_up",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Call me tomorrow"
+            )
+        )
+        val followUpMessageId = messageEventDao.list.single().id
+        repository.createFollowUp(
+            messageEventId = followUpMessageId,
+            title = "Call back",
+            dueAt = "2026-05-30T09:00:00+05:30",
+            priority = "HIGH"
+        )
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_actionable_priority",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Deadline moved earlier"
+            )
+        )
+        val priorityMessageId = messageEventDao.list.last().id
+        repository.markMessagePriority(priorityMessageId, "HIGH")
+
+        val pending = repository.getActionableInbox(status = "PENDING", priority = "HIGH", limit = 10)
+        val byType = pending.associateBy { it.type }
+
+        assertEquals(setOf("FOLLOW_UP", "PRIORITY_MESSAGE"), byType.keys)
+        assertEquals("Call back", byType["FOLLOW_UP"]?.title)
+        assertEquals(followUpMessageId, byType["FOLLOW_UP"]?.messageEventId)
+        assertEquals("Mom", byType["FOLLOW_UP"]?.conversationName)
+        assertEquals("Deadline moved earlier", byType["PRIORITY_MESSAGE"]?.text)
+        assertEquals(priorityMessageId, byType["PRIORITY_MESSAGE"]?.messageEventId)
+
+        val followUpId = followUpDao.list.single().id
+        repository.markFollowUpCompleted(followUpId)
+
+        val completed = repository.getActionableInbox(status = "COMPLETED", priority = "HIGH", limit = 10)
+
+        assertEquals(1, completed.size)
+        assertEquals("FOLLOW_UP", completed.single().type)
+        assertEquals("COMPLETED", completed.single().status)
     }
 
     @Test

@@ -47,7 +47,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for schema-based runtime adapters
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
 - `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions
-- `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed local-only tool decisions for capture pause/resume and full local data deletion
+- `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed local-only tool decisions for capture pause/resume, local message search/details, actionable inbox reads, follow-ups, priority flags, reminders, and scoped local data deletion
 - `data/local/entity/FollowUpEntity.kt` — Room entity for local WhatsApp follow-up tasks linked to stored message events
 - `data/local/entity/InboxPriority.kt` — Local priority enum used by message rows and follow-up rows
 - `data/local/entity/ReminderEntity.kt` — Room entity for encrypted local reminder notes linked to stored message events

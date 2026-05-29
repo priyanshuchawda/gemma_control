@@ -4,6 +4,7 @@ import com.example.gemmacontrol.data.crypto.EncryptedPayload
 import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import androidx.room.withTransaction
+import com.example.gemmacontrol.ai.tools.LocalActionableInboxItem
 import com.example.gemmacontrol.ai.tools.LocalFollowUp
 import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
 import com.example.gemmacontrol.ai.tools.LocalWhatsAppMessage
@@ -403,6 +404,50 @@ class StoredInboxRepository(
             ?.toLocalWhatsAppMessage()
     }
 
+    override suspend fun getActionableInbox(
+        status: String?,
+        priority: String?,
+        limit: Int
+    ): List<LocalActionableInboxItem> {
+        val safeLimit = limit.coerceIn(1, 100)
+        val statusFilter = parseActionableStatus(status)
+        if (!status.isNullOrBlank() && statusFilter == null) {
+            return emptyList()
+        }
+        val priorityFilter = parsePriorityOrNull(priority)
+        if (!priority.isNullOrBlank() && priorityFilter == null) {
+            return emptyList()
+        }
+        val messages = getAllDecryptedMessages()
+        val messagesById = messages.associateBy { it.id }
+        val followUps = followUpDao
+            ?.getByStatus(statusFilter, priorityFilter, safeLimit)
+            .orEmpty()
+        val followUpItems = followUps.mapNotNull { followUp ->
+            val message = messagesById[followUp.messageEventId] ?: return@mapNotNull null
+            followUp.toLocalActionableInboxItem(message)
+        }
+
+        val followUpMessageIds = followUps.map { it.messageEventId }.toSet()
+        val priorityMessageItems = if (statusFilter == null || statusFilter == ACTIONABLE_STATUS_PENDING) {
+            messages.asSequence()
+                .filter { it.priority == InboxPriority.HIGH.name }
+                .filter { priorityFilter == null || it.priority == priorityFilter.name }
+                .filter { it.id !in followUpMessageIds }
+                .map { it.toPriorityActionableInboxItem() }
+                .toList()
+        } else {
+            emptyList()
+        }
+
+        return (followUpItems + priorityMessageItems)
+            .sortedWith(
+                compareBy<LocalActionableInboxItem> { if (it.status == ACTIONABLE_STATUS_PENDING) 0 else 1 }
+                    .thenByDescending { it.updatedAt }
+            )
+            .take(safeLimit)
+    }
+
     private fun decryptConversationTitle(entity: ConversationEntity): String {
         return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
             try {
@@ -486,6 +531,36 @@ class StoredInboxRepository(
         )
     }
 
+    private fun FollowUpEntity.toLocalActionableInboxItem(message: DecryptedMessage): LocalActionableInboxItem {
+        return LocalActionableInboxItem(
+            id = id,
+            messageEventId = messageEventId,
+            type = ACTIONABLE_TYPE_FOLLOW_UP,
+            title = title,
+            conversationName = message.conversationId,
+            text = message.decryptedText,
+            priority = priority.name,
+            status = if (completedAt == null) ACTIONABLE_STATUS_PENDING else ACTIONABLE_STATUS_COMPLETED,
+            dueAt = dueAt,
+            updatedAt = completedAt ?: createdAt
+        )
+    }
+
+    private fun DecryptedMessage.toPriorityActionableInboxItem(): LocalActionableInboxItem {
+        return LocalActionableInboxItem(
+            id = id,
+            messageEventId = id,
+            type = ACTIONABLE_TYPE_PRIORITY_MESSAGE,
+            title = "High priority message",
+            conversationName = conversationId,
+            text = decryptedText,
+            priority = priority,
+            status = ACTIONABLE_STATUS_PENDING,
+            dueAt = null,
+            updatedAt = postedAt
+        )
+    }
+
     private fun parsePriority(value: String?, default: InboxPriority): InboxPriority {
         return parsePriorityOrNull(value) ?: default
     }
@@ -510,11 +585,25 @@ class StoredInboxRepository(
         }
     }
 
+    private fun parseActionableStatus(value: String?): String? {
+        val cleanValue = value?.trim()?.uppercase(Locale.ROOT).orEmpty()
+        if (cleanValue.isBlank()) {
+            return null
+        }
+        return cleanValue.takeIf {
+            it == ACTIONABLE_STATUS_PENDING || it == ACTIONABLE_STATUS_COMPLETED
+        }
+    }
+
     private fun normalizeSearchText(value: String): String {
         return value.trim().lowercase(Locale.ROOT)
     }
 
     private companion object {
         const val DEFAULT_SEARCH_LIMIT = 10
+        const val ACTIONABLE_TYPE_FOLLOW_UP = "FOLLOW_UP"
+        const val ACTIONABLE_TYPE_PRIORITY_MESSAGE = "PRIORITY_MESSAGE"
+        const val ACTIONABLE_STATUS_PENDING = "PENDING"
+        const val ACTIONABLE_STATUS_COMPLETED = "COMPLETED"
     }
 }

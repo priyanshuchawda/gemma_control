@@ -103,6 +103,12 @@ class ToolCallParser(
             }
         }
 
+        proposal.string("status")?.let { status ->
+            if (status !in setOf("PENDING", "COMPLETED")) {
+                return ToolCallParseResult.Invalid("Invalid status: expected PENDING or COMPLETED")
+            }
+        }
+
         return ToolCallParseResult.Valid(proposal)
     }
 

@@ -21,6 +21,7 @@ interface LocalWhatsAppDataRepository {
     ): String?
     suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage>
     suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage?
+    suspend fun getActionableInbox(status: String?, priority: String?, limit: Int): List<LocalActionableInboxItem>
 }
 
 data class LocalFollowUp(
@@ -40,6 +41,19 @@ data class LocalWhatsAppMessage(
     val text: String?,
     val postedAt: Long,
     val priority: String
+)
+
+data class LocalActionableInboxItem(
+    val id: String,
+    val messageEventId: String,
+    val type: String,
+    val title: String,
+    val conversationName: String,
+    val text: String?,
+    val priority: String,
+    val status: String,
+    val dueAt: String?,
+    val updatedAt: Long
 )
 
 sealed interface ToolExecutionResult {
@@ -77,6 +91,7 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
             WhatsAppToolName.SearchWhatsAppMessages -> searchMessages(proposal)
             WhatsAppToolName.GetWhatsAppMessageDetails -> getMessageDetails(proposal)
+            WhatsAppToolName.GetActionableInbox -> getActionableInbox(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
                 "Active notification replies must use the notification reply executor."
@@ -221,10 +236,30 @@ class WhatsAppLocalToolExecutor(
         return ToolExecutionResult.Success(formatMessages(listOf(message)))
     }
 
+    private suspend fun getActionableInbox(proposal: ToolProposal): ToolExecutionResult {
+        val items = localDataRepository.getActionableInbox(
+            status = proposal.string("status")?.trim()?.takeIf { it.isNotBlank() },
+            priority = proposal.string("priority")?.trim()?.takeIf { it.isNotBlank() },
+            limit = proposal.integer("limit") ?: 10
+        )
+        if (items.isEmpty()) {
+            return ToolExecutionResult.Success("No actionable inbox items.")
+        }
+        return ToolExecutionResult.Success(formatActionableInbox(items))
+    }
+
     private fun formatMessages(messages: List<LocalWhatsAppMessage>): String {
         return messages.joinToString(separator = "\n") { message ->
             val text = message.text?.takeIf { it.isNotBlank() } ?: "[No message text]"
             "- [${message.id}] ${message.conversationName}: $text"
+        }
+    }
+
+    private fun formatActionableInbox(items: List<LocalActionableInboxItem>): String {
+        return items.joinToString(separator = "\n") { item ->
+            val due = item.dueAt?.let { " due $it" }.orEmpty()
+            val text = item.text?.takeIf { it.isNotBlank() } ?: "[No message text]"
+            "- [${item.type}] ${item.title} (${item.conversationName}) [${item.priority}/${item.status}]$due: $text"
         }
     }
 }

@@ -232,6 +232,26 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsActionableInboxProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "get_actionable_inbox",
+                params = mapOf(
+                    "status" to "PENDING",
+                    "priority" to "HIGH",
+                    "limit" to 10
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Show actionable inbox?", action.title)
+        assertEquals("Show Inbox", action.confirmText)
+    }
+
+    @Test
     fun mapsConversationScopedDeleteProposalToSpecificConfirmation() {
         val state = handler.resolve(
             result = proposalResult(
