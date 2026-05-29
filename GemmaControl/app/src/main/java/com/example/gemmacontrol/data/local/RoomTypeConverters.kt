@@ -1,6 +1,7 @@
 package com.example.gemmacontrol.data.local
 
 import androidx.room.TypeConverter
+import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 
@@ -23,5 +24,15 @@ class RoomTypeConverters {
         NotificationParseSource.valueOf(value)
     } catch (e: Exception) {
         NotificationParseSource.UNAVAILABLE
+    }
+
+    @TypeConverter
+    fun fromInboxPriority(value: InboxPriority): String = value.name
+
+    @TypeConverter
+    fun toInboxPriority(value: String): InboxPriority = try {
+        InboxPriority.valueOf(value)
+    } catch (e: Exception) {
+        InboxPriority.NORMAL
     }
 }

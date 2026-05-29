@@ -46,6 +46,9 @@ class FunctionGemmaVoiceProposalHandler(
             }
             WhatsAppToolName.PauseWhatsAppCapture,
             WhatsAppToolName.ResumeWhatsAppCapture,
+            WhatsAppToolName.CreateFollowUpFromMessage,
+            WhatsAppToolName.MarkFollowUpCompleted,
+            WhatsAppToolName.MarkMessagePriority,
             WhatsAppToolName.DeleteLocalWhatsAppData -> {
                 toLocalToolConfirmationState()
             }
@@ -66,6 +69,27 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Resume WhatsApp capture?",
                 description = "GemmaControl will resume processing future WhatsApp notification previews.",
                 confirmText = "Resume Capture",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.CreateFollowUpFromMessage -> PendingLocalToolAction(
+                title = "Create follow-up?",
+                description = "GemmaControl will save this as a local follow-up task for the selected WhatsApp message.",
+                confirmText = "Save Follow-Up",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.MarkFollowUpCompleted -> PendingLocalToolAction(
+                title = "Mark follow-up complete?",
+                description = "GemmaControl will mark this local follow-up task as completed.",
+                confirmText = "Mark Complete",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.MarkMessagePriority -> PendingLocalToolAction(
+                title = "Mark message ${proposal.string("priority").orEmpty()} priority?",
+                description = "GemmaControl will update only the local inbox priority flag for this captured WhatsApp message.",
+                confirmText = "Mark Priority",
                 proposal = proposal,
                 decision = decision
             )

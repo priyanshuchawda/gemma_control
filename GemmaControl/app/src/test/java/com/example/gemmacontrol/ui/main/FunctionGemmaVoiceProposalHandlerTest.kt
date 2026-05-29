@@ -119,6 +119,45 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsCreateFollowUpProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "create_follow_up_from_message",
+                params = mapOf(
+                    "message_event_id" to "message-1",
+                    "follow_up_title" to "Call back",
+                    "priority" to "HIGH"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Create follow-up?", action.title)
+        assertEquals("Save Follow-Up", action.confirmText)
+    }
+
+    @Test
+    fun mapsMarkPriorityProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "mark_message_priority",
+                params = mapOf(
+                    "message_event_id" to "message-1",
+                    "priority" to "HIGH"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Mark message HIGH priority?", action.title)
+        assertEquals("Mark Priority", action.confirmText)
+    }
+
+    @Test
     fun mapsConversationScopedDeleteProposalToSpecificConfirmation() {
         val state = handler.resolve(
             result = proposalResult(

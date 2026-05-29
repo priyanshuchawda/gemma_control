@@ -120,6 +120,139 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun confirmedCreateFollowUpDelegatesToRepository() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "create_follow_up_from_message",
+                  "parameters": {
+                    "message_event_id": "message-1",
+                    "follow_up_title": "Call back",
+                    "due_at": "2026-05-30T09:00:00+05:30",
+                    "priority": "HIGH"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("Follow-up saved: Call back."), result)
+        assertEquals(
+            listOf(
+                CreateFollowUpCall(
+                    messageEventId = "message-1",
+                    title = "Call back",
+                    dueAt = "2026-05-30T09:00:00+05:30",
+                    priority = "HIGH"
+                )
+            ),
+            repository.createFollowUpCalls
+        )
+    }
+
+    @Test
+    fun confirmedMarkMessagePriorityDelegatesToRepository() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "mark_message_priority",
+                  "parameters": {
+                    "message_event_id": "message-1",
+                    "priority": "HIGH"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("Message marked HIGH priority."), result)
+        assertEquals(listOf(MarkPriorityCall(messageEventId = "message-1", priority = "HIGH")), repository.markPriorityCalls)
+    }
+
+    @Test
+    fun confirmedMarkFollowUpCompletedDelegatesToRepository() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "mark_follow_up_completed",
+                  "parameters": {
+                    "follow_up_id": "follow-up-1"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("Follow-up marked complete."), result)
+        assertEquals(listOf("follow-up-1"), repository.completedFollowUpCalls)
+    }
+
+    @Test
+    fun listPendingFollowUpsReturnsReadableSummary() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            pendingFollowUps = listOf(
+                LocalFollowUp(
+                    id = "follow-up-1",
+                    messageEventId = "message-1",
+                    title = "Call back",
+                    dueAt = "2026-05-30T09:00:00+05:30",
+                    priority = "HIGH",
+                    createdAt = 1L,
+                    completedAt = null
+                )
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "list_pending_follow_ups",
+                  "parameters": {
+                    "limit": 10,
+                    "priority": "HIGH"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(
+            ToolExecutionResult.Success("- Call back [HIGH] due 2026-05-30T09:00:00+05:30"),
+            result
+        )
+        assertEquals(
+            listOf(ListPendingFollowUpsCall(limit = 10, priority = "HIGH")),
+            repository.listPendingFollowUpsCalls
+        )
+    }
+
+    @Test
     fun doesNotExecuteActiveNotificationRepliesInLocalExecutor() = runTest {
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -177,12 +310,34 @@ class WhatsAppLocalToolExecutorTest {
         }
     }
 
+    private data class CreateFollowUpCall(
+        val messageEventId: String,
+        val title: String,
+        val dueAt: String?,
+        val priority: String?
+    )
+
+    private data class MarkPriorityCall(
+        val messageEventId: String,
+        val priority: String
+    )
+
+    private data class ListPendingFollowUpsCall(
+        val limit: Int,
+        val priority: String?
+    )
+
     private class FakeLocalWhatsAppDataRepository(
-        private val conversationDeleteResult: Boolean = true
+        private val conversationDeleteResult: Boolean = true,
+        private val pendingFollowUps: List<LocalFollowUp> = emptyList()
     ) : LocalWhatsAppDataRepository {
         var deleteAllCalls = 0
             private set
         val deleteConversationCalls = mutableListOf<String>()
+        val createFollowUpCalls = mutableListOf<CreateFollowUpCall>()
+        val markPriorityCalls = mutableListOf<MarkPriorityCall>()
+        val completedFollowUpCalls = mutableListOf<String>()
+        val listPendingFollowUpsCalls = mutableListOf<ListPendingFollowUpsCall>()
 
         override suspend fun deleteAllData() {
             deleteAllCalls += 1
@@ -191,6 +346,31 @@ class WhatsAppLocalToolExecutorTest {
         override suspend fun deleteConversationData(conversationName: String): Boolean {
             deleteConversationCalls += conversationName
             return conversationDeleteResult
+        }
+
+        override suspend fun createFollowUp(
+            messageEventId: String,
+            title: String,
+            dueAt: String?,
+            priority: String?
+        ): String? {
+            createFollowUpCalls += CreateFollowUpCall(messageEventId, title, dueAt, priority)
+            return "follow-up-1"
+        }
+
+        override suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp> {
+            listPendingFollowUpsCalls += ListPendingFollowUpsCall(limit, priority)
+            return pendingFollowUps
+        }
+
+        override suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean {
+            markPriorityCalls += MarkPriorityCall(messageEventId, priority)
+            return true
+        }
+
+        override suspend fun markFollowUpCompleted(followUpId: String): Boolean {
+            completedFollowUpCalls += followUpId
+            return true
         }
     }
 }

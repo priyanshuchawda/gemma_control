@@ -3,23 +3,26 @@ package com.example.gemmacontrol.data.repository
 import com.example.gemmacontrol.data.crypto.EncryptedPayload
 import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
+import androidx.room.withTransaction
+import com.example.gemmacontrol.ai.tools.LocalFollowUp
+import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
+import com.example.gemmacontrol.data.local.GemmaControlDatabase
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
+import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
+import com.example.gemmacontrol.data.local.entity.FollowUpEntity
+import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import java.util.UUID
-
-import androidx.room.withTransaction
-import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
-import com.example.gemmacontrol.data.local.GemmaControlDatabase
-import java.util.Locale
 
 class StoredInboxRepository(
     private val conversationDao: ConversationDao,
@@ -27,7 +30,8 @@ class StoredInboxRepository(
     private val activeNotificationReferenceDao: ActiveNotificationReferenceDao,
     private val sensitiveTextCipher: SensitiveTextCipher,
     private val dedupeTokenGenerator: DedupeTokenGenerator,
-    private val db: GemmaControlDatabase? = null
+    private val db: GemmaControlDatabase? = null,
+    private val followUpDao: FollowUpDao? = null
 ) : LocalWhatsAppDataRepository {
     sealed interface PersistCanonicalResult {
         data class Stored(val messageId: String) : PersistCanonicalResult
@@ -57,7 +61,8 @@ class StoredInboxRepository(
         val sourcePackage: String,
         val parseSource: NotificationParseSource,
         val isContentUnavailable: Boolean,
-        val createdAt: Long
+        val createdAt: Long,
+        val priority: String
     )
 
     data class StoredConversation(
@@ -256,6 +261,61 @@ class StoredInboxRepository(
         }
     }
 
+    override suspend fun createFollowUp(
+        messageEventId: String,
+        title: String,
+        dueAt: String?,
+        priority: String?
+    ): String? {
+        val dao = followUpDao ?: return null
+        val cleanMessageEventId = messageEventId.trim()
+        val cleanTitle = title.trim()
+        if (cleanMessageEventId.isBlank() || cleanTitle.isBlank()) {
+            return null
+        }
+        if (messageEventDao.getById(cleanMessageEventId) == null) {
+            return null
+        }
+
+        val followUpId = UUID.randomUUID().toString()
+        val entity = FollowUpEntity(
+            id = followUpId,
+            messageEventId = cleanMessageEventId,
+            title = cleanTitle,
+            dueAt = dueAt?.trim()?.takeIf { it.isNotBlank() },
+            priority = parsePriority(priority, default = InboxPriority.NORMAL),
+            createdAt = System.currentTimeMillis(),
+            completedAt = null
+        )
+        dao.insert(entity)
+        return followUpId
+    }
+
+    override suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp> {
+        val dao = followUpDao ?: return emptyList()
+        val safeLimit = limit.coerceIn(1, 100)
+        return dao.getPending(parsePriorityOrNull(priority), safeLimit)
+            .map { it.toLocalFollowUp() }
+    }
+
+    override suspend fun markFollowUpCompleted(followUpId: String): Boolean {
+        val dao = followUpDao ?: return false
+        val cleanFollowUpId = followUpId.trim()
+        if (cleanFollowUpId.isBlank()) {
+            return false
+        }
+        return dao.markCompleted(cleanFollowUpId, System.currentTimeMillis()) > 0
+    }
+
+    override suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean {
+        val cleanMessageEventId = messageEventId.trim()
+        if (cleanMessageEventId.isBlank()) {
+            return false
+        }
+        val parsedPriority = parseMessagePriority(priority) ?: return false
+        return messageEventDao.updatePriority(cleanMessageEventId, parsedPriority) > 0
+    }
+
     private fun decryptConversationTitle(entity: ConversationEntity): String {
         return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
             try {
@@ -311,7 +371,44 @@ class StoredInboxRepository(
             sourcePackage = entity.sourcePackage,
             parseSource = entity.parseSource,
             isContentUnavailable = entity.isContentUnavailable,
-            createdAt = entity.createdAt
+            createdAt = entity.createdAt,
+            priority = entity.priority.name
         )
+    }
+
+    private fun FollowUpEntity.toLocalFollowUp(): LocalFollowUp {
+        return LocalFollowUp(
+            id = id,
+            messageEventId = messageEventId,
+            title = title,
+            dueAt = dueAt,
+            priority = priority.name,
+            createdAt = createdAt,
+            completedAt = completedAt
+        )
+    }
+
+    private fun parsePriority(value: String?, default: InboxPriority): InboxPriority {
+        return parsePriorityOrNull(value) ?: default
+    }
+
+    private fun parsePriorityOrNull(value: String?): InboxPriority? {
+        val cleanValue = value?.trim()?.uppercase(Locale.ROOT).orEmpty()
+        if (cleanValue.isBlank()) {
+            return null
+        }
+        return try {
+            InboxPriority.valueOf(cleanValue)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun parseMessagePriority(value: String): InboxPriority? {
+        return when (parsePriorityOrNull(value)) {
+            InboxPriority.HIGH -> InboxPriority.HIGH
+            InboxPriority.NORMAL -> InboxPriority.NORMAL
+            else -> null
+        }
     }
 }

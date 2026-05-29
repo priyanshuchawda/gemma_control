@@ -61,7 +61,8 @@ object ServiceLocator {
                 db.activeNotificationReferenceDao(),
                 getSensitiveTextCipher(),
                 getDedupeTokenGenerator(),
-                db
+                db,
+                db.followUpDao()
             ).also { storedInboxRepository = it }
         }
     }

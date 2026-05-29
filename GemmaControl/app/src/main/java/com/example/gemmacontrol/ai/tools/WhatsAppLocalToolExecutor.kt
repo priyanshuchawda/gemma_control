@@ -5,7 +5,26 @@ import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 interface LocalWhatsAppDataRepository {
     suspend fun deleteAllData()
     suspend fun deleteConversationData(conversationName: String): Boolean
+    suspend fun createFollowUp(
+        messageEventId: String,
+        title: String,
+        dueAt: String?,
+        priority: String?
+    ): String?
+    suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp>
+    suspend fun markFollowUpCompleted(followUpId: String): Boolean
+    suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean
 }
+
+data class LocalFollowUp(
+    val id: String,
+    val messageEventId: String,
+    val title: String,
+    val dueAt: String?,
+    val priority: String,
+    val createdAt: Long,
+    val completedAt: Long?
+)
 
 sealed interface ToolExecutionResult {
     data class Success(val message: String) : ToolExecutionResult
@@ -35,6 +54,10 @@ class WhatsAppLocalToolExecutor(
                 preferencesRepository.setCaptureEnabled(true)
                 ToolExecutionResult.Success("WhatsApp capture resumed.")
             }
+            WhatsAppToolName.CreateFollowUpFromMessage -> createFollowUp(proposal)
+            WhatsAppToolName.ListPendingFollowUps -> listPendingFollowUps(proposal)
+            WhatsAppToolName.MarkFollowUpCompleted -> markFollowUpCompleted(proposal)
+            WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
                 "Active notification replies must use the notification reply executor."
@@ -60,5 +83,75 @@ class WhatsAppLocalToolExecutor(
 
         localDataRepository.deleteAllData()
         return ToolExecutionResult.Success("Local WhatsApp data deleted.")
+    }
+
+    private suspend fun createFollowUp(proposal: ToolProposal): ToolExecutionResult {
+        val messageEventId = proposal.string("message_event_id")?.trim().orEmpty()
+        val title = proposal.string("follow_up_title")?.trim().orEmpty()
+        if (messageEventId.isBlank()) {
+            return ToolExecutionResult.Rejected("Follow-up proposals require message_event_id.")
+        }
+        if (title.isBlank()) {
+            return ToolExecutionResult.Rejected("Follow-up title must not be blank.")
+        }
+
+        val followUpId = localDataRepository.createFollowUp(
+            messageEventId = messageEventId,
+            title = title,
+            dueAt = proposal.string("due_at")?.trim()?.takeIf { it.isNotBlank() },
+            priority = proposal.string("priority")?.trim()?.takeIf { it.isNotBlank() }
+        )
+        return if (followUpId != null) {
+            ToolExecutionResult.Success("Follow-up saved: $title.")
+        } else {
+            ToolExecutionResult.Rejected("No local WhatsApp message matched message_event_id.")
+        }
+    }
+
+    private suspend fun markFollowUpCompleted(proposal: ToolProposal): ToolExecutionResult {
+        val followUpId = proposal.string("follow_up_id")?.trim().orEmpty()
+        if (followUpId.isBlank()) {
+            return ToolExecutionResult.Rejected("Follow-up completion requires follow_up_id.")
+        }
+
+        return if (localDataRepository.markFollowUpCompleted(followUpId)) {
+            ToolExecutionResult.Success("Follow-up marked complete.")
+        } else {
+            ToolExecutionResult.Rejected("No pending follow-up matched follow_up_id.")
+        }
+    }
+
+    private suspend fun listPendingFollowUps(proposal: ToolProposal): ToolExecutionResult {
+        val limit = proposal.integer("limit") ?: 10
+        val followUps = localDataRepository.listPendingFollowUps(
+            limit = limit,
+            priority = proposal.string("priority")?.trim()?.takeIf { it.isNotBlank() }
+        )
+        if (followUps.isEmpty()) {
+            return ToolExecutionResult.Success("No pending follow-ups.")
+        }
+
+        val summary = followUps.joinToString(separator = "\n") { followUp ->
+            val due = followUp.dueAt?.let { " due $it" }.orEmpty()
+            "- ${followUp.title} [${followUp.priority}]$due"
+        }
+        return ToolExecutionResult.Success(summary)
+    }
+
+    private suspend fun markMessagePriority(proposal: ToolProposal): ToolExecutionResult {
+        val messageEventId = proposal.string("message_event_id")?.trim().orEmpty()
+        val priority = proposal.string("priority")?.trim().orEmpty()
+        if (messageEventId.isBlank()) {
+            return ToolExecutionResult.Rejected("Priority proposals require message_event_id.")
+        }
+        if (priority !in setOf("HIGH", "NORMAL")) {
+            return ToolExecutionResult.Rejected("Message priority must be HIGH or NORMAL.")
+        }
+
+        return if (localDataRepository.markMessagePriority(messageEventId, priority)) {
+            ToolExecutionResult.Success("Message marked $priority priority.")
+        } else {
+            ToolExecutionResult.Rejected("No local WhatsApp message matched message_event_id.")
+        }
     }
 }

@@ -5,7 +5,7 @@ This document outlines the core functional scope, V1 capability maps, strict pro
 ---
 
 ## 1. Product Definition
-An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, and enables safe user-confirmed WhatsApp replies. Reminder and follow-up tools are part of the typed V1 contract but still require executor/storage implementation before they can be enabled.
+An English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, persists local follow-ups and priority flags, and enables safe user-confirmed WhatsApp replies. Reminder scheduling remains part of the typed V1 contract but still requires a notification executor before it can be enabled.
 
 This implementation acts as a secure, daily-use tool-calling manager on your physical **Xiaomi Android 16 handset** rather than a simple alert reader demo.
 
@@ -24,9 +24,9 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **Actionable Inbox View**: Allows the user to view recent unresolved, pending, and prioritized items.
 
 ### B. Productivity Actions
-- **Follow-Ups**: Contract defined for saving specific notification events as actionable tasks (`create_follow_up_from_message`); executor/storage implementation is deferred.
+- **Follow-Ups**: Save specific notification events as local actionable tasks (`create_follow_up_from_message`), list pending follow-ups, and mark them completed.
 - **Reminders**: Contract defined for scheduling local reminders (`schedule_reminder_for_message`); WorkManager execution is deferred.
-- **Prioritization**: Contract defined for flagging important messages; local executor implementation is deferred.
+- **Prioritization**: Flag important captured messages with a local high/normal priority value.
 - **Inbox Cleanup**: Dismiss and hide noise from the local inbox without clearing notifications inside WhatsApp.
 
 ### C. Safe Action Executors (Android 16 UI Architecture)

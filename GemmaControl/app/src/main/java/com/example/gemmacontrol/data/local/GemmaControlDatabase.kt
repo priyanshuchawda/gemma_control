@@ -9,18 +9,21 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
+import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
+import com.example.gemmacontrol.data.local.entity.FollowUpEntity
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
 
 @Database(
     entities = [
         ConversationEntity::class,
         MessageEventEntity::class,
-        ActiveNotificationReferenceEntity::class
+        ActiveNotificationReferenceEntity::class,
+        FollowUpEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -29,6 +32,7 @@ abstract class GemmaControlDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageEventDao(): MessageEventDao
     abstract fun activeNotificationReferenceDao(): ActiveNotificationReferenceDao
+    abstract fun followUpDao(): FollowUpDao
 
     companion object {
         @Volatile
@@ -221,6 +225,30 @@ abstract class GemmaControlDatabase : RoomDatabase() {
             )
         }
 
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE message_events ADD COLUMN priority TEXT NOT NULL DEFAULT 'NORMAL'")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `follow_ups` (
+                        `id` TEXT NOT NULL,
+                        `messageEventId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `dueAt` TEXT,
+                        `priority` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `completedAt` INTEGER,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`messageEventId`) REFERENCES `message_events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_follow_ups_messageEventId` ON `follow_ups` (`messageEventId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_follow_ups_completedAt` ON `follow_ups` (`completedAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_follow_ups_priority` ON `follow_ups` (`priority`)")
+            }
+        }
+
         fun getDatabase(context: Context): GemmaControlDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -228,7 +256,7 @@ abstract class GemmaControlDatabase : RoomDatabase() {
                     GemmaControlDatabase::class.java,
                     "gemma_control_database"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 INSTANCE = instance
                 instance
