@@ -216,6 +216,22 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsMessageDetailsProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "get_whatsapp_message_details",
+                params = mapOf("message_event_id" to "message-1")
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Show message details?", action.title)
+        assertEquals("Show Details", action.confirmText)
+    }
+
+    @Test
     fun mapsConversationScopedDeleteProposalToSpecificConfirmation() {
         val state = handler.resolve(
             result = proposalResult(

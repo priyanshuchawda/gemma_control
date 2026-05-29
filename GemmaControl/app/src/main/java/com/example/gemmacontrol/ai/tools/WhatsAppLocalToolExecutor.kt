@@ -20,6 +20,7 @@ interface LocalWhatsAppDataRepository {
         reminderNote: String?
     ): String?
     suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage>
+    suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage?
 }
 
 data class LocalFollowUp(
@@ -75,6 +76,7 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.ScheduleReminderForMessage -> scheduleReminder(proposal)
             WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
             WhatsAppToolName.SearchWhatsAppMessages -> searchMessages(proposal)
+            WhatsAppToolName.GetWhatsAppMessageDetails -> getMessageDetails(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
                 "Active notification replies must use the notification reply executor."
@@ -207,6 +209,16 @@ class WhatsAppLocalToolExecutor(
             return ToolExecutionResult.Success("No matching WhatsApp messages.")
         }
         return ToolExecutionResult.Success(formatMessages(messages))
+    }
+
+    private suspend fun getMessageDetails(proposal: ToolProposal): ToolExecutionResult {
+        val messageEventId = proposal.string("message_event_id")?.trim().orEmpty()
+        if (messageEventId.isBlank()) {
+            return ToolExecutionResult.Rejected("Message details proposals require message_event_id.")
+        }
+        val message = localDataRepository.getMessageDetails(messageEventId)
+            ?: return ToolExecutionResult.Rejected("No local WhatsApp message matched message_event_id.")
+        return ToolExecutionResult.Success(formatMessages(listOf(message)))
     }
 
     private fun formatMessages(messages: List<LocalWhatsAppMessage>): String {

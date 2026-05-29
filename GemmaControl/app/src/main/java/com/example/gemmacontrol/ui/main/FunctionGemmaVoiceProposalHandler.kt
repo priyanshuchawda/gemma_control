@@ -47,6 +47,7 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.PauseWhatsAppCapture,
             WhatsAppToolName.ResumeWhatsAppCapture,
             WhatsAppToolName.SearchWhatsAppMessages,
+            WhatsAppToolName.GetWhatsAppMessageDetails,
             WhatsAppToolName.CreateFollowUpFromMessage,
             WhatsAppToolName.ListPendingFollowUps,
             WhatsAppToolName.MarkFollowUpCompleted,
@@ -79,6 +80,13 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Search local WhatsApp messages?",
                 description = "GemmaControl will search only locally stored decrypted WhatsApp notification rows.",
                 confirmText = "Search Messages",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.GetWhatsAppMessageDetails -> PendingLocalToolAction(
+                title = "Show message details?",
+                description = "GemmaControl will read one locally stored WhatsApp message row.",
+                confirmText = "Show Details",
                 proposal = proposal,
                 decision = decision
             )

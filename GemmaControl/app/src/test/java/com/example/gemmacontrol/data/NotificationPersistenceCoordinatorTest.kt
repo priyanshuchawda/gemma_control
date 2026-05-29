@@ -630,6 +630,27 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testRepository_getMessageDetailsReturnsStoredMessage() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_details",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        val result = repository.getMessageDetails(messageId)
+
+        assertEquals(messageId, result?.id)
+        assertEquals("Mom", result?.conversationName)
+        assertEquals("Dinner at 7", result?.text)
+    }
+
+    @Test
     fun testRepository_throwingHmacGeneratorProducesZeroPersistedRows() = runTest {
         preferencesRepository.setStorageEnabled(true)
 

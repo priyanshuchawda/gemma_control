@@ -393,6 +393,16 @@ class StoredInboxRepository(
             .toList()
     }
 
+    override suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage? {
+        val cleanMessageEventId = messageEventId.trim()
+        if (cleanMessageEventId.isBlank()) {
+            return null
+        }
+        return getAllDecryptedMessages()
+            .firstOrNull { it.id == cleanMessageEventId }
+            ?.toLocalWhatsAppMessage()
+    }
+
     private fun decryptConversationTitle(entity: ConversationEntity): String {
         return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
             try {
