@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,12 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import kotlin.coroutines.cancellation.CancellationException
 
 private val VoiceCardShape = RoundedCornerShape(8.dp)
 private val VoiceScreenPadding = 24.dp
@@ -50,6 +54,7 @@ fun VoiceAssistantScreen(
     val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
     val partialTranscript by viewModel.partialTranscript.collectAsStateWithLifecycle()
     val amplitude by viewModel.amplitude.collectAsStateWithLifecycle()
+    val voiceInputMode by viewModel.voiceInputMode.collectAsStateWithLifecycle()
 
     MicrophonePermissionEffect(
         state = state,
@@ -59,6 +64,7 @@ fun VoiceAssistantScreen(
     VoiceAssistantScaffold(
         state = state,
         isOffline = isOffline,
+        voiceInputMode = voiceInputMode,
         partialTranscript = partialTranscript,
         amplitude = amplitude,
         onBack = onBack,
@@ -69,6 +75,9 @@ fun VoiceAssistantScreen(
                 else -> viewModel.startListening()
             }
         },
+        onHoldStart = viewModel::startListening,
+        onHoldRelease = viewModel::stopListeningAfterHold,
+        onHoldCancel = viewModel::cancelListening,
         onCancel = viewModel::resetToIdle,
         onReadAloud = viewModel::executeReadAloud,
         onConfirmSend = viewModel::confirmSend,
@@ -112,10 +121,14 @@ private fun DisposeVoiceAssistantEffect(onDisposeCallback: () -> Unit) {
 private fun VoiceAssistantScaffold(
     state: VoiceAssistantState,
     isOffline: Boolean,
+    voiceInputMode: VoiceInputMode,
     partialTranscript: String,
     amplitude: Int,
     onBack: () -> Unit,
     onMicClick: () -> Unit,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
     onCancel: () -> Unit,
     onReadAloud: () -> Unit,
     onConfirmSend: (PendingVoiceReply) -> Unit,
@@ -158,12 +171,17 @@ private fun VoiceAssistantScaffold(
             VoiceAssistantHeader(
                 state = state,
                 isOffline = isOffline,
+                voiceInputMode = voiceInputMode,
                 partialTranscript = partialTranscript
             )
             VoiceAssistantMicButton(
                 state = state,
+                voiceInputMode = voiceInputMode,
                 amplitude = amplitude,
-                onClick = onMicClick
+                onClick = onMicClick,
+                onHoldStart = onHoldStart,
+                onHoldRelease = onHoldRelease,
+                onHoldCancel = onHoldCancel
             )
             VoiceAssistantActionPanel(
                 state = state,
@@ -186,6 +204,7 @@ private fun VoiceAssistantScaffold(
 private fun VoiceAssistantHeader(
     state: VoiceAssistantState,
     isOffline: Boolean,
+    voiceInputMode: VoiceInputMode,
     partialTranscript: String,
 ) {
     Column(
@@ -199,7 +218,7 @@ private fun VoiceAssistantHeader(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        val subtitle = voiceAssistantSubtitle(state, isOffline)
+        val subtitle = voiceAssistantSubtitle(state, isOffline, voiceInputMode)
         if (subtitle.isNotEmpty()) {
             Text(
                 text = subtitle,
@@ -241,8 +260,12 @@ private fun PartialTranscriptSurface(text: String) {
 @Composable
 private fun VoiceAssistantMicButton(
     state: VoiceAssistantState,
+    voiceInputMode: VoiceInputMode,
     amplitude: Int,
     onClick: () -> Unit,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -263,7 +286,15 @@ private fun VoiceAssistantMicButton(
             is VoiceAssistantState.SpeakingMessages -> MaterialTheme.colorScheme.tertiary
             else -> MaterialTheme.colorScheme.primary
         }
-        MicButtonCircle(buttonColor = buttonColor, onClick = onClick)
+        MicButtonCircle(
+            buttonColor = buttonColor,
+            voiceInputMode = voiceInputMode,
+            useTapToggle = state is VoiceAssistantState.SpeakingMessages,
+            onClick = onClick,
+            onHoldStart = onHoldStart,
+            onHoldRelease = onHoldRelease,
+            onHoldCancel = onHoldCancel
+        )
     }
 }
 
@@ -303,13 +334,39 @@ private fun ListeningWaveformBackdrop(
 private fun MicButtonCircle(
     buttonColor: Color,
     onClick: () -> Unit,
+    voiceInputMode: VoiceInputMode,
+    useTapToggle: Boolean,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
 ) {
+    val inputModifier = when {
+        useTapToggle || voiceInputMode == VoiceInputMode.TapToggle -> Modifier.clickable(onClick = onClick)
+        else -> Modifier.pointerInput(onHoldStart, onHoldRelease, onHoldCancel) {
+            detectTapGestures(
+                onPress = {
+                    onHoldStart()
+                    val releaseAction = try {
+                        awaitRelease()
+                        voiceHoldToSpeakReleaseAction(wasGestureCancelled = false)
+                    } catch (e: CancellationException) {
+                        voiceHoldToSpeakReleaseAction(wasGestureCancelled = true)
+                    }
+                    when (releaseAction) {
+                        VoiceHoldToSpeakReleaseAction.Finalize -> onHoldRelease()
+                        VoiceHoldToSpeakReleaseAction.CancelRecognition -> onHoldCancel()
+                    }
+                }
+            )
+        }
+    }
+
     Box(
         modifier = Modifier
             .size(MicButtonSize)
             .clip(CircleShape)
             .background(buttonColor)
-            .clickable(onClick = onClick),
+            .then(inputModifier),
         contentAlignment = Alignment.Center
     ) {
         Icon(

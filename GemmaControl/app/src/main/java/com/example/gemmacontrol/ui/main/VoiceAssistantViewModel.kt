@@ -14,12 +14,17 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
 import com.example.gemmacontrol.notifications.ReplySendResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -33,6 +38,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     }
 
     private val repository = ServiceLocator.getStoredInboxRepository(application)
+    private val preferencesRepository = ServiceLocator.getPreferencesRepository(application)
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
     private val toolProposalMapper = VoiceCommandToolProposalMapper()
 
@@ -48,8 +54,15 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val _amplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
 
+    val voiceInputMode: StateFlow<VoiceInputMode> = preferencesRepository.voiceInputModeFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = VoiceInputMode.TapToggle
+    )
+
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var pendingStopListeningJob: Job? = null
     private var isTtsInitialized = false
     private var forceSystemRecognition = false
     private var isCurrentRecognizerOnDevice: Boolean? = null
@@ -101,6 +114,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun startListening() {
         val context = getApplication<Application>()
+        pendingStopListeningJob?.cancel()
         
         // 1. Check permission first
         val hasMicrophonePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -218,11 +232,25 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun stopListening() {
-        try {
-            speechRecognizer?.stopListening()
-            _amplitude.value = 0
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping SpeechRecognizer", e)
+        stopListeningAfterDelay(delayMillis = voiceRecognitionStopDelayMillis(VoiceInputMode.TapToggle))
+    }
+
+    fun stopListeningAfterHold() {
+        stopListeningAfterDelay(delayMillis = voiceRecognitionStopDelayMillis(VoiceInputMode.HoldToSpeak))
+    }
+
+    private fun stopListeningAfterDelay(delayMillis: Long) {
+        pendingStopListeningJob?.cancel()
+        pendingStopListeningJob = viewModelScope.launch {
+            if (delayMillis > 0L) {
+                delay(delayMillis)
+            }
+            try {
+                speechRecognizer?.stopListening()
+                _amplitude.value = 0
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping SpeechRecognizer", e)
+            }
         }
     }
 
@@ -372,6 +400,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun resetToIdle() {
         forceSystemRecognition = false
+        pendingStopListeningJob?.cancel()
         _partialTranscript.value = ""
         _amplitude.value = 0
         try {
@@ -387,7 +416,12 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         _state.value = VoiceAssistantState.Idle
     }
 
+    fun cancelListening() {
+        resetToIdle()
+    }
+
     private fun destroySpeechRecognizer() {
+        pendingStopListeningJob?.cancel()
         _partialTranscript.value = ""
         _amplitude.value = 0
         try {

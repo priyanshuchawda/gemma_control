@@ -13,10 +13,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +31,13 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val preferencesRepository = remember(context.applicationContext) {
+        ServiceLocator.getPreferencesRepository(context.applicationContext)
+    }
+    val voiceInputMode = preferencesRepository.voiceInputModeFlow.collectAsStateWithLifecycle(
+        initialValue = VoiceInputMode.TapToggle
+    ).value
+    val coroutineScope = rememberCoroutineScope()
 
     val miuiAutostartIntent = remember {
         android.content.Intent().apply {
@@ -134,6 +146,17 @@ fun SettingsScreen(
                 }
             )
 
+            SectionHeader("Voice Assistant")
+
+            VoiceInputModeCard(
+                voiceInputMode = voiceInputMode,
+                onVoiceInputModeChange = { mode ->
+                    coroutineScope.launch {
+                        preferencesRepository.setVoiceInputMode(mode)
+                    }
+                }
+            )
+
             SectionHeader("Xiaomi / HyperOS Background Settings")
 
             // 3. Autostart
@@ -222,6 +245,52 @@ private fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 4.dp)
     )
+}
+
+@Composable
+private fun VoiceInputModeCard(
+    voiceInputMode: VoiceInputMode,
+    onVoiceInputModeChange: (VoiceInputMode) -> Unit,
+) {
+    val holdToSpeakEnabled = voiceInputMode == VoiceInputMode.HoldToSpeak
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    "Hold-to-speak mode",
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    if (holdToSpeakEnabled) {
+                        "Press and hold the mic, release to process, slide off to cancel."
+                    } else {
+                        "Tap the mic once to start, then tap again to stop."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = holdToSpeakEnabled,
+                onCheckedChange = { enabled ->
+                    onVoiceInputModeChange(
+                        if (enabled) VoiceInputMode.HoldToSpeak else VoiceInputMode.TapToggle
+                    )
+                }
+            )
+        }
+    }
 }
 
 @Composable

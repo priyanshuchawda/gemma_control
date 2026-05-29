@@ -8,6 +8,7 @@ import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEnt
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 import com.example.gemmacontrol.notifications.ConversationType
@@ -53,6 +54,7 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override val storageEnabledFlow = MutableStateFlow(false)
     override val storageEnabledAtFlow = MutableStateFlow(0L)
     override val xiaomiAutostartAcknowledgedFlow = MutableStateFlow(false)
+    override val voiceInputModeFlow = MutableStateFlow(VoiceInputMode.TapToggle)
 
     override suspend fun setCaptureEnabled(enabled: Boolean) {
         captureEnabledFlow.value = enabled
@@ -69,6 +71,10 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
 
     override suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean) {
         xiaomiAutostartAcknowledgedFlow.value = acknowledged
+    }
+
+    override suspend fun setVoiceInputMode(mode: VoiceInputMode) {
+        voiceInputModeFlow.value = mode
     }
 }
 

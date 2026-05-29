@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,9 +33,30 @@ class VoiceAssistantUiTextTest {
     fun failureSubtitleUsesSafeReason() {
         val subtitle = voiceAssistantSubtitle(
             VoiceAssistantState.Failure("No active WhatsApp notification is available for reply."),
-            isOffline = true
+            isOffline = true,
+            voiceInputMode = VoiceInputMode.TapToggle
         )
 
         assertEquals("No active WhatsApp notification is available for reply.", subtitle)
+    }
+
+    @Test
+    fun idleSubtitleDescribesSelectedVoiceInputMode() {
+        assertEquals(
+            "Tap microphone below to start speaking.",
+            voiceAssistantSubtitle(
+                VoiceAssistantState.Idle,
+                isOffline = true,
+                voiceInputMode = VoiceInputMode.TapToggle
+            )
+        )
+        assertEquals(
+            "Hold microphone to speak. Release to process, slide off to cancel.",
+            voiceAssistantSubtitle(
+                VoiceAssistantState.Idle,
+                isOffline = true,
+                voiceInputMode = VoiceInputMode.HoldToSpeak
+            )
+        )
     }
 }

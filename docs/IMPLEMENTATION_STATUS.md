@@ -19,7 +19,7 @@ This document records the truthful current state of completed modules, verified 
 | Dual-notification behavior | **UNDERSTOOD** — WhatsApp posts one `MESSAGING_STYLE` + one summary `EXTRAS_FALLBACK` per message (both correct) |
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
-| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, and active-notification reply confirmation exist |
+| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, and active-notification reply confirmation exist |
 | FunctionGemma / LiteRT-LM Runtime | **NOT IMPLEMENTED** — Lifecycle manager and unavailable adapter exist; real runtime/model-loading path remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
 
@@ -32,7 +32,7 @@ This document records the truthful current state of completed modules, verified 
 - `entity/` — `ConversationEntity.kt`, `MessageEventEntity.kt`, `ActiveNotificationReferenceEntity.kt` mapped to local DB tables with cascade constraints
 - `dao/` — Room DAOs containing CRUD operations and Flow-based queries for conversations, message events, and live references
 - `crypto/` — `MessageBodyCipher.kt` interface, `AndroidKeystoreMessageBodyCipher.kt` production implementation backed by AES-GCM, and `EncryptedPayload.kt`
-- `preferences/` — `CapturePreferencesRepository.kt` backed by DataStore Preferences managing opt-in storage consents
+- `preferences/` — `CapturePreferencesRepository.kt` backed by DataStore Preferences managing opt-in storage consents and voice input mode
 - `repository/` — `StoredInboxRepository.kt` for dynamically encrypting/decrypting rows and `NotificationPersistenceCoordinator.kt` implementing canonical dual-notification filtering
 - `ui/` — `StoredInboxScreen.kt` Material 3 Compose screen and `StoredInboxViewModel.kt` managing state flows and confirm dialogs
 - `NotificationEventModels.kt` — Enums (`NotificationEventType`, `ConversationType`, `NotificationParseSource`) and data classes (`ParsedWhatsAppNotificationEvent`, `ParsedMessagePreview`)
@@ -50,6 +50,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with duplicate-init protection and low-memory release
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
+- `VoiceHoldToSpeakInteraction.kt` — Testable hold-to-speak release/cancel decisions and Gallery-style stop delay constants
 
 ### Documentation
 - `docs/ARCHITECTURE.md` — MVVM & Cryptography architecture reference

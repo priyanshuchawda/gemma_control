@@ -1,6 +1,7 @@
 package com.example.gemmacontrol.ai.tools
 
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -126,6 +127,7 @@ class WhatsAppLocalToolExecutorTest {
         override val storageEnabledFlow = MutableStateFlow(false)
         override val storageEnabledAtFlow = MutableStateFlow(0L)
         override val xiaomiAutostartAcknowledgedFlow = MutableStateFlow(false)
+        override val voiceInputModeFlow = MutableStateFlow(VoiceInputMode.TapToggle)
 
         override suspend fun setCaptureEnabled(enabled: Boolean) {
             captureEnabledFlow.value = enabled
@@ -138,6 +140,10 @@ class WhatsAppLocalToolExecutorTest {
 
         override suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean) {
             xiaomiAutostartAcknowledgedFlow.value = acknowledged
+        }
+
+        override suspend fun setVoiceInputMode(mode: VoiceInputMode) {
+            voiceInputModeFlow.value = mode
         }
     }
 
