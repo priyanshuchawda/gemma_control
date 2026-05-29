@@ -77,6 +77,8 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **`ai/model/FunctionGemmaModelCatalog.kt`**: Local MobileActions model definition aligned with Gallery's allowlist (`mobile_actions_q8_ekv1024.litertlm`, CPU backend, `temperature=0.0`, `topK=64`, `topP=0.95`, `maxTokens=1024`) plus an installed-model resolver that checks the app-private model path and LiteRT cache directory before initialization.
 - **`ai/model/ModelDownloadWorker.kt`**: WorkManager-backed model download worker with HTTPS-only request validation, Gallery-style `.gallerytmp` partial files, resume support through HTTP range requests, SHA-256 verification, and progress data for future UI wiring.
 - **`ai/model/ModelDownloadManager.kt`**: Unique-work enqueue/cancel boundary for model downloads, constrained to connected-network execution.
+- **`ai/model/ModelDownloadUiState.kt`**: Maps WorkManager progress/output data into stable UI states for progress, transfer rate, ETA, verified output path, and safe errors.
+- **`ui/main/SettingsScreen.kt`**: Hosts the FunctionGemma MobileActions download card, including HTTPS URL/SHA-256 inputs, WorkManager enqueue/cancel, installed-path status, and progress display.
 - **`ServiceLocator.getGemmaModelManager()`**: Exposes one app-wide model manager instance without requiring Android context, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---

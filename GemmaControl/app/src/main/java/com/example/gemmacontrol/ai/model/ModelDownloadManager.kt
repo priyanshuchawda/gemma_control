@@ -5,8 +5,10 @@ import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.util.UUID
+import kotlinx.coroutines.flow.Flow
 
 class ModelDownloadManager(
     private val workManagerProvider: (Context) -> WorkManager = { WorkManager.getInstance(it) }
@@ -27,6 +29,10 @@ class ModelDownloadManager(
 
     fun cancel(context: Context, fileName: String) {
         workManagerProvider(context).cancelUniqueWork(workName(fileName))
+    }
+
+    fun observe(context: Context, fileName: String): Flow<List<WorkInfo>> {
+        return workManagerProvider(context).getWorkInfosForUniqueWorkFlow(workName(fileName))
     }
 
     fun workName(fileName: String): String {
