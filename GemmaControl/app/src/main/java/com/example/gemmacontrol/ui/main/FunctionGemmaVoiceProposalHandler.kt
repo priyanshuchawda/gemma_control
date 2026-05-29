@@ -70,8 +70,8 @@ class FunctionGemmaVoiceProposalHandler(
                 decision = decision
             )
             WhatsAppToolName.DeleteLocalWhatsAppData -> PendingLocalToolAction(
-                title = "Delete all local WhatsApp data?",
-                description = "This removes locally stored WhatsApp conversations and message previews from this app.",
+                title = deleteLocalDataTitle(proposal),
+                description = deleteLocalDataDescription(proposal),
                 confirmText = "Delete Local Data",
                 proposal = proposal,
                 decision = decision
@@ -79,6 +79,24 @@ class FunctionGemmaVoiceProposalHandler(
             else -> return unsupportedProposalState(proposal)
         }
         return VoiceAssistantState.LocalToolConfirmationRequired(action)
+    }
+
+    private fun deleteLocalDataTitle(proposal: ToolProposal): String {
+        val conversationName = proposal.string("conversation_name")?.trim()
+        return if (conversationName.isNullOrBlank()) {
+            "Delete all local WhatsApp data?"
+        } else {
+            "Delete local data for $conversationName?"
+        }
+    }
+
+    private fun deleteLocalDataDescription(proposal: ToolProposal): String {
+        val conversationName = proposal.string("conversation_name")?.trim()
+        return if (conversationName.isNullOrBlank()) {
+            "This removes locally stored WhatsApp conversations and message previews from this app."
+        } else {
+            "This removes locally stored WhatsApp message previews for $conversationName from this app."
+        }
     }
 
     private fun ToolProposal.toActiveReplyState(

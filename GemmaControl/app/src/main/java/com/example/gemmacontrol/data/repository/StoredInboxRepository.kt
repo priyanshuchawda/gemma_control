@@ -19,6 +19,7 @@ import java.util.UUID
 import androidx.room.withTransaction
 import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
+import java.util.Locale
 
 class StoredInboxRepository(
     private val conversationDao: ConversationDao,
@@ -194,16 +195,7 @@ class StoredInboxRepository(
         return messageEventDao.getAllMessagesFlow().map { entities ->
             val conversations = conversationDao.getAllConversations()
             val titleMap = conversations.associate { conv ->
-                val decryptedTitle = if (conv.encryptedDisplayName != null && conv.displayNameIv != null) {
-                    try {
-                        sensitiveTextCipher.decrypt(EncryptedPayload(conv.encryptedDisplayName, conv.displayNameIv))
-                    } catch (e: Exception) {
-                        "[Decryption Failed]"
-                    }
-                } else {
-                    conv.id
-                }
-                conv.id to decryptedTitle
+                conv.id to decryptConversationTitle(conv)
             }
             entities.map { decryptMessageEntity(it, titleMap) }
         }
@@ -212,16 +204,7 @@ class StoredInboxRepository(
     suspend fun getAllDecryptedMessages(): List<DecryptedMessage> {
         val conversations = conversationDao.getAllConversations()
         val titleMap = conversations.associate { conv ->
-            val decryptedTitle = if (conv.encryptedDisplayName != null && conv.displayNameIv != null) {
-                try {
-                    sensitiveTextCipher.decrypt(EncryptedPayload(conv.encryptedDisplayName, conv.displayNameIv))
-                } catch (e: Exception) {
-                    "[Decryption Failed]"
-                }
-            } else {
-                conv.id
-            }
-            conv.id to decryptedTitle
+            conv.id to decryptConversationTitle(conv)
         }
         return messageEventDao.getAllMessages().map { decryptMessageEntity(it, titleMap) }
     }
@@ -231,26 +214,10 @@ class StoredInboxRepository(
             conversations.map { conversation ->
                 val latestMessageEntity = messageEventDao.getMessagesForConversation(conversation.id).firstOrNull()
                 val latestMessage = latestMessageEntity?.let {
-                    val title = if (conversation.encryptedDisplayName != null && conversation.displayNameIv != null) {
-                        try {
-                            sensitiveTextCipher.decrypt(EncryptedPayload(conversation.encryptedDisplayName, conversation.displayNameIv))
-                        } catch (e: Exception) {
-                            "[Decryption Failed]"
-                        }
-                    } else {
-                        conversation.id
-                    }
+                    val title = decryptConversationTitle(conversation)
                     decryptMessageEntity(it, mapOf(conversation.id to title))
                 }
-                val decryptedDisplayName = if (conversation.encryptedDisplayName != null && conversation.displayNameIv != null) {
-                    try {
-                        sensitiveTextCipher.decrypt(EncryptedPayload(conversation.encryptedDisplayName, conversation.displayNameIv))
-                    } catch (e: Exception) {
-                        "[Decryption Failed]"
-                    }
-                } else {
-                    conversation.id
-                }
+                val decryptedDisplayName = decryptConversationTitle(conversation)
                 StoredConversation(conversation, decryptedDisplayName, latestMessage)
             }
         }
@@ -258,6 +225,53 @@ class StoredInboxRepository(
 
     override suspend fun deleteAllData() {
         messageEventDao.deleteAllData()
+    }
+
+    override suspend fun deleteConversationData(conversationName: String): Boolean {
+        val normalizedName = normalizeConversationName(conversationName)
+        if (normalizedName.isBlank()) {
+            return false
+        }
+
+        val deleteMatchingConversations = suspend {
+            val matchingConversations = conversationDao.getAllConversations()
+                .filter { conversation ->
+                    normalizeConversationName(decryptConversationTitle(conversation)) == normalizedName
+                }
+            if (matchingConversations.isEmpty()) {
+                false
+            } else {
+                matchingConversations.forEach { conversation ->
+                    activeNotificationReferenceDao.deleteForConversation(conversation.id)
+                    conversationDao.deleteById(conversation.id)
+                }
+                true
+            }
+        }
+
+        return if (db != null) {
+            db.withTransaction { deleteMatchingConversations() }
+        } else {
+            deleteMatchingConversations()
+        }
+    }
+
+    private fun decryptConversationTitle(entity: ConversationEntity): String {
+        return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
+            try {
+                sensitiveTextCipher.decrypt(EncryptedPayload(entity.encryptedDisplayName, entity.displayNameIv))
+            } catch (e: Exception) {
+                "[Decryption Failed]"
+            }
+        } else {
+            entity.id
+        }
+    }
+
+    private fun normalizeConversationName(value: String): String {
+        return value.trim()
+            .replace(Regex("\\s+"), " ")
+            .lowercase(Locale.ROOT)
     }
 
     private fun decryptMessageEntity(entity: MessageEventEntity, conversationMap: Map<String, String>): DecryptedMessage {

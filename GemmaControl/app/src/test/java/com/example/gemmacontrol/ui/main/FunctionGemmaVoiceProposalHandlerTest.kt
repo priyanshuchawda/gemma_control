@@ -119,6 +119,24 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsConversationScopedDeleteProposalToSpecificConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "delete_local_whatsapp_data",
+                params = mapOf(
+                    "delete_all" to true,
+                    "conversation_name" to "Mom"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Delete local data for Mom?", action.title)
+    }
+
+    @Test
     fun mapsInvalidModelOutputToSafeFailure() {
         val state = handler.resolve(
             result = GemmaEngineResult.ProposalText(

@@ -4,6 +4,7 @@ import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 
 interface LocalWhatsAppDataRepository {
     suspend fun deleteAllData()
+    suspend fun deleteConversationData(conversationName: String): Boolean
 }
 
 sealed interface ToolExecutionResult {
@@ -43,11 +44,18 @@ class WhatsAppLocalToolExecutor(
     }
 
     private suspend fun deleteLocalWhatsAppData(proposal: ToolProposal): ToolExecutionResult {
-        if (proposal.string("conversation_name") != null) {
-            return ToolExecutionResult.Rejected("Conversation-scoped deletion is not implemented yet.")
-        }
         if (proposal.boolean("delete_all") != true) {
             return ToolExecutionResult.Rejected("Deletion proposals must explicitly set delete_all=true.")
+        }
+
+        val conversationName = proposal.string("conversation_name")?.trim()
+        if (!conversationName.isNullOrBlank()) {
+            val deleted = localDataRepository.deleteConversationData(conversationName)
+            return if (deleted) {
+                ToolExecutionResult.Success("Local WhatsApp data deleted for $conversationName.")
+            } else {
+                ToolExecutionResult.Rejected("No local WhatsApp data matched conversation_name.")
+            }
         }
 
         localDataRepository.deleteAllData()

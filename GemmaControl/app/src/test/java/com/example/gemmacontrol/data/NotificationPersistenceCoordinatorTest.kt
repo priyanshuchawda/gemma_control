@@ -81,6 +81,8 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
 // ─── DAO Fakes ────────────────────────────────────────────────────────────────
 class FakeConversationDao : ConversationDao {
     val list = mutableListOf<ConversationEntity>()
+    var onDeleteById: (String) -> Unit = {}
+
     override suspend fun insert(conversation: ConversationEntity): Long {
         list.add(conversation)
         return list.size.toLong()
@@ -93,6 +95,10 @@ class FakeConversationDao : ConversationDao {
     override fun getAllConversationsFlow(): Flow<List<ConversationEntity>> = flow { emit(list) }
     override suspend fun getAllConversations(): List<ConversationEntity> = list
     override suspend fun deleteAll() = list.clear()
+    override suspend fun deleteById(id: String) {
+        list.removeAll { it.id == id }
+        onDeleteById(id)
+    }
 }
 
 class FakeMessageEventDao(
@@ -131,6 +137,8 @@ class FakeMessageEventDao(
 
 class FakeActiveNotificationReferenceDao : ActiveNotificationReferenceDao {
     val list = mutableListOf<ActiveNotificationReferenceEntity>()
+    var messageIdsForConversation: (String) -> Set<String> = { emptySet() }
+
     override suspend fun insertOrUpdate(reference: ActiveNotificationReferenceEntity) {
         list.removeAll { it.notificationKey == reference.notificationKey }
         list.add(reference)
@@ -139,6 +147,10 @@ class FakeActiveNotificationReferenceDao : ActiveNotificationReferenceDao {
     override fun getActiveReferencesFlow(): Flow<List<ActiveNotificationReferenceEntity>> = flow { emit(list.filter { it.removedAt == null }) }
     override suspend fun getActiveReferences(): List<ActiveNotificationReferenceEntity> = list.filter { it.removedAt == null }
     override suspend fun deleteAll() = list.clear()
+    override suspend fun deleteForConversation(conversationId: String) {
+        val messageIds = messageIdsForConversation(conversationId)
+        list.removeAll { it.latestMessageEventId in messageIds }
+    }
 }
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
@@ -158,6 +170,15 @@ class NotificationPersistenceCoordinatorTest {
         conversationDao = FakeConversationDao()
         activeNotificationReferenceDao = FakeActiveNotificationReferenceDao()
         messageEventDao = FakeMessageEventDao(conversationDao, activeNotificationReferenceDao)
+        conversationDao.onDeleteById = { conversationId ->
+            messageEventDao.list.removeAll { it.conversationId == conversationId }
+        }
+        activeNotificationReferenceDao.messageIdsForConversation = { conversationId ->
+            messageEventDao.list
+                .filter { it.conversationId == conversationId }
+                .map { it.id }
+                .toSet()
+        }
         sensitiveTextCipher = FakeSensitiveTextCipher()
         dedupeTokenGenerator = FakeDedupeTokenGenerator()
         preferencesRepository = FakeCapturePreferencesRepository()
@@ -371,6 +392,36 @@ class NotificationPersistenceCoordinatorTest {
         assertTrue(conversationDao.list.isEmpty())
         assertTrue(messageEventDao.list.isEmpty())
         assertTrue(activeNotificationReferenceDao.list.isEmpty())
+    }
+
+    @Test
+    fun testRepository_deleteConversationDataPurgesOnlyMatchingConversation() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_aunt_may",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Aunt May",
+                text = "Dinner at 7"
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_peter",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "On my way"
+            )
+        )
+
+        val deleted = repository.deleteConversationData("aunt   may")
+
+        assertTrue(deleted)
+        val remainingMessages = repository.getAllDecryptedMessages()
+        assertEquals(1, remainingMessages.size)
+        assertEquals("Peter", remainingMessages.single().conversationId)
+        assertEquals(1, activeNotificationReferenceDao.list.size)
     }
 
     @Test

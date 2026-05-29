@@ -61,7 +61,7 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
-    fun rejectsConversationScopedDeleteUntilRepositorySupportsIt() = runTest {
+    fun confirmedConversationScopedDeletePurgesMatchingConversation() = runTest {
         val repository = FakeLocalWhatsAppDataRepository()
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -83,10 +83,40 @@ class WhatsAppLocalToolExecutorTest {
         )
 
         assertEquals(
-            ToolExecutionResult.Rejected("Conversation-scoped deletion is not implemented yet."),
+            ToolExecutionResult.Success("Local WhatsApp data deleted for Mom."),
             result
         )
+        assertEquals(listOf("Mom"), repository.deleteConversationCalls)
         assertEquals(0, repository.deleteAllCalls)
+    }
+
+    @Test
+    fun rejectsConversationScopedDeleteWhenNoConversationMatches() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(conversationDeleteResult = false)
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "delete_local_whatsapp_data",
+                  "parameters": {
+                    "delete_all": true,
+                    "conversation_name": "Missing Chat"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(
+            ToolExecutionResult.Rejected("No local WhatsApp data matched conversation_name."),
+            result
+        )
+        assertEquals(listOf("Missing Chat"), repository.deleteConversationCalls)
     }
 
     @Test
@@ -147,12 +177,20 @@ class WhatsAppLocalToolExecutorTest {
         }
     }
 
-    private class FakeLocalWhatsAppDataRepository : LocalWhatsAppDataRepository {
+    private class FakeLocalWhatsAppDataRepository(
+        private val conversationDeleteResult: Boolean = true
+    ) : LocalWhatsAppDataRepository {
         var deleteAllCalls = 0
             private set
+        val deleteConversationCalls = mutableListOf<String>()
 
         override suspend fun deleteAllData() {
             deleteAllCalls += 1
+        }
+
+        override suspend fun deleteConversationData(conversationName: String): Boolean {
+            deleteConversationCalls += conversationName
+            return conversationDeleteResult
         }
     }
 }
