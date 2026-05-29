@@ -11,6 +11,7 @@ sealed interface GemmaModelState {
     data object Released : GemmaModelState
     data class Initializing(val config: GemmaEngineConfig) : GemmaModelState
     data class Ready(val config: GemmaEngineConfig) : GemmaModelState
+    data class Streaming(val partialText: String) : GemmaModelState
     data class Blocked(val reason: String) : GemmaModelState
     data class Failed(val safeReason: String) : GemmaModelState
 }
@@ -63,13 +64,33 @@ class GemmaModelManager(
 
     suspend fun generateToolProposal(
         prompt: String,
-        registry: WhatsAppToolRegistry
+        registry: WhatsAppToolRegistry,
+        onPartialText: (String) -> Unit = {}
     ): GemmaEngineResult = mutex.withLock {
         if (!engine.isReady) {
             return@withLock GemmaEngineResult.Blocked(NOT_INITIALIZED_REASON)
         }
 
-        engine.generateToolProposal(prompt, registry)
+        val result = engine.generateToolProposal(prompt, registry) { partialText ->
+            _state.value = GemmaModelState.Streaming(partialText)
+            onPartialText(partialText)
+        }
+        when (result) {
+            is GemmaEngineResult.ProposalText,
+            GemmaEngineResult.Ready -> {
+                activeConfig?.let { _state.value = GemmaModelState.Ready(it) }
+            }
+            is GemmaEngineResult.Blocked -> _state.value = GemmaModelState.Blocked(result.reason)
+            is GemmaEngineResult.Failure -> _state.value = GemmaModelState.Failed(result.safeReason)
+        }
+        result
+    }
+
+    fun stopResponse(): Boolean {
+        if (!engine.isReady) {
+            return false
+        }
+        return engine.cancelGeneration()
     }
 
     @Suppress("UNUSED_PARAMETER")

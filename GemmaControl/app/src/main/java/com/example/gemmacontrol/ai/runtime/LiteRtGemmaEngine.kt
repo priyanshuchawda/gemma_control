@@ -70,7 +70,8 @@ class LiteRtGemmaEngine : GemmaEngine {
 
     override suspend fun generateToolProposal(
         prompt: String,
-        registry: WhatsAppToolRegistry
+        registry: WhatsAppToolRegistry,
+        onPartialText: (String) -> Unit
     ): GemmaEngineResult = withContext(Dispatchers.IO) {
         val activeConversation = conversation
             ?: return@withContext GemmaEngineResult.Blocked("FunctionGemma conversation is not initialized.")
@@ -86,6 +87,7 @@ class LiteRtGemmaEngine : GemmaEngine {
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
                         rawText.append(message.toString())
+                        onPartialText(rawText.toString())
                     }
 
                     override fun onDone() {
@@ -110,6 +112,12 @@ class LiteRtGemmaEngine : GemmaEngine {
         }
 
         result.await()
+    }
+
+    override fun cancelGeneration(): Boolean {
+        val activeConversation = conversation ?: return false
+        activeConversation.cancelProcess()
+        return true
     }
 
     override fun close() {

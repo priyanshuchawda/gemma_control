@@ -11,6 +11,7 @@ class VoiceAssistantUiTextTest {
     fun statusTitleNamesPrimaryVoiceStates() {
         assertEquals("Speak commands for WhatsApp notifications", voiceAssistantStatusTitle(VoiceAssistantState.Idle))
         assertEquals("Listening... Speak now", voiceAssistantStatusTitle(VoiceAssistantState.Listening))
+        assertEquals("Generating reply", voiceAssistantStatusTitle(VoiceAssistantState.Streaming("Drafting...")))
         assertEquals("Review Dictated Reply", voiceAssistantStatusTitle(VoiceAssistantState.ConfirmationRequired(
             PendingVoiceReply(
                 notificationKey = "key",

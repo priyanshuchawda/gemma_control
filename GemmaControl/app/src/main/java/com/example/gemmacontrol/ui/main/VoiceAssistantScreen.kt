@@ -82,6 +82,7 @@ fun VoiceAssistantScreen(
         onReadAloud = viewModel::executeReadAloud,
         onConfirmSend = viewModel::confirmSend,
         onStopSpeaking = viewModel::stopSpeaking,
+        onStopResponse = viewModel::stopResponse,
         onOpenSpeechSettings = { context.openSpeechSettings() },
         onAllowSystemRecognition = viewModel::requestSystemRecognitionConsent,
         onContinueSystemRecognition = viewModel::allowSystemRecognitionAndStart,
@@ -133,6 +134,7 @@ private fun VoiceAssistantScaffold(
     onReadAloud: () -> Unit,
     onConfirmSend: (PendingVoiceReply) -> Unit,
     onStopSpeaking: () -> Unit,
+    onStopResponse: () -> Unit,
     onOpenSpeechSettings: () -> Unit,
     onAllowSystemRecognition: () -> Unit,
     onContinueSystemRecognition: () -> Unit,
@@ -189,6 +191,7 @@ private fun VoiceAssistantScaffold(
                 onReadAloud = onReadAloud,
                 onConfirmSend = onConfirmSend,
                 onStopSpeaking = onStopSpeaking,
+                onStopResponse = onStopResponse,
                 onOpenSpeechSettings = onOpenSpeechSettings,
                 onAllowSystemRecognition = onAllowSystemRecognition,
                 onContinueSystemRecognition = onContinueSystemRecognition,
@@ -385,6 +388,7 @@ private fun VoiceAssistantActionPanel(
     onReadAloud: () -> Unit,
     onConfirmSend: (PendingVoiceReply) -> Unit,
     onStopSpeaking: () -> Unit,
+    onStopResponse: () -> Unit,
     onOpenSpeechSettings: () -> Unit,
     onAllowSystemRecognition: () -> Unit,
     onContinueSystemRecognition: () -> Unit,
@@ -405,6 +409,10 @@ private fun VoiceAssistantActionPanel(
                 draft = state.draft,
                 onCancel = onCancel,
                 onConfirmSend = onConfirmSend
+            )
+            is VoiceAssistantState.Streaming -> StreamingResponseCard(
+                partialText = state.partialText,
+                onStopResponse = onStopResponse
             )
             is VoiceAssistantState.SpeakingMessages -> SpeakingMessagesCard(onStopSpeaking)
             is VoiceAssistantState.Failure -> VoiceFailureCard(
@@ -557,6 +565,41 @@ private fun ReplyDraftPreview(draft: PendingVoiceReply) {
                 modifier = Modifier.padding(12.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun StreamingResponseCard(
+    partialText: String,
+    onStopResponse: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+            Text(
+                partialText.ifBlank { "Waiting for FunctionGemma..." },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedButton(
+                onClick = onStopResponse,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Stop Response")
+            }
         }
     }
 }

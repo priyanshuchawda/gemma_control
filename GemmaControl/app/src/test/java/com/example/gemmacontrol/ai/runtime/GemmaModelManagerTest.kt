@@ -80,16 +80,55 @@ class GemmaModelManagerTest {
         assertEquals(GemmaModelState.Released, manager.state.value)
     }
 
+    @Test
+    fun generateToolProposalPublishesStreamingStateAndForwardsPartialText() = runTest {
+        val engine = FakeGemmaEngine(streamingPartials = listOf("Thinking", "Thinking done"))
+        val manager = GemmaModelManager(engineFactory = { engine })
+        manager.initialize(config)
+        val observedPartials = mutableListOf<String>()
+        val observedStates = mutableListOf<GemmaModelState>()
+
+        val result = manager.generateToolProposal("reply ok", registry) { partialText ->
+            observedPartials += partialText
+            observedStates += manager.state.value
+        }
+
+        assertTrue(result is GemmaEngineResult.ProposalText)
+        assertEquals(listOf("Thinking", "Thinking done"), observedPartials)
+        assertEquals(
+            listOf(
+                GemmaModelState.Streaming("Thinking"),
+                GemmaModelState.Streaming("Thinking done")
+            ),
+            observedStates
+        )
+        assertEquals(GemmaModelState.Ready(config), manager.state.value)
+    }
+
+    @Test
+    fun stopResponseCancelsReadyEngineGeneration() = runTest {
+        val engine = FakeGemmaEngine()
+        val manager = GemmaModelManager(engineFactory = { engine })
+        manager.initialize(config)
+
+        assertTrue(manager.stopResponse())
+
+        assertEquals(1, engine.cancelGenerationCalls)
+    }
+
     private class FakeGemmaEngine(
         private val initializeResult: GemmaEngineResult = GemmaEngineResult.Ready,
         private val proposalResult: GemmaEngineResult = GemmaEngineResult.ProposalText(
             rawText = "{}",
             parseResult = ToolCallParseResult.Invalid("test")
-        )
+        ),
+        private val streamingPartials: List<String> = emptyList()
     ) : GemmaEngine {
         var initializeCalls = 0
             private set
         var closeCalls = 0
+            private set
+        var cancelGenerationCalls = 0
             private set
         override var isReady: Boolean = false
             private set
@@ -104,8 +143,17 @@ class GemmaModelManagerTest {
 
         override suspend fun generateToolProposal(
             prompt: String,
-            registry: WhatsAppToolRegistry
-        ): GemmaEngineResult = proposalResult
+            registry: WhatsAppToolRegistry,
+            onPartialText: (String) -> Unit
+        ): GemmaEngineResult {
+            streamingPartials.forEach(onPartialText)
+            return proposalResult
+        }
+
+        override fun cancelGeneration(): Boolean {
+            cancelGenerationCalls += 1
+            return isReady
+        }
 
         override fun close() {
             closeCalls += 1

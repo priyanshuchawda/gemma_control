@@ -29,8 +29,11 @@ interface GemmaEngine {
 
     suspend fun generateToolProposal(
         prompt: String,
-        registry: WhatsAppToolRegistry
+        registry: WhatsAppToolRegistry,
+        onPartialText: (String) -> Unit = {}
     ): GemmaEngineResult
+
+    fun cancelGeneration(): Boolean = false
 
     fun close()
 }
@@ -46,7 +49,8 @@ class UnavailableGemmaEngine : GemmaEngine {
 
     override suspend fun generateToolProposal(
         prompt: String,
-        registry: WhatsAppToolRegistry
+        registry: WhatsAppToolRegistry,
+        onPartialText: (String) -> Unit
     ): GemmaEngineResult {
         return GemmaEngineResult.Blocked(BLOCKED_REASON)
     }

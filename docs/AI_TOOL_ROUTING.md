@@ -25,7 +25,7 @@ The app now has a typed local tool contract in `ai/tools`:
 - `WhatsAppLocalToolExecutor` executes only confirmed local-safe operations that already have Kotlin repository boundaries, currently capture pause/resume and full local data deletion. Active notification replies are intentionally rejected here and must use the dedicated notification reply executor.
 - `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
 - `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency and truncated per message.
-- `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, release, and low-memory cleanup.
+- `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, streaming partial text emission, stop-response cancellation, release, and low-memory cleanup.
 - `GemmaEngine` defines the runtime contract. `LiteRtGemmaEngine` now contains the isolated Android LiteRT-LM engine/conversation wrapper, while `UnavailableGemmaEngine` remains available for explicit blocked states when no model path/runtime is configured.
 
 ## Safety Boundary

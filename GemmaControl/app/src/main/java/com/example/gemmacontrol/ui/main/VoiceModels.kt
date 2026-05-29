@@ -26,6 +26,7 @@ sealed interface VoiceAssistantState {
     data object Listening : VoiceAssistantState
     data class TranscriptReady(val transcript: String) : VoiceAssistantState
     data class CommandReady(val command: VoiceCommand) : VoiceAssistantState
+    data class Streaming(val partialText: String) : VoiceAssistantState
     data class ConfirmationRequired(val draft: PendingVoiceReply) : VoiceAssistantState
     data class SpeakingMessages(val count: Int) : VoiceAssistantState
     data class Failure(val safeReason: String) : VoiceAssistantState

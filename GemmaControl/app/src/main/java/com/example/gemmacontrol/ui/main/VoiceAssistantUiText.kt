@@ -9,6 +9,7 @@ internal fun voiceAssistantStatusTitle(state: VoiceAssistantState): String {
         VoiceAssistantState.Listening -> "Listening... Speak now"
         is VoiceAssistantState.TranscriptReady -> "Transcribing..."
         is VoiceAssistantState.CommandReady -> "Command recognized"
+        is VoiceAssistantState.Streaming -> "Generating reply"
         is VoiceAssistantState.ConfirmationRequired -> "Review Dictated Reply"
         is VoiceAssistantState.SpeakingMessages -> "Reading latest messages"
         is VoiceAssistantState.Failure -> "Error encountered"
@@ -41,6 +42,7 @@ internal fun voiceAssistantSubtitle(
             "$privacyNote$inputModeHint\n\nTry: 'Read my latest messages' or 'Reply to the latest message: I am in a meeting'"
         }
         is VoiceAssistantState.Failure -> state.safeReason
+        is VoiceAssistantState.Streaming -> "FunctionGemma is drafting a local response."
         VoiceAssistantState.LanguagePackMissingError -> "Offline language pack unavailable."
         VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Requires explicit consent to use network-based recognition."
         else -> ""

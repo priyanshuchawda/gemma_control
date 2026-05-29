@@ -39,6 +39,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private val repository = ServiceLocator.getStoredInboxRepository(application)
     private val preferencesRepository = ServiceLocator.getPreferencesRepository(application)
+    private val gemmaModelManager = ServiceLocator.getGemmaModelManager()
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
     private val toolProposalMapper = VoiceCommandToolProposalMapper()
 
@@ -378,6 +379,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         if (_state.value is VoiceAssistantState.SpeakingMessages) {
             _state.value = VoiceAssistantState.Idle
         }
+    }
+
+    fun stopResponse() {
+        gemmaModelManager.stopResponse()
+        resetToIdle()
     }
 
     private fun speakText(text: String) {
