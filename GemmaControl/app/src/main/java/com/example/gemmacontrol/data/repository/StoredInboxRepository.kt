@@ -60,6 +60,12 @@ class StoredInboxRepository(
         val dedupeToken: String
     )
 
+    private data class ActionableInboxFilters(
+        val status: String?,
+        val priority: InboxPriority?,
+        val limit: Int
+    )
+
     data class DecryptedMessage(
         val id: String,
         val conversationId: String, // Decrypted conversation display name
@@ -302,7 +308,7 @@ class StoredInboxRepository(
 
     override suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp> {
         val dao = followUpDao ?: return emptyList()
-        val safeLimit = limit.coerceIn(1, 100)
+        val safeLimit = localToolLimit(limit)
         return dao.getPending(parsePriorityOrNull(priority), safeLimit)
             .map { it.toLocalFollowUp() }
     }
@@ -371,7 +377,7 @@ class StoredInboxRepository(
         limit: Int,
         sinceMinutes: Int?
     ): List<LocalWhatsAppMessage> {
-        val safeLimit = limit.coerceIn(1, 100)
+        val safeLimit = localToolLimit(limit)
         val normalizedConversation = conversationName
             ?.let { normalizeConversationName(it) }
             ?.takeIf { it.isNotBlank() }
@@ -437,19 +443,11 @@ class StoredInboxRepository(
         priority: String?,
         limit: Int
     ): List<LocalActionableInboxItem> {
-        val safeLimit = limit.coerceIn(1, 100)
-        val statusFilter = parseActionableStatus(status)
-        if (!status.isNullOrBlank() && statusFilter == null) {
-            return emptyList()
-        }
-        val priorityFilter = parsePriorityOrNull(priority)
-        if (!priority.isNullOrBlank() && priorityFilter == null) {
-            return emptyList()
-        }
+        val filters = parseActionableInboxFilters(status, priority, limit) ?: return emptyList()
         val messages = getAllDecryptedMessages()
         val messagesById = messages.associateBy { it.id }
         val followUps = followUpDao
-            ?.getByStatus(statusFilter, priorityFilter, safeLimit)
+            ?.getByStatus(filters.status, filters.priority, filters.limit)
             .orEmpty()
         val followUpItems = followUps.mapNotNull { followUp ->
             val message = messagesById[followUp.messageEventId] ?: return@mapNotNull null
@@ -457,23 +455,14 @@ class StoredInboxRepository(
         }
 
         val followUpMessageIds = followUps.map { it.messageEventId }.toSet()
-        val priorityMessageItems = if (statusFilter == null || statusFilter == ACTIONABLE_STATUS_PENDING) {
-            messages.asSequence()
-                .filter { it.priority == InboxPriority.HIGH.name }
-                .filter { priorityFilter == null || it.priority == priorityFilter.name }
-                .filter { it.id !in followUpMessageIds }
-                .map { it.toPriorityActionableInboxItem() }
-                .toList()
-        } else {
-            emptyList()
-        }
+        val priorityMessageItems = priorityActionableItems(messages, filters, followUpMessageIds)
 
         return (followUpItems + priorityMessageItems)
             .sortedWith(
                 compareBy<LocalActionableInboxItem> { if (it.status == ACTIONABLE_STATUS_PENDING) 0 else 1 }
                     .thenByDescending { it.updatedAt }
             )
-            .take(safeLimit)
+            .take(filters.limit)
     }
 
     private fun decryptConversationTitle(entity: ConversationEntity): String {
@@ -589,6 +578,42 @@ class StoredInboxRepository(
         )
     }
 
+    private fun parseActionableInboxFilters(
+        status: String?,
+        priority: String?,
+        limit: Int
+    ): ActionableInboxFilters? {
+        val statusFilter = parseActionableStatus(status)
+        if (!status.isNullOrBlank() && statusFilter == null) {
+            return null
+        }
+        val priorityFilter = parsePriorityOrNull(priority)
+        if (!priority.isNullOrBlank() && priorityFilter == null) {
+            return null
+        }
+        return ActionableInboxFilters(
+            status = statusFilter,
+            priority = priorityFilter,
+            limit = localToolLimit(limit)
+        )
+    }
+
+    private fun priorityActionableItems(
+        messages: List<DecryptedMessage>,
+        filters: ActionableInboxFilters,
+        followUpMessageIds: Set<String>
+    ): List<LocalActionableInboxItem> {
+        if (filters.status != null && filters.status != ACTIONABLE_STATUS_PENDING) {
+            return emptyList()
+        }
+        return messages.asSequence()
+            .filter { it.priority == InboxPriority.HIGH.name }
+            .filter { filters.priority == null || it.priority == filters.priority.name }
+            .filter { it.id !in followUpMessageIds }
+            .map { it.toPriorityActionableInboxItem() }
+            .toList()
+    }
+
     private fun parsePriority(value: String?, default: InboxPriority): InboxPriority {
         return parsePriorityOrNull(value) ?: default
     }
@@ -627,8 +652,12 @@ class StoredInboxRepository(
         return value.trim().lowercase(Locale.ROOT)
     }
 
+    private fun localToolLimit(limit: Int): Int = limit.coerceIn(MIN_LOCAL_TOOL_LIMIT, MAX_LOCAL_TOOL_LIMIT)
+
     private companion object {
         const val DEFAULT_SEARCH_LIMIT = 10
+        const val MIN_LOCAL_TOOL_LIMIT = 1
+        const val MAX_LOCAL_TOOL_LIMIT = 100
         const val MILLIS_PER_MINUTE = 60_000L
         const val ACTIONABLE_TYPE_FOLLOW_UP = "FOLLOW_UP"
         const val ACTIONABLE_TYPE_PRIORITY_MESSAGE = "PRIORITY_MESSAGE"
