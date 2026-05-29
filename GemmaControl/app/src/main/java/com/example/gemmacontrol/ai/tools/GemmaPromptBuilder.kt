@@ -46,7 +46,8 @@ class GemmaPromptBuilder(
         userCommand: String,
         messages: List<GemmaMessageContext>,
         maxMessages: Int = DEFAULT_MAX_MESSAGES,
-        maxBodyChars: Int = DEFAULT_MAX_BODY_CHARS
+        maxBodyChars: Int = DEFAULT_MAX_BODY_CHARS,
+        maxUserCommandChars: Int = DEFAULT_MAX_USER_COMMAND_CHARS
     ): String {
         val clockSnapshot = clock()
         val systemPrompt = registry.buildSystemPrompt(
@@ -78,7 +79,7 @@ class GemmaPromptBuilder(
             Selected local WhatsApp context:
             $messageBlock
 
-            User command: ${userCommand.oneLine()}
+            User command: ${userCommand.oneLine().truncate(maxUserCommandChars)}
 
             Return only one JSON object with a supported tool name and parameters. If no safe tool applies, return no tool proposal.
         """.trimIndent()
@@ -94,6 +95,7 @@ class GemmaPromptBuilder(
     private companion object {
         const val DEFAULT_MAX_MESSAGES = 5
         const val DEFAULT_MAX_BODY_CHARS = 500
+        const val DEFAULT_MAX_USER_COMMAND_CHARS = 500
 
         fun systemClockSnapshot(): PromptClockSnapshot {
             val now = Date()

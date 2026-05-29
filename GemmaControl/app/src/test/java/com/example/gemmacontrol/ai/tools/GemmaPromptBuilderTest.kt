@@ -62,6 +62,18 @@ class GemmaPromptBuilderTest {
     }
 
     @Test
+    fun truncatesLongUserCommand() {
+        val prompt = builder.buildForUserCommand(
+            userCommand = "reply ".repeat(100),
+            messages = emptyList(),
+            maxUserCommandChars = 30
+        )
+
+        assertTrue(prompt.contains("User command: reply reply reply reply reply ..."))
+        assertFalse(prompt.contains("reply ".repeat(20)))
+    }
+
+    @Test
     fun mapsRepositoryMessagesToPromptContextWithoutBlankBody() {
         val context = GemmaMessageContext.fromDecryptedMessage(
             messageEventId = "message-1",

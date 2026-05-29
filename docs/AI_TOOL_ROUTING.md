@@ -26,7 +26,7 @@ The app now has a typed local tool contract in `ai/tools`:
 - `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
 - `FunctionGemmaVoiceProposalHandler` maps validated FunctionGemma proposal results back into existing voice UI states. Read-latest, local message search/details, actionable inbox reads, active-notification replies, message-preparation drafts, follow-up actions, reminders, priority updates, pause/resume capture, and local deletion are wired; unsupported or stale proposals become safe failures.
 - Model-proposed local mutations still require a Compose confirmation card before `WhatsAppLocalToolExecutor` runs.
-- `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency and truncated per message.
+- `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency, with both message bodies and the user command truncated before model submission.
 - `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, streaming partial text emission, stop-response cancellation, idle background release, and low-memory cleanup.
 - `GemmaEngine` defines the runtime contract. `LiteRtGemmaEngine` now contains the isolated Android LiteRT-LM engine/conversation wrapper, while `UnavailableGemmaEngine` remains available for explicit blocked states when no model path/runtime is configured.
 - `FunctionGemmaModelCatalog` mirrors the Gallery MobileActions allowlist entry for `mobile_actions_q8_ekv1024.litertlm`: CPU backend, `topK=64`, `topP=0.95`, `temperature=0.0`, and `maxTokens=1024`.
