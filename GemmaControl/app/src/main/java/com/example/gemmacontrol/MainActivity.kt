@@ -23,14 +23,14 @@ class MainActivity : ComponentActivity() {
 
   override fun onStop() {
     super.onStop()
-    ServiceLocator.getGemmaModelManager().releaseIfIdleForBackground()
+    ServiceLocator.getGemmaModelManager(this).releaseIfIdleForBackground()
   }
 
   @Suppress("DEPRECATION")
   override fun onTrimMemory(level: Int) {
     super.onTrimMemory(level)
     if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
-      ServiceLocator.getGemmaModelManager().releaseForMemoryPressure("TRIM_MEMORY_$level")
+      ServiceLocator.getGemmaModelManager(this).releaseForMemoryPressure("TRIM_MEMORY_$level")
     }
   }
 }

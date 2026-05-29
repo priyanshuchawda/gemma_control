@@ -1,6 +1,7 @@
 package com.example.gemmacontrol
 
 import android.content.Context
+import com.example.gemmacontrol.ai.runtime.AndroidGemmaEngineFactory
 import com.example.gemmacontrol.ai.runtime.GemmaModelManager
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator
@@ -80,6 +81,14 @@ object ServiceLocator {
     fun getGemmaModelManager(): GemmaModelManager {
         return gemmaModelManager ?: synchronized(this) {
             gemmaModelManager ?: GemmaModelManager().also { gemmaModelManager = it }
+        }
+    }
+
+    fun getGemmaModelManager(context: Context): GemmaModelManager {
+        return gemmaModelManager ?: synchronized(this) {
+            gemmaModelManager ?: GemmaModelManager(
+                engineFactory = AndroidGemmaEngineFactory(context.applicationContext)
+            ).also { gemmaModelManager = it }
         }
     }
 }

@@ -16,7 +16,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class LiteRtGemmaEngine : GemmaEngine {
+class LiteRtGemmaEngine(
+    private val fallbackCacheDirectoryPath: String? = null
+) : GemmaEngine {
     private var engine: Engine? = null
     private var conversation: Conversation? = null
 
@@ -35,12 +37,12 @@ class LiteRtGemmaEngine : GemmaEngine {
             val newEngine = Engine(
                 EngineConfig(
                     modelPath = options.modelPath,
-                    backend = Backend.GPU(),
+                    backend = options.backend.toLiteRtBackend(),
                     visionBackend = null,
                     audioBackend = null,
                     maxNumTokens = options.maxTokens,
                     maxNumImages = null,
-                    cacheDir = options.cacheDirectoryPath
+                    cacheDir = options.cacheDirectoryPath ?: fallbackCacheDirectoryPath
                 )
             )
             newEngine.initialize()
@@ -130,6 +132,14 @@ class LiteRtGemmaEngine : GemmaEngine {
             engine?.close()
         } finally {
             engine = null
+        }
+    }
+
+    private fun String.toLiteRtBackend(): Backend {
+        return when (this) {
+            GemmaBackend.CPU.name -> Backend.CPU()
+            GemmaBackend.GPU.name -> Backend.GPU()
+            else -> Backend.GPU()
         }
     }
 }

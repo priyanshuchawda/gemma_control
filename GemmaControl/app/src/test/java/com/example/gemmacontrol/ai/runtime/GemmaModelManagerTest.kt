@@ -25,6 +25,22 @@ class GemmaModelManagerTest {
     }
 
     @Test
+    fun doesNotCreateEngineBeforeInitialization() = runTest {
+        var factoryCalls = 0
+        val manager = GemmaModelManager(
+            engineFactory = {
+                factoryCalls += 1
+                FakeGemmaEngine()
+            }
+        )
+
+        assertEquals(0, factoryCalls)
+        manager.generateToolProposal("reply ok", registry)
+
+        assertEquals(0, factoryCalls)
+    }
+
+    @Test
     fun initializesEngineOnceForSameConfig() = runTest {
         val engine = FakeGemmaEngine()
         val manager = GemmaModelManager(engineFactory = { engine })

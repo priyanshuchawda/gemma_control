@@ -20,26 +20,29 @@ class GemmaModelManager(
     private val engineFactory: () -> GemmaEngine = { UnavailableGemmaEngine() }
 ) {
     private val mutex = Mutex()
-    private var engine: GemmaEngine = engineFactory()
+    private var engine: GemmaEngine? = null
     private var activeConfig: GemmaEngineConfig? = null
 
     private val _state = MutableStateFlow<GemmaModelState>(GemmaModelState.Released)
     val state: StateFlow<GemmaModelState> = _state.asStateFlow()
 
     val isReady: Boolean
-        get() = engine.isReady
+        get() = engine?.isReady == true
 
     suspend fun initialize(config: GemmaEngineConfig): GemmaEngineResult = mutex.withLock {
-        if (engine.isReady && activeConfig == config) {
+        val currentEngine = engine
+        if (currentEngine?.isReady == true && activeConfig == config) {
             return@withLock GemmaEngineResult.Ready
         }
 
-        if (activeConfig != null) {
+        if (currentEngine != null) {
             closeCurrentEngine()
         }
 
+        val newEngine = engineFactory()
+        engine = newEngine
         _state.value = GemmaModelState.Initializing(config)
-        val result = engine.initialize(config)
+        val result = newEngine.initialize(config)
         when (result) {
             GemmaEngineResult.Ready -> {
                 activeConfig = config
@@ -67,11 +70,12 @@ class GemmaModelManager(
         registry: WhatsAppToolRegistry,
         onPartialText: (String) -> Unit = {}
     ): GemmaEngineResult = mutex.withLock {
-        if (!engine.isReady) {
+        val currentEngine = engine
+        if (currentEngine?.isReady != true) {
             return@withLock GemmaEngineResult.Blocked(NOT_INITIALIZED_REASON)
         }
 
-        val result = engine.generateToolProposal(prompt, registry) { partialText ->
+        val result = currentEngine.generateToolProposal(prompt, registry) { partialText ->
             _state.value = GemmaModelState.Streaming(partialText)
             onPartialText(partialText)
         }
@@ -87,10 +91,11 @@ class GemmaModelManager(
     }
 
     fun stopResponse(): Boolean {
-        if (!engine.isReady) {
+        val currentEngine = engine
+        if (currentEngine?.isReady != true) {
             return false
         }
-        return engine.cancelGeneration()
+        return currentEngine.cancelGeneration()
     }
 
     fun releaseIfIdleForBackground(): Boolean {
@@ -102,7 +107,7 @@ class GemmaModelManager(
 
     @Suppress("UNUSED_PARAMETER")
     fun releaseForMemoryPressure(reason: String): Boolean {
-        if (!engine.isReady && activeConfig == null) {
+        if (engine?.isReady != true && activeConfig == null) {
             _state.value = GemmaModelState.Released
             return false
         }
@@ -118,8 +123,8 @@ class GemmaModelManager(
     }
 
     private fun closeCurrentEngine() {
-        engine.close()
-        engine = engineFactory()
+        engine?.close()
+        engine = null
         activeConfig = null
     }
 

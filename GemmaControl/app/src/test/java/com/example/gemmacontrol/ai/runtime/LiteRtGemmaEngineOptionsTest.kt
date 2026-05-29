@@ -26,6 +26,7 @@ class LiteRtGemmaEngineOptionsTest {
     fun preservesExplicitSamplingAndCacheOptions() {
         val options = GemmaEngineConfig(
             modelPath = "/models/functiongemma.litertlm",
+            backend = GemmaBackend.CPU,
             maxTokens = 256,
             topK = 32,
             topP = 0.8f,
@@ -33,6 +34,7 @@ class LiteRtGemmaEngineOptionsTest {
             cacheDirectoryPath = "/cache"
         ).toLiteRtGemmaEngineOptions()
 
+        assertEquals("CPU", options.backend)
         assertEquals(256, options.maxTokens)
         assertEquals(32, options.topK)
         assertEquals(0.8f, options.topP)

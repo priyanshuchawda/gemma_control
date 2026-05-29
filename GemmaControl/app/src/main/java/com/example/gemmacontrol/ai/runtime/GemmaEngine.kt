@@ -3,8 +3,14 @@ package com.example.gemmacontrol.ai.runtime
 import com.example.gemmacontrol.ai.tools.ToolCallParseResult
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 
+enum class GemmaBackend {
+    CPU,
+    GPU
+}
+
 data class GemmaEngineConfig(
     val modelPath: String,
+    val backend: GemmaBackend = GemmaBackend.GPU,
     val maxTokens: Int = DEFAULT_MAX_TOKENS,
     val topK: Int = DEFAULT_TOP_K,
     val topP: Float = DEFAULT_TOP_P,

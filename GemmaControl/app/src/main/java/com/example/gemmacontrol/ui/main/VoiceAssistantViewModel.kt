@@ -14,6 +14,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.ai.model.FunctionGemmaModelResolver
+import com.example.gemmacontrol.ai.model.InstalledFunctionGemmaModel
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
@@ -39,7 +41,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     private val repository = ServiceLocator.getStoredInboxRepository(application)
     private val preferencesRepository = ServiceLocator.getPreferencesRepository(application)
-    private val gemmaModelManager = ServiceLocator.getGemmaModelManager()
+    private val gemmaModelManager = ServiceLocator.getGemmaModelManager(application)
+    private val functionGemmaModelResolver = FunctionGemmaModelResolver(
+        filesDir = application.filesDir,
+        cacheDir = application.cacheDir
+    )
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
     private val toolProposalMapper = VoiceCommandToolProposalMapper()
 
@@ -70,6 +76,18 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     init {
         initTextToSpeech()
+        initializeFunctionGemmaIfInstalled()
+    }
+
+    private fun initializeFunctionGemmaIfInstalled() {
+        viewModelScope.launch {
+            when (val model = functionGemmaModelResolver.resolveMobileActionsModel()) {
+                is InstalledFunctionGemmaModel.Ready -> {
+                    gemmaModelManager.initialize(model.config)
+                }
+                is InstalledFunctionGemmaModel.Missing -> Unit
+            }
+        }
     }
 
     private fun initTextToSpeech() {

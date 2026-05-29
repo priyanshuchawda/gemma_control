@@ -14,7 +14,7 @@ internal data class LiteRtGemmaEngineOptions(
 internal fun GemmaEngineConfig.toLiteRtGemmaEngineOptions(): LiteRtGemmaEngineOptions {
     return LiteRtGemmaEngineOptions(
         modelPath = modelPath,
-        backend = "GPU",
+        backend = backend.name,
         maxTokens = maxTokens,
         topK = topK,
         topP = topP,

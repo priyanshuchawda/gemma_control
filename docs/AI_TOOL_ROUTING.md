@@ -27,6 +27,9 @@ The app now has a typed local tool contract in `ai/tools`:
 - `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency and truncated per message.
 - `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, streaming partial text emission, stop-response cancellation, idle background release, and low-memory cleanup.
 - `GemmaEngine` defines the runtime contract. `LiteRtGemmaEngine` now contains the isolated Android LiteRT-LM engine/conversation wrapper, while `UnavailableGemmaEngine` remains available for explicit blocked states when no model path/runtime is configured.
+- `FunctionGemmaModelCatalog` mirrors the Gallery MobileActions allowlist entry for `mobile_actions_q8_ekv1024.litertlm`: CPU backend, `topK=64`, `topP=0.95`, `temperature=0.0`, and `maxTokens=1024`.
+- `FunctionGemmaModelResolver` checks the app-private `filesDir/models/` install location and produces a `GemmaEngineConfig` only when the verified `.litertlm` file is present.
+- `GemmaModelManager` creates engines lazily at initialization time, preventing the LiteRT Java-21 classes from loading during JVM tests or before a model path exists.
 
 ## Safety Boundary
 
@@ -39,6 +42,7 @@ FunctionGemma is a proposal engine only. Kotlin must validate:
 - whether a tool requires manual confirmation
 - bounded prompt context size before any future model call
 - model lifecycle readiness before prompt submission
+- installed model resolution before LiteRT initialization
 - model release on memory pressure
 - final execution decision before any local repository write or Android system action
 
