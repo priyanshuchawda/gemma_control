@@ -71,7 +71,7 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
-    fun rejectsUnsupportedProposalThatIsNotWiredToVoiceUi() {
+    fun mapsShareDraftProposalToLocalToolConfirmation() {
         val state = handler.resolve(
             result = proposalResult(
                 name = "open_whatsapp_share_draft",
@@ -80,10 +80,48 @@ class FunctionGemmaVoiceProposalHandlerTest {
             context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
         )
 
-        assertEquals(
-            VoiceAssistantState.Failure("FunctionGemma proposed open_whatsapp_share_draft, but that action is not wired to the voice UI yet."),
-            state
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Open WhatsApp share draft?", action.title)
+        assertEquals("Open WhatsApp", action.confirmText)
+    }
+
+    @Test
+    fun mapsClickToChatDraftProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "open_whatsapp_click_to_chat",
+                params = mapOf(
+                    "phone_number_e164" to "+15551234567",
+                    "message_text" to "Hello"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
         )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Open WhatsApp chat draft?", action.title)
+        assertEquals("Open WhatsApp", action.confirmText)
+    }
+
+    @Test
+    fun mapsDraftReplyProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "draft_whatsapp_reply",
+                params = mapOf(
+                    "conversation_name" to "Mom",
+                    "message_text" to "On my way"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Prepare WhatsApp reply draft?", action.title)
+        assertEquals("Prepare Draft", action.confirmText)
     }
 
     @Test

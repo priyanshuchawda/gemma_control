@@ -54,10 +54,12 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.MarkFollowUpCompleted,
             WhatsAppToolName.ScheduleReminderForMessage,
             WhatsAppToolName.MarkMessagePriority,
+            WhatsAppToolName.DraftWhatsAppReply,
+            WhatsAppToolName.OpenWhatsAppShareDraft,
+            WhatsAppToolName.OpenWhatsAppClickToChat,
             WhatsAppToolName.DeleteLocalWhatsAppData -> {
                 toLocalToolConfirmationState()
             }
-            else -> unsupportedProposalState(proposal)
         }
     }
 
@@ -130,6 +132,27 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Mark message ${proposal.string("priority").orEmpty()} priority?",
                 description = "GemmaControl will update only the local inbox priority flag for this captured WhatsApp message.",
                 confirmText = "Mark Priority",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.DraftWhatsAppReply -> PendingLocalToolAction(
+                title = "Prepare WhatsApp reply draft?",
+                description = "GemmaControl will prepare draft text locally without sending anything.",
+                confirmText = "Prepare Draft",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.OpenWhatsAppShareDraft -> PendingLocalToolAction(
+                title = "Open WhatsApp share draft?",
+                description = "GemmaControl will open WhatsApp with prepared text. You still choose the recipient and send manually.",
+                confirmText = "Open WhatsApp",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.OpenWhatsAppClickToChat -> PendingLocalToolAction(
+                title = "Open WhatsApp chat draft?",
+                description = "GemmaControl will open WhatsApp with prepared text for the verified phone number. You still send manually.",
+                confirmText = "Open WhatsApp",
                 proposal = proposal,
                 decision = decision
             )

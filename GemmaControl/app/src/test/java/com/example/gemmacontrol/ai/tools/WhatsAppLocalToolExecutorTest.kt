@@ -467,6 +467,86 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun draftWhatsAppReplyReturnsPreparedDraft() = runTest {
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = FakeLocalWhatsAppDataRepository()
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "draft_whatsapp_reply",
+                  "parameters": {
+                    "conversation_name": "Mom",
+                    "message_text": "On my way"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("Draft prepared for Mom: On my way"), result)
+    }
+
+    @Test
+    fun openWhatsAppShareDraftDelegatesToLauncher() = runTest {
+        val launcher = FakeWhatsAppDraftLauncher()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = FakeLocalWhatsAppDataRepository(),
+            draftLauncher = launcher
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "open_whatsapp_share_draft",
+                  "parameters": {
+                    "message_text": "Hello from GemmaControl"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("WhatsApp share draft opened."), result)
+        assertEquals(listOf("Hello from GemmaControl"), launcher.shareDrafts)
+    }
+
+    @Test
+    fun openWhatsAppClickToChatDelegatesToLauncher() = runTest {
+        val launcher = FakeWhatsAppDraftLauncher()
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = FakeLocalWhatsAppDataRepository(),
+            draftLauncher = launcher
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "open_whatsapp_click_to_chat",
+                  "parameters": {
+                    "phone_number_e164": "+15551234567",
+                    "message_text": "Hello"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("WhatsApp click-to-chat draft opened."), result)
+        assertEquals(
+            listOf(ClickToChatDraft(phoneNumberE164 = "+15551234567", messageText = "Hello")),
+            launcher.clickToChatDrafts
+        )
+    }
+
+    @Test
     fun doesNotExecuteActiveNotificationRepliesInLocalExecutor() = runTest {
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -563,6 +643,31 @@ class WhatsAppLocalToolExecutorTest {
         val priority: String?,
         val limit: Int
     )
+
+    private data class ClickToChatDraft(
+        val phoneNumberE164: String,
+        val messageText: String
+    )
+
+    private class FakeWhatsAppDraftLauncher(
+        private val result: WhatsAppDraftLaunchResult = WhatsAppDraftLaunchResult.Launched
+    ) : WhatsAppDraftLauncher {
+        val shareDrafts = mutableListOf<String>()
+        val clickToChatDrafts = mutableListOf<ClickToChatDraft>()
+
+        override fun openShareDraft(messageText: String): WhatsAppDraftLaunchResult {
+            shareDrafts += messageText
+            return result
+        }
+
+        override fun openClickToChatDraft(
+            phoneNumberE164: String,
+            messageText: String
+        ): WhatsAppDraftLaunchResult {
+            clickToChatDrafts += ClickToChatDraft(phoneNumberE164, messageText)
+            return result
+        }
+    }
 
     private class FakeLocalWhatsAppDataRepository(
         private val conversationDeleteResult: Boolean = true,

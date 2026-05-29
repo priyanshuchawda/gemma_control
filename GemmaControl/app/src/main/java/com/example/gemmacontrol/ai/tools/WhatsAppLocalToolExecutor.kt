@@ -68,7 +68,8 @@ sealed interface ToolExecutionResult {
 
 class WhatsAppLocalToolExecutor(
     private val preferencesRepository: CapturePreferencesRepository,
-    private val localDataRepository: LocalWhatsAppDataRepository
+    private val localDataRepository: LocalWhatsAppDataRepository,
+    private val draftLauncher: WhatsAppDraftLauncher = UnavailableWhatsAppDraftLauncher
 ) {
 
     suspend fun executeConfirmed(decision: ToolExecutionDecision): ToolExecutionResult {
@@ -98,11 +99,53 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.SearchWhatsAppMessages -> searchMessages(proposal)
             WhatsAppToolName.GetWhatsAppMessageDetails -> getMessageDetails(proposal)
             WhatsAppToolName.GetActionableInbox -> getActionableInbox(proposal)
+            WhatsAppToolName.DraftWhatsAppReply -> draftWhatsAppReply(proposal)
+            WhatsAppToolName.OpenWhatsAppShareDraft -> openWhatsAppShareDraft(proposal)
+            WhatsAppToolName.OpenWhatsAppClickToChat -> openWhatsAppClickToChat(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
                 "Active notification replies must use the notification reply executor."
             )
-            else -> ToolExecutionResult.Rejected("No local executor is implemented for ${proposal.name.value}.")
+        }
+    }
+
+    private fun draftWhatsAppReply(proposal: ToolProposal): ToolExecutionResult {
+        val conversationName = proposal.string("conversation_name")?.trim().orEmpty()
+        val messageText = proposal.string("message_text")?.trim().orEmpty()
+        if (conversationName.isBlank()) {
+            return ToolExecutionResult.Rejected("Draft reply proposals require conversation_name.")
+        }
+        if (messageText.isBlank()) {
+            return ToolExecutionResult.Rejected("Draft reply text must not be blank.")
+        }
+        return ToolExecutionResult.Success("Draft prepared for $conversationName: $messageText")
+    }
+
+    private fun openWhatsAppShareDraft(proposal: ToolProposal): ToolExecutionResult {
+        val messageText = proposal.string("message_text")?.trim().orEmpty()
+        if (messageText.isBlank()) {
+            return ToolExecutionResult.Rejected("WhatsApp share draft text must not be blank.")
+        }
+        return when (val result = draftLauncher.openShareDraft(messageText)) {
+            WhatsAppDraftLaunchResult.Launched -> ToolExecutionResult.Success("WhatsApp share draft opened.")
+            WhatsAppDraftLaunchResult.NoHandler -> ToolExecutionResult.Rejected("WhatsApp is not available for share drafts.")
+            is WhatsAppDraftLaunchResult.Failed -> ToolExecutionResult.Rejected(result.reason)
+        }
+    }
+
+    private fun openWhatsAppClickToChat(proposal: ToolProposal): ToolExecutionResult {
+        val phoneNumber = proposal.string("phone_number_e164")?.trim().orEmpty()
+        val messageText = proposal.string("message_text")?.trim().orEmpty()
+        if (phoneNumber.isBlank()) {
+            return ToolExecutionResult.Rejected("Click-to-chat proposals require phone_number_e164.")
+        }
+        if (messageText.isBlank()) {
+            return ToolExecutionResult.Rejected("Click-to-chat draft text must not be blank.")
+        }
+        return when (val result = draftLauncher.openClickToChatDraft(phoneNumber, messageText)) {
+            WhatsAppDraftLaunchResult.Launched -> ToolExecutionResult.Success("WhatsApp click-to-chat draft opened.")
+            WhatsAppDraftLaunchResult.NoHandler -> ToolExecutionResult.Rejected("WhatsApp is not available for click-to-chat drafts.")
+            is WhatsAppDraftLaunchResult.Failed -> ToolExecutionResult.Rejected(result.reason)
         }
     }
 

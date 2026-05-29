@@ -17,6 +17,7 @@ import com.example.gemmacontrol.ServiceLocator
 import com.example.gemmacontrol.ai.model.FunctionGemmaModelResolver
 import com.example.gemmacontrol.ai.model.InstalledFunctionGemmaModel
 import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
+import com.example.gemmacontrol.ai.tools.AndroidWhatsAppDraftLauncher
 import com.example.gemmacontrol.ai.tools.GemmaMessageContext
 import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
 import com.example.gemmacontrol.ai.tools.ToolExecutionResult
@@ -57,7 +58,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val functionGemmaProposalHandler = FunctionGemmaVoiceProposalHandler(toolProposalMapper)
     private val localToolExecutor = WhatsAppLocalToolExecutor(
         preferencesRepository = preferencesRepository,
-        localDataRepository = repository
+        localDataRepository = repository,
+        draftLauncher = AndroidWhatsAppDraftLauncher(application)
     )
     private val gemmaPromptBuilder = GemmaPromptBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
