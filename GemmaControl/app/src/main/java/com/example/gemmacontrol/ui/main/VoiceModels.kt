@@ -1,5 +1,7 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
+import com.example.gemmacontrol.ai.tools.ToolProposal
 import java.util.Locale
 
 sealed interface VoiceCommand {
@@ -20,6 +22,14 @@ data class PendingVoiceReply(
     val conversationTitle: String
 )
 
+data class PendingLocalToolAction(
+    val title: String,
+    val description: String,
+    val confirmText: String,
+    val proposal: ToolProposal,
+    val decision: ToolExecutionDecision
+)
+
 sealed interface VoiceAssistantState {
     data object Idle : VoiceAssistantState
     data object RequestingMicrophonePermission : VoiceAssistantState
@@ -28,6 +38,8 @@ sealed interface VoiceAssistantState {
     data class CommandReady(val command: VoiceCommand) : VoiceAssistantState
     data class Streaming(val partialText: String) : VoiceAssistantState
     data class ConfirmationRequired(val draft: PendingVoiceReply) : VoiceAssistantState
+    data class LocalToolConfirmationRequired(val action: PendingLocalToolAction) : VoiceAssistantState
+    data class LocalToolSucceeded(val message: String) : VoiceAssistantState
     data class SpeakingMessages(val count: Int) : VoiceAssistantState
     data class Failure(val safeReason: String) : VoiceAssistantState
     data object LanguagePackMissingError : VoiceAssistantState

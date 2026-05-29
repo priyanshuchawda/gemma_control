@@ -44,8 +44,41 @@ class FunctionGemmaVoiceProposalHandler(
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> {
                 proposal.toActiveReplyState(context)
             }
+            WhatsAppToolName.PauseWhatsAppCapture,
+            WhatsAppToolName.ResumeWhatsAppCapture,
+            WhatsAppToolName.DeleteLocalWhatsAppData -> {
+                toLocalToolConfirmationState()
+            }
             else -> unsupportedProposalState(proposal)
         }
+    }
+
+    private fun VoiceToolProposalResult.Valid.toLocalToolConfirmationState(): VoiceAssistantState {
+        val action = when (proposal.name) {
+            WhatsAppToolName.PauseWhatsAppCapture -> PendingLocalToolAction(
+                title = "Pause WhatsApp capture?",
+                description = "GemmaControl will stop storing new WhatsApp notification previews until capture is resumed.",
+                confirmText = "Pause Capture",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.ResumeWhatsAppCapture -> PendingLocalToolAction(
+                title = "Resume WhatsApp capture?",
+                description = "GemmaControl will resume processing future WhatsApp notification previews.",
+                confirmText = "Resume Capture",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.DeleteLocalWhatsAppData -> PendingLocalToolAction(
+                title = "Delete all local WhatsApp data?",
+                description = "This removes locally stored WhatsApp conversations and message previews from this app.",
+                confirmText = "Delete Local Data",
+                proposal = proposal,
+                decision = decision
+            )
+            else -> return unsupportedProposalState(proposal)
+        }
+        return VoiceAssistantState.LocalToolConfirmationRequired(action)
     }
 
     private fun ToolProposal.toActiveReplyState(

@@ -81,6 +81,7 @@ fun VoiceAssistantScreen(
         onCancel = viewModel::resetToIdle,
         onReadAloud = viewModel::executeReadAloud,
         onConfirmSend = viewModel::confirmSend,
+        onConfirmLocalTool = viewModel::confirmLocalTool,
         onStopSpeaking = viewModel::stopSpeaking,
         onStopResponse = viewModel::stopResponse,
         onOpenSpeechSettings = { context.openSpeechSettings() },
@@ -133,6 +134,7 @@ private fun VoiceAssistantScaffold(
     onCancel: () -> Unit,
     onReadAloud: () -> Unit,
     onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
     onStopSpeaking: () -> Unit,
     onStopResponse: () -> Unit,
     onOpenSpeechSettings: () -> Unit,
@@ -190,6 +192,7 @@ private fun VoiceAssistantScaffold(
                 onCancel = onCancel,
                 onReadAloud = onReadAloud,
                 onConfirmSend = onConfirmSend,
+                onConfirmLocalTool = onConfirmLocalTool,
                 onStopSpeaking = onStopSpeaking,
                 onStopResponse = onStopResponse,
                 onOpenSpeechSettings = onOpenSpeechSettings,
@@ -387,6 +390,7 @@ private fun VoiceAssistantActionPanel(
     onCancel: () -> Unit,
     onReadAloud: () -> Unit,
     onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
     onStopSpeaking: () -> Unit,
     onStopResponse: () -> Unit,
     onOpenSpeechSettings: () -> Unit,
@@ -409,6 +413,15 @@ private fun VoiceAssistantActionPanel(
                 draft = state.draft,
                 onCancel = onCancel,
                 onConfirmSend = onConfirmSend
+            )
+            is VoiceAssistantState.LocalToolConfirmationRequired -> LocalToolConfirmationCard(
+                action = state.action,
+                onCancel = onCancel,
+                onConfirm = onConfirmLocalTool
+            )
+            is VoiceAssistantState.LocalToolSucceeded -> LocalToolSucceededCard(
+                message = state.message,
+                onDismiss = onCancel
             )
             is VoiceAssistantState.Streaming -> StreamingResponseCard(
                 partialText = state.partialText,
@@ -565,6 +578,92 @@ private fun ReplyDraftPreview(draft: PendingVoiceReply) {
                 modifier = Modifier.padding(12.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun LocalToolConfirmationCard(
+    action: PendingLocalToolAction,
+    onCancel: () -> Unit,
+    onConfirm: (PendingLocalToolAction) -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    action.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Text(
+                action.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TwoButtonRow(
+                secondaryText = "Cancel",
+                primaryText = action.confirmText,
+                onSecondaryClick = onCancel,
+                onPrimaryClick = { onConfirm(action) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocalToolSucceededCard(
+    message: String,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
+            )
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Done")
+            }
         }
     }
 }

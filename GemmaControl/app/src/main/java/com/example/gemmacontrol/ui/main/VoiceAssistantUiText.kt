@@ -11,6 +11,8 @@ internal fun voiceAssistantStatusTitle(state: VoiceAssistantState): String {
         is VoiceAssistantState.CommandReady -> "Command recognized"
         is VoiceAssistantState.Streaming -> "Generating reply"
         is VoiceAssistantState.ConfirmationRequired -> "Review Dictated Reply"
+        is VoiceAssistantState.LocalToolConfirmationRequired -> "Review Local Action"
+        is VoiceAssistantState.LocalToolSucceeded -> "Action complete"
         is VoiceAssistantState.SpeakingMessages -> "Reading latest messages"
         is VoiceAssistantState.Failure -> "Error encountered"
         VoiceAssistantState.LanguagePackMissingError -> "Language Pack Missing"
@@ -43,6 +45,8 @@ internal fun voiceAssistantSubtitle(
         }
         is VoiceAssistantState.Failure -> state.safeReason
         is VoiceAssistantState.Streaming -> "FunctionGemma is drafting a local response."
+        is VoiceAssistantState.LocalToolConfirmationRequired -> state.action.description
+        is VoiceAssistantState.LocalToolSucceeded -> state.message
         VoiceAssistantState.LanguagePackMissingError -> "Offline language pack unavailable."
         VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Requires explicit consent to use network-based recognition."
         else -> ""

@@ -19,7 +19,9 @@ import com.example.gemmacontrol.ai.model.InstalledFunctionGemmaModel
 import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
 import com.example.gemmacontrol.ai.tools.GemmaMessageContext
 import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
+import com.example.gemmacontrol.ai.tools.ToolExecutionResult
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
+import com.example.gemmacontrol.ai.tools.WhatsAppLocalToolExecutor
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
@@ -53,6 +55,10 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
     private val toolProposalMapper = VoiceCommandToolProposalMapper()
     private val functionGemmaProposalHandler = FunctionGemmaVoiceProposalHandler(toolProposalMapper)
+    private val localToolExecutor = WhatsAppLocalToolExecutor(
+        preferencesRepository = preferencesRepository,
+        localDataRepository = repository
+    )
     private val gemmaPromptBuilder = GemmaPromptBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
 
@@ -407,6 +413,19 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 ReplySendResult.FailedSafely -> "Failed to send reply safely."
             }
             _state.value = VoiceAssistantState.Failure(safeReason)
+        }
+    }
+
+    fun confirmLocalTool(action: PendingLocalToolAction) {
+        viewModelScope.launch {
+            when (val result = localToolExecutor.executeConfirmed(action.decision)) {
+                is ToolExecutionResult.Success -> {
+                    _state.value = VoiceAssistantState.LocalToolSucceeded(result.message)
+                }
+                is ToolExecutionResult.Rejected -> {
+                    _state.value = VoiceAssistantState.Failure(result.reason)
+                }
+            }
         }
     }
 

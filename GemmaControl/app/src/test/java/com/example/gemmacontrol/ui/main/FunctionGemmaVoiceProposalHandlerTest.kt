@@ -87,6 +87,38 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsPauseCaptureProposalToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "pause_whatsapp_capture",
+                params = emptyMap()
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Pause WhatsApp capture?", action.title)
+        assertEquals("pause_whatsapp_capture", action.proposal.name.value)
+    }
+
+    @Test
+    fun mapsDeleteAllDataProposalToStrictLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = proposalResult(
+                name = "delete_local_whatsapp_data",
+                params = mapOf("delete_all" to true)
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Delete all local WhatsApp data?", action.title)
+        assertEquals("delete_local_whatsapp_data", action.proposal.name.value)
+    }
+
+    @Test
     fun mapsInvalidModelOutputToSafeFailure() {
         val state = handler.resolve(
             result = GemmaEngineResult.ProposalText(
