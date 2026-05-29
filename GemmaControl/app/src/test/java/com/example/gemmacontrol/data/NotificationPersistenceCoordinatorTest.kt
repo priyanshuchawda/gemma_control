@@ -645,6 +645,50 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testRepository_listRecentMessagesFiltersByConversationAndSinceMinutes() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        val now = System.currentTimeMillis()
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_mom",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7",
+                timestamp = now - 30_000L
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_old_mom",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Old dinner note",
+                timestamp = now - 10 * 60_000L
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_peter",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Project update",
+                timestamp = now - 20_000L
+            )
+        )
+
+        val results = repository.listRecentMessages(
+            conversationName = "Mom",
+            limit = 5,
+            sinceMinutes = 2
+        )
+
+        assertEquals(1, results.size)
+        assertEquals("Mom", results.single().conversationName)
+        assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
     fun testRepository_getMessageDetailsReturnsStoredMessage() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
@@ -824,9 +868,9 @@ class NotificationPersistenceCoordinatorTest {
         source: NotificationParseSource,
         title: String,
         text: String,
-        eventType: NotificationEventType = NotificationEventType.POSTED
+        eventType: NotificationEventType = NotificationEventType.POSTED,
+        timestamp: Long = 1716900000000L
     ): ParsedWhatsAppNotificationEvent {
-        val timestamp = 1716900000000L
         val dedupe = WhatsAppNotificationParser.generateDedupeCandidate(
             packageName = "com.whatsapp",
             notificationKey = key,

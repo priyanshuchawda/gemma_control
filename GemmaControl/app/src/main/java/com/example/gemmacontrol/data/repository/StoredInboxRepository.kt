@@ -366,6 +366,34 @@ class StoredInboxRepository(
         return reminderId
     }
 
+    override suspend fun listRecentMessages(
+        conversationName: String?,
+        limit: Int,
+        sinceMinutes: Int?
+    ): List<LocalWhatsAppMessage> {
+        val safeLimit = limit.coerceIn(1, 100)
+        val normalizedConversation = conversationName
+            ?.let { normalizeConversationName(it) }
+            ?.takeIf { it.isNotBlank() }
+        val postedAfter = sinceMinutes
+            ?.takeIf { it > 0 }
+            ?.let { nowProvider() - it * MILLIS_PER_MINUTE }
+
+        return getAllDecryptedMessages()
+            .asSequence()
+            .filter { message ->
+                normalizedConversation == null ||
+                    normalizeConversationName(message.conversationId) == normalizedConversation
+            }
+            .filter { message ->
+                postedAfter == null || message.postedAt >= postedAfter
+            }
+            .sortedByDescending { it.postedAt }
+            .take(safeLimit)
+            .map { it.toLocalWhatsAppMessage() }
+            .toList()
+    }
+
     override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {
         val normalizedQuery = normalizeSearchText(query)
         if (normalizedQuery.isBlank()) {
@@ -601,6 +629,7 @@ class StoredInboxRepository(
 
     private companion object {
         const val DEFAULT_SEARCH_LIMIT = 10
+        const val MILLIS_PER_MINUTE = 60_000L
         const val ACTIONABLE_TYPE_FOLLOW_UP = "FOLLOW_UP"
         const val ACTIONABLE_TYPE_PRIORITY_MESSAGE = "PRIORITY_MESSAGE"
         const val ACTIONABLE_STATUS_PENDING = "PENDING"

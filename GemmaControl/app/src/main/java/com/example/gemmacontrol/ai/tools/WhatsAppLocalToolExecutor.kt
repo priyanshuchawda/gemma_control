@@ -19,6 +19,11 @@ interface LocalWhatsAppDataRepository {
         remindAt: String,
         reminderNote: String?
     ): String?
+    suspend fun listRecentMessages(
+        conversationName: String?,
+        limit: Int,
+        sinceMinutes: Int?
+    ): List<LocalWhatsAppMessage>
     suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage>
     suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage?
     suspend fun getActionableInbox(status: String?, priority: String?, limit: Int): List<LocalActionableInboxItem>
@@ -89,6 +94,7 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.MarkFollowUpCompleted -> markFollowUpCompleted(proposal)
             WhatsAppToolName.ScheduleReminderForMessage -> scheduleReminder(proposal)
             WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
+            WhatsAppToolName.ListRecentWhatsAppMessages -> listRecentMessages(proposal)
             WhatsAppToolName.SearchWhatsAppMessages -> searchMessages(proposal)
             WhatsAppToolName.GetWhatsAppMessageDetails -> getMessageDetails(proposal)
             WhatsAppToolName.GetActionableInbox -> getActionableInbox(proposal)
@@ -209,6 +215,18 @@ class WhatsAppLocalToolExecutor(
         } else {
             ToolExecutionResult.Rejected("No local WhatsApp message matched message_event_id.")
         }
+    }
+
+    private suspend fun listRecentMessages(proposal: ToolProposal): ToolExecutionResult {
+        val messages = localDataRepository.listRecentMessages(
+            conversationName = proposal.string("conversation_name")?.trim()?.takeIf { it.isNotBlank() },
+            limit = proposal.integer("limit") ?: 10,
+            sinceMinutes = proposal.integer("since_minutes")
+        )
+        if (messages.isEmpty()) {
+            return ToolExecutionResult.Success("No recent WhatsApp messages.")
+        }
+        return ToolExecutionResult.Success(formatMessages(messages))
     }
 
     private suspend fun searchMessages(proposal: ToolProposal): ToolExecutionResult {

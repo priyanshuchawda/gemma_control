@@ -329,6 +329,47 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun listRecentWhatsAppMessagesReturnsReadableSummary() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            recentMessages = listOf(
+                LocalWhatsAppMessage(
+                    id = "message-1",
+                    conversationName = "Mom",
+                    senderName = "Mom",
+                    text = "Dinner at 7",
+                    postedAt = 1000L,
+                    priority = "NORMAL"
+                )
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "list_recent_whatsapp_messages",
+                  "parameters": {
+                    "conversation_name": "Mom",
+                    "limit": 3,
+                    "since_minutes": 15
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("- [message-1] Mom: Dinner at 7"), result)
+        assertEquals(
+            listOf(ListRecentMessagesCall(conversationName = "Mom", limit = 3, sinceMinutes = 15)),
+            repository.listRecentMessagesCalls
+        )
+    }
+
+    @Test
     fun getMessageDetailsReturnsReadableSummary() = runTest {
         val repository = FakeLocalWhatsAppDataRepository(
             messageDetails = LocalWhatsAppMessage(
@@ -511,6 +552,12 @@ class WhatsAppLocalToolExecutorTest {
         val conversationName: String?
     )
 
+    private data class ListRecentMessagesCall(
+        val conversationName: String?,
+        val limit: Int,
+        val sinceMinutes: Int?
+    )
+
     private data class GetActionableInboxCall(
         val status: String?,
         val priority: String?,
@@ -520,6 +567,7 @@ class WhatsAppLocalToolExecutorTest {
     private class FakeLocalWhatsAppDataRepository(
         private val conversationDeleteResult: Boolean = true,
         private val pendingFollowUps: List<LocalFollowUp> = emptyList(),
+        private val recentMessages: List<LocalWhatsAppMessage> = emptyList(),
         private val searchResults: List<LocalWhatsAppMessage> = emptyList(),
         private val messageDetails: LocalWhatsAppMessage? = null,
         private val actionableInbox: List<LocalActionableInboxItem> = emptyList()
@@ -532,6 +580,7 @@ class WhatsAppLocalToolExecutorTest {
         val completedFollowUpCalls = mutableListOf<String>()
         val listPendingFollowUpsCalls = mutableListOf<ListPendingFollowUpsCall>()
         val scheduleReminderCalls = mutableListOf<ScheduleReminderCall>()
+        val listRecentMessagesCalls = mutableListOf<ListRecentMessagesCall>()
         val searchMessagesCalls = mutableListOf<SearchMessagesCall>()
         val messageDetailsCalls = mutableListOf<String>()
         val actionableInboxCalls = mutableListOf<GetActionableInboxCall>()
@@ -558,6 +607,15 @@ class WhatsAppLocalToolExecutorTest {
         override suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp> {
             listPendingFollowUpsCalls += ListPendingFollowUpsCall(limit, priority)
             return pendingFollowUps
+        }
+
+        override suspend fun listRecentMessages(
+            conversationName: String?,
+            limit: Int,
+            sinceMinutes: Int?
+        ): List<LocalWhatsAppMessage> {
+            listRecentMessagesCalls += ListRecentMessagesCall(conversationName, limit, sinceMinutes)
+            return recentMessages
         }
 
         override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {

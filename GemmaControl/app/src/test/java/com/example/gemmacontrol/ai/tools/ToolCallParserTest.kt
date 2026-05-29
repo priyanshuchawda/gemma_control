@@ -119,5 +119,22 @@ class ToolCallParserTest {
             ToolCallParseResult.Invalid("Invalid status: expected PENDING or COMPLETED"),
             badStatus
         )
+
+        val badSinceMinutes = parser.parse(
+            """
+            {
+              "name": "list_recent_whatsapp_messages",
+              "parameters": {
+                "limit": 10,
+                "since_minutes": -5
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            ToolCallParseResult.Invalid("Invalid since_minutes: must be greater than 0"),
+            badSinceMinutes
+        )
     }
 }

@@ -97,6 +97,12 @@ class ToolCallParser(
             }
         }
 
+        proposal.integer("since_minutes")?.let { sinceMinutes ->
+            if (sinceMinutes <= 0) {
+                return ToolCallParseResult.Invalid("Invalid since_minutes: must be greater than 0")
+            }
+        }
+
         proposal.string("priority")?.let { priority ->
             if (priority !in setOf("HIGH", "NORMAL", "LOW")) {
                 return ToolCallParseResult.Invalid("Invalid priority: expected HIGH, NORMAL, or LOW")
