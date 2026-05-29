@@ -466,63 +466,17 @@ class StoredInboxRepository(
     }
 
     private fun decryptConversationTitle(entity: ConversationEntity): String {
-        return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
-            try {
-                sensitiveTextCipher.decrypt(EncryptedPayload(entity.encryptedDisplayName, entity.displayNameIv))
-            } catch (e: Exception) {
-                "[Decryption Failed]"
-            }
-        } else {
-            entity.id
-        }
+        return decryptPayloadOrFallback(
+            ciphertext = entity.encryptedDisplayName,
+            iv = entity.displayNameIv,
+            fallback = entity.id
+        )
     }
 
     private fun normalizeConversationName(value: String): String {
         return value.trim()
             .replace(Regex("\\s+"), " ")
             .lowercase(Locale.ROOT)
-    }
-
-    private fun decryptMessageEntity(entity: MessageEventEntity, conversationMap: Map<String, String>): DecryptedMessage {
-        val decryptedText = if (entity.encryptedMessageText != null && entity.messageTextIv != null) {
-            try {
-                sensitiveTextCipher.decrypt(
-                    EncryptedPayload(entity.encryptedMessageText, entity.messageTextIv)
-                )
-            } catch (e: Exception) {
-                "[Decryption Failed]"
-            }
-        } else {
-            null
-        }
-
-        val decryptedSender = if (entity.encryptedSenderName != null && entity.senderNameIv != null) {
-            try {
-                sensitiveTextCipher.decrypt(
-                    EncryptedPayload(entity.encryptedSenderName, entity.senderNameIv)
-                )
-            } catch (e: Exception) {
-                "[Decryption Failed]"
-            }
-        } else {
-            null
-        }
-
-        val conversationTitle = conversationMap[entity.conversationId] ?: entity.conversationId
-
-        return DecryptedMessage(
-            id = entity.id,
-            conversationId = conversationTitle,
-            senderName = decryptedSender,
-            decryptedText = decryptedText,
-            postedAt = entity.postedAt,
-            notificationKey = entity.notificationKey,
-            sourcePackage = entity.sourcePackage,
-            parseSource = entity.parseSource,
-            isContentUnavailable = entity.isContentUnavailable,
-            createdAt = entity.createdAt,
-            priority = entity.priority.name
-        )
     }
 
     private fun FollowUpEntity.toLocalFollowUp(): LocalFollowUp {
@@ -576,6 +530,42 @@ class StoredInboxRepository(
             dueAt = null,
             updatedAt = postedAt
         )
+    }
+
+    private fun decryptMessageEntity(entity: MessageEventEntity, conversationMap: Map<String, String>): DecryptedMessage {
+        val conversationTitle = conversationMap[entity.conversationId] ?: entity.conversationId
+
+        return DecryptedMessage(
+            id = entity.id,
+            conversationId = conversationTitle,
+            senderName = decryptOptionalPayload(entity.encryptedSenderName, entity.senderNameIv),
+            decryptedText = decryptOptionalPayload(entity.encryptedMessageText, entity.messageTextIv),
+            postedAt = entity.postedAt,
+            notificationKey = entity.notificationKey,
+            sourcePackage = entity.sourcePackage,
+            parseSource = entity.parseSource,
+            isContentUnavailable = entity.isContentUnavailable,
+            createdAt = entity.createdAt,
+            priority = entity.priority.name
+        )
+    }
+
+    private fun decryptOptionalPayload(ciphertext: ByteArray?, iv: ByteArray?): String? {
+        if (ciphertext == null || iv == null) {
+            return null
+        }
+        return decryptPayloadOrFallback(ciphertext, iv, DECRYPTION_FAILED)
+    }
+
+    private fun decryptPayloadOrFallback(ciphertext: ByteArray?, iv: ByteArray?, fallback: String): String {
+        if (ciphertext == null || iv == null) {
+            return fallback
+        }
+        return try {
+            sensitiveTextCipher.decrypt(EncryptedPayload(ciphertext, iv))
+        } catch (e: Exception) {
+            DECRYPTION_FAILED
+        }
     }
 
     private fun parseActionableInboxFilters(
@@ -663,5 +653,6 @@ class StoredInboxRepository(
         const val ACTIONABLE_TYPE_PRIORITY_MESSAGE = "PRIORITY_MESSAGE"
         const val ACTIONABLE_STATUS_PENDING = "PENDING"
         const val ACTIONABLE_STATUS_COMPLETED = "COMPLETED"
+        const val DECRYPTION_FAILED = "[Decryption Failed]"
     }
 }
