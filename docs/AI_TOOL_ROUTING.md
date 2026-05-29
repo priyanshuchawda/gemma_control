@@ -17,6 +17,8 @@ Current LiteRT-LM Kotlin docs also support manual tool execution by creating a c
 The app now has a typed local tool contract in `ai/tools`:
 - `WhatsAppToolRegistry` mirrors all 16 documented WhatsApp tools.
 - `ToolSchemaExporter` exports each registry entry as LiteRT/OpenAPI-style JSON (`name`, `description`, `parameters`, `required`) so the same registry can feed a future `OpenApiTool`/`ToolProvider` adapter without duplicating schemas.
+- `WhatsAppToolAction` and `WhatsAppToolActionHandler` provide the Gallery-style callback boundary for high-level model actions: reply to latest notification, read latest notifications, and get notifications from a sender.
+- `WhatsAppTools` is the LiteRT-LM `ToolSet` adapter with `@Tool` / `@ToolParam` annotations. It delegates behavior to the dependency-free handler so JVM tests do not load LiteRT-LM classes directly.
 - `ToolCallParser` accepts FunctionGemma-style JSON proposals and Gallery-style `functionCall` envelopes.
 - `ToolProposal` carries typed parameters and the safety level into UI/controller code.
 - `ToolSafetyRouter` converts a parsed proposal into an execution decision: read-only local execution, local data write, user confirmation, strict manual confirmation, or rejection.
@@ -41,3 +43,5 @@ FunctionGemma is a proposal engine only. Kotlin must validate:
 - final execution decision before any local repository write or Android system action
 
 The real LiteRT-LM engine implementation remains deferred. Do not pretend model binaries are loaded until the official local Android dependency, `.litertlm` model path, and device runtime behavior are verified.
+
+Local JVM unit tests run on Java 17. The current LiteRT-LM ToolSet-capable artifacts are Java 21 class files, so tests cover the handler boundary while `assembleDebug` verifies that the annotated adapter compiles and dexes for Android.

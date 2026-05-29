@@ -21,7 +21,7 @@ This document records the truthful current state of completed modules, verified 
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, and active-notification reply confirmation exist |
 | FunctionGemma / LiteRT-LM Runtime | **NOT IMPLEMENTED** — Lifecycle manager and unavailable adapter exist; real runtime/model-loading path remains deferred |
-| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
+| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, Gallery-style annotated ToolSet adapter, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
 
 ---
 
@@ -41,6 +41,8 @@ This document records the truthful current state of completed modules, verified 
 - `MainScreen.kt` — Fully scrollable Compose UI with event cards, color-coded badges, permission status card, lock icon leading to Stored Inbox
 - `MainScreenViewModel.kt` — Exposes `StateFlow<MainScreenUiState>` bridging the listener's `capturedNotifications` flow
 - `ai/tools/WhatsAppToolRegistry.kt` — Kotlin mirror of the documented 16-tool FunctionGemma proposal contract
+- `ai/tools/WhatsAppTools.kt` — LiteRT-LM annotated `ToolSet` adapter for high-level WhatsApp actions
+- `ai/tools/WhatsAppToolActionHandler.kt` — JVM-testable action callback boundary used by the annotated adapter
 - `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for a future runtime adapter
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
 - `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions

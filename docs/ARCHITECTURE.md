@@ -63,6 +63,8 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 
 ### D. Model Routing Module (`com.example.gemmacontrol.ai`)
 - **`ai/tools/WhatsAppToolRegistry.kt`**: Typed Kotlin mirror of the documented 16-tool FunctionGemma contract. Each tool is assigned a safety level: read-only, local write, confirmation-required, or strict manual confirmation.
+- **`ai/tools/WhatsAppTools.kt`**: Gallery-style LiteRT-LM `ToolSet` adapter using `@Tool` / `@ToolParam` annotations for high-level WhatsApp actions. It is intentionally thin and delegates to a JVM-testable handler.
+- **`ai/tools/WhatsAppToolActionHandler.kt`**: Dependency-free action boundary for model tool callbacks. It validates reply text, normalizes sender names, captures typed `WhatsAppToolAction` values, and returns model-safe result maps.
 - **`ai/tools/ToolSchemaExporter.kt`**: Converts the same typed registry to LiteRT/OpenAPI-style tool JSON so the future runtime adapter can register schemas without duplicating tool definitions.
 - **`ai/tools/ToolCallParser.kt`**: Strict JSON parser for model-proposed tool calls. It accepts the direct `{ "name", "parameters" }` shape and the Gallery-style `{ "functionCall": { "name", "args" } }` envelope, rejects unknown tools/parameters, and validates high-risk values such as reply text and E.164 phone numbers before UI presentation.
 - **`ai/tools/ToolSafetyRouter.kt`**: Converts validated proposals into explicit execution decisions. This keeps read-only local data access, local writes, standard confirmation, strict manual confirmation, and rejection separate from parsing.

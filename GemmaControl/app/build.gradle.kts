@@ -100,4 +100,5 @@ dependencies {
 
   // FunctionGemma proposal parsing
   implementation(libs.kotlinx.serialization.json)
+  implementation(libs.litertlm.android)
 }
