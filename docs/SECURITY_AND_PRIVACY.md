@@ -8,7 +8,7 @@ This document defines the storage constraints, encryption keys, and privacy limi
 
 The application implements a **Zero-Cloud, Absolute Local Architecture**:
 - **Offline Processing**: No data is uploaded to remote servers, external APIs, or cloud platforms.
-- **System Boundaries**: The application does not declare the `android.permission.INTERNET` flag in its manifest. Data cannot leave the handset during runtime operations.
+- **System Boundaries**: The application declares `android.permission.INTERNET` only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification content, prompts, tool calls, replies, and local database rows do not leave the handset during runtime operations.
 - **WhatsApp Sandboxing**: The app cannot read WhatsApp's internal `/data/data/com.whatsapp/` database. It has zero headless control of WhatsApp, functioning entirely on captured system notifications.
 
 ---

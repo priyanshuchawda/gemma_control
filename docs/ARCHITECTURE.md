@@ -6,7 +6,7 @@ This document details the on-device data flows, module partitions, tool executio
 
 ## 1. On-Device Data Flow
 
-Every transaction, local Room SQLite update, and model inference occurs offline on the physical **Xiaomi Redmi 13 5G (Android 16)** handset.
+WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and model inference stay on the physical **Xiaomi Redmi 13 5G (Android 16)** handset. The only network boundary is an explicit WorkManager-backed `.litertlm` model binary download flow; runtime WhatsApp data and prompts are not uploaded.
 
 ```text
                  [ WhatsApp Alert Posted ]
@@ -73,6 +73,8 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 - **`ai/runtime/GemmaModelManager.kt`**: Owns the FunctionGemma lifecycle boundary: initialize once per config, reinitialize on model changes, block generation before readiness, emit streaming partial text, cancel in-flight responses, release idle background resources, and handle low-memory cleanup.
 - **`ai/runtime/LiteRtGemmaEngine.kt`**: Isolated LiteRT-LM engine/conversation adapter following Gallery's engine initialize, createConversation, sendMessageAsync, and close pattern. It uses GPU backend defaults and manual tool calling.
 - **`ai/runtime/GemmaEngine.kt`**: Defines the runtime interface and explicit unavailable adapter for builds or flows where no verified model path/runtime is configured.
+- **`ai/model/ModelDownloadWorker.kt`**: WorkManager-backed model download worker with HTTPS-only request validation, Gallery-style `.gallerytmp` partial files, resume support through HTTP range requests, SHA-256 verification, and progress data for future UI wiring.
+- **`ai/model/ModelDownloadManager.kt`**: Unique-work enqueue/cancel boundary for model downloads, constrained to connected-network execution.
 - **`ServiceLocator.getGemmaModelManager()`**: Exposes one app-wide model manager instance without requiring Android context, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---
@@ -109,5 +111,5 @@ Proposed Tool Call (from FunctionGemma)
 ## 4. Operational & OS Limitations
 
 - **Strict Sandbox Bounds**: The assistant cannot access WhatsApp's private sandbox (`/data/data/com.whatsapp/`). It only accesses text captured from active, visible system notifications.
-- **No Internet Access**: The application's `AndroidManifest.xml` does not declare `android.permission.INTERNET`, verifying that data is locked within local memory and Room SQLite storage.
+- **Scoped Network Permission**: The manifest declares `android.permission.INTERNET` only for explicit model binary downloads. Runtime WhatsApp capture, prompts, tool proposals, local database content, and confirmed replies remain on device.
 - **Dynamic Action Caching**: Executable `RemoteInput` and `PendingIntent` objects are never written to Room. The app caches only the system metadata `notification_key`. The listener retrieves active references on-the-fly at reply confirmation time, avoiding system memory reference leaks or dead intent executions.

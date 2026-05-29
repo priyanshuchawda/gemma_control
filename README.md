@@ -2,7 +2,7 @@
 
 GemmaControl is an English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, enables reminders and follow-ups, and supports safe user-confirmed WhatsApp replies.
 
-Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl runs fully offline on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and a customized **FunctionGemma 270M** model.
+Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl keeps WhatsApp capture, storage, voice handling, and model inference local on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and a customized **FunctionGemma 270M** model.
 
 ---
 
@@ -33,7 +33,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 
 - **Clean MVVM Architecture**: Separates data structures (Room SQLite database), notification handlers, LiteRT engines, and Jetpack Compose views.
 - **Encryption at Rest**: Encrypts sensitive message texts and drafted responses inside Room SQLite utilizing **AES-GCM 256-bit encryption** keys protected by the **Android Keystore**.
-- **No Internet Access**: The application does not declare the `android.permission.INTERNET` flag, ensuring data is locked locally.
+- **Scoped Network Access**: `android.permission.INTERNET` is declared only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification data, prompts, tool calls, and replies stay local.
 - **LiteRT-LM Manual Configuration**: Disables automatic tool calling (`automaticToolCalling = false`) in `ConversationConfig`. The AI acts purely as a proposal engine; Kotlin logic enforces all safety checks.
 
 ---

@@ -97,6 +97,7 @@ dependencies {
 
   // DataStore Preferences
   implementation(libs.androidx.datastore.preferences)
+  implementation(libs.androidx.work.runtime.ktx)
 
   // FunctionGemma proposal parsing
   implementation(libs.kotlinx.serialization.json)

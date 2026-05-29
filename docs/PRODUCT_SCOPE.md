@@ -56,5 +56,5 @@ The functional scope is governed entirely by an English-only interaction paradig
 ## 4. Operational Boundaries
 
 - **Database Sandbox**: The assistant cannot access WhatsApp's private database. It reads *only* notifications displayed while the service is BINDed and active.
-- **Internet Permission**: The application does not declare the `android.permission.INTERNET` flag, ensuring data is private and local. Network delivery of messages is delegated to WhatsApp.
-- **Model Importation**: The offline `.litertlm` model binary is imported via local storage or ADB copy during development.
+- **Internet Permission**: The application declares `android.permission.INTERNET` only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification content, prompts, tool calls, and replies stay private and local. Network delivery of messages is delegated to WhatsApp.
+- **Model Importation**: The offline `.litertlm` model binary can be imported via local storage/ADB during development or downloaded through the scoped WorkManager model download flow.
