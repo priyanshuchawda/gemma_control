@@ -63,7 +63,7 @@ object VoiceCommandParser {
         if (lower.contains("send a message to") ||
             lower.contains("send message to")
         ) {
-            return VoiceCommand.Unsupported("Starting a new WhatsApp conversation by voice is not supported yet. I can reply to an active notification.")
+            return VoiceCommand.Unsupported("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.")
         }
 
         // Check for read messages
