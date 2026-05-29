@@ -26,7 +26,7 @@ The app now has a typed local tool contract in `ai/tools`:
 - `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
 - `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency and truncated per message.
 - `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, release, and low-memory cleanup.
-- `GemmaEngine` defines the future LiteRT-LM runtime contract. `UnavailableGemmaEngine` reports a clear blocked state without leaking local model paths or pretending FunctionGemma is loaded.
+- `GemmaEngine` defines the runtime contract. `LiteRtGemmaEngine` now contains the isolated Android LiteRT-LM engine/conversation wrapper, while `UnavailableGemmaEngine` remains available for explicit blocked states when no model path/runtime is configured.
 
 ## Safety Boundary
 
@@ -42,6 +42,6 @@ FunctionGemma is a proposal engine only. Kotlin must validate:
 - model release on memory pressure
 - final execution decision before any local repository write or Android system action
 
-The real LiteRT-LM engine implementation remains deferred. Do not pretend model binaries are loaded until the official local Android dependency, `.litertlm` model path, and device runtime behavior are verified.
+Do not pretend model binaries are loaded until a `.litertlm` model path is configured and physical device runtime behavior is verified.
 
 Local JVM unit tests run on Java 17. The current LiteRT-LM ToolSet-capable artifacts are Java 21 class files, so tests cover the handler boundary while `assembleDebug` verifies that the annotated adapter compiles and dexes for Android.

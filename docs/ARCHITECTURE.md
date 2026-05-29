@@ -71,7 +71,8 @@ Every transaction, local Room SQLite update, and model inference occurs offline 
 - **`ai/tools/WhatsAppLocalToolExecutor.kt`**: Executes only local repository/preference operations after routing and confirmation. It can pause/resume capture and delete all local WhatsApp data; Android `RemoteInput` replies remain outside this executor.
 - **`ai/tools/GemmaPromptBuilder.kt`**: Builds bounded, recency-sorted prompt context from selected local WhatsApp messages. It truncates message bodies and avoids whole-inbox dumps before any future model call.
 - **`ai/runtime/GemmaModelManager.kt`**: Owns the FunctionGemma lifecycle boundary: initialize once per config, reinitialize on model changes, block generation before readiness, release resources, and handle low-memory cleanup.
-- **`ai/runtime/GemmaEngine.kt`**: Defines the runtime interface and explicit unavailable adapter. The real LiteRT-LM engine/conversation lifecycle is intentionally not faked; future work can implement this interface with Gallery's engine/conversation pattern after the official runtime dependency and model-loading path are verified locally.
+- **`ai/runtime/LiteRtGemmaEngine.kt`**: Isolated LiteRT-LM engine/conversation adapter following Gallery's engine initialize, createConversation, sendMessageAsync, and close pattern. It uses GPU backend defaults and manual tool calling.
+- **`ai/runtime/GemmaEngine.kt`**: Defines the runtime interface and explicit unavailable adapter for builds or flows where no verified model path/runtime is configured.
 - **`ServiceLocator.getGemmaModelManager()`**: Exposes one app-wide model manager instance without requiring Android context, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---

@@ -20,7 +20,7 @@ This document records the truthful current state of completed modules, verified 
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, and active-notification reply confirmation exist |
-| FunctionGemma / LiteRT-LM Runtime | **NOT IMPLEMENTED** — Lifecycle manager and unavailable adapter exist; real runtime/model-loading path remains deferred |
+| FunctionGemma / LiteRT-LM Runtime | **PARTIAL LOCAL IMPLEMENTATION** — Lifecycle manager, unavailable adapter, and isolated LiteRT-LM engine wrapper exist; model-path configuration and physical runtime validation remain deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, Gallery-style annotated ToolSet adapter, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
 
 ---
@@ -49,6 +49,8 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed local-only tool decisions for capture pause/resume and full local data deletion
 - `ai/tools/GemmaPromptBuilder.kt` — Bounded prompt/context builder for future FunctionGemma calls
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
+- `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
+- `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
 - `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with duplicate-init protection and low-memory release
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
@@ -88,7 +90,7 @@ This document records the truthful current state of completed modules, verified 
 | Dual-notification behavior | **Verified fact** | Each WhatsApp message yields two notifications: one MessagingStyle (DIRECT/GROUP), one summary EXTRAS_FALLBACK (UNKNOWN) |
 | Room persistence write & read | **Verified fact** | Instrumented test validation |
 | Keystore AES-GCM encryption | **Verified fact** | Instrumented test validation |
-| LiteRT-LM inference latency | **Unverified** | Deferred to Phase 4 |
+| LiteRT-LM inference latency | **Unverified** | Requires physical model/device validation |
 
 ---
 
@@ -97,7 +99,7 @@ This document records the truthful current state of completed modules, verified 
 **Current local slice: FunctionGemma proposal boundary preparation.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
 - **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is still required for microphone behavior, TTS, notification listener binding, and `RemoteInput` reply execution.
-- **Next AI Runtime Slice**: Implement the real LiteRT-LM `GemmaEngine` behind `GemmaModelManager` only after the official dependency/model-loading path is verified. The required runtime mode is manual tool execution (`automaticToolCalling = false`), so model output remains a typed proposal until Kotlin validates it and the user confirms high-risk actions.
+- **Next AI Runtime Slice**: Add model path selection/loading UX and wire a configured `LiteRtGemmaEngine` into `GemmaModelManager`. The required runtime mode is manual tool execution (`automaticToolCalling = false`), so model output remains a typed proposal until Kotlin validates it and the user confirms high-risk actions.
 
 
 
