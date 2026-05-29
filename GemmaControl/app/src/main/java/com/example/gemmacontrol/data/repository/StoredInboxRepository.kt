@@ -6,6 +6,7 @@ import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import androidx.room.withTransaction
 import com.example.gemmacontrol.ai.tools.LocalFollowUp
 import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
+import com.example.gemmacontrol.ai.tools.LocalWhatsAppMessage
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
@@ -364,6 +365,34 @@ class StoredInboxRepository(
         return reminderId
     }
 
+    override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {
+        val normalizedQuery = normalizeSearchText(query)
+        if (normalizedQuery.isBlank()) {
+            return emptyList()
+        }
+        val normalizedConversation = conversationName
+            ?.let { normalizeConversationName(it) }
+            ?.takeIf { it.isNotBlank() }
+
+        return getAllDecryptedMessages()
+            .asSequence()
+            .filter { message ->
+                normalizedConversation == null ||
+                    normalizeConversationName(message.conversationId) == normalizedConversation
+            }
+            .filter { message ->
+                listOfNotNull(
+                    message.conversationId,
+                    message.senderName,
+                    message.decryptedText
+                ).any { normalizeSearchText(it).contains(normalizedQuery) }
+            }
+            .sortedByDescending { it.postedAt }
+            .take(DEFAULT_SEARCH_LIMIT)
+            .map { it.toLocalWhatsAppMessage() }
+            .toList()
+    }
+
     private fun decryptConversationTitle(entity: ConversationEntity): String {
         return if (entity.encryptedDisplayName != null && entity.displayNameIv != null) {
             try {
@@ -436,6 +465,17 @@ class StoredInboxRepository(
         )
     }
 
+    private fun DecryptedMessage.toLocalWhatsAppMessage(): LocalWhatsAppMessage {
+        return LocalWhatsAppMessage(
+            id = id,
+            conversationName = conversationId,
+            senderName = senderName,
+            text = decryptedText,
+            postedAt = postedAt,
+            priority = priority
+        )
+    }
+
     private fun parsePriority(value: String?, default: InboxPriority): InboxPriority {
         return parsePriorityOrNull(value) ?: default
     }
@@ -458,5 +498,13 @@ class StoredInboxRepository(
             InboxPriority.NORMAL -> InboxPriority.NORMAL
             else -> null
         }
+    }
+
+    private fun normalizeSearchText(value: String): String {
+        return value.trim().lowercase(Locale.ROOT)
+    }
+
+    private companion object {
+        const val DEFAULT_SEARCH_LIMIT = 10
     }
 }

@@ -289,6 +289,46 @@ class WhatsAppLocalToolExecutorTest {
     }
 
     @Test
+    fun searchWhatsAppMessagesReturnsReadableSummary() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            searchResults = listOf(
+                LocalWhatsAppMessage(
+                    id = "message-1",
+                    conversationName = "Mom",
+                    senderName = "Mom",
+                    text = "Dinner at 7",
+                    postedAt = 1000L,
+                    priority = "NORMAL"
+                )
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "search_whatsapp_messages",
+                  "parameters": {
+                    "query": "dinner",
+                    "conversation_name": "Mom"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(ToolExecutionResult.Success("- [message-1] Mom: Dinner at 7"), result)
+        assertEquals(
+            listOf(SearchMessagesCall(query = "dinner", conversationName = "Mom")),
+            repository.searchMessagesCalls
+        )
+    }
+
+    @Test
     fun doesNotExecuteActiveNotificationRepliesInLocalExecutor() = runTest {
         val executor = WhatsAppLocalToolExecutor(
             preferencesRepository = FakeCapturePreferencesRepository(),
@@ -369,9 +409,15 @@ class WhatsAppLocalToolExecutorTest {
         val reminderNote: String?
     )
 
+    private data class SearchMessagesCall(
+        val query: String,
+        val conversationName: String?
+    )
+
     private class FakeLocalWhatsAppDataRepository(
         private val conversationDeleteResult: Boolean = true,
-        private val pendingFollowUps: List<LocalFollowUp> = emptyList()
+        private val pendingFollowUps: List<LocalFollowUp> = emptyList(),
+        private val searchResults: List<LocalWhatsAppMessage> = emptyList()
     ) : LocalWhatsAppDataRepository {
         var deleteAllCalls = 0
             private set
@@ -381,6 +427,7 @@ class WhatsAppLocalToolExecutorTest {
         val completedFollowUpCalls = mutableListOf<String>()
         val listPendingFollowUpsCalls = mutableListOf<ListPendingFollowUpsCall>()
         val scheduleReminderCalls = mutableListOf<ScheduleReminderCall>()
+        val searchMessagesCalls = mutableListOf<SearchMessagesCall>()
 
         override suspend fun deleteAllData() {
             deleteAllCalls += 1
@@ -404,6 +451,11 @@ class WhatsAppLocalToolExecutorTest {
         override suspend fun listPendingFollowUps(limit: Int, priority: String?): List<LocalFollowUp> {
             listPendingFollowUpsCalls += ListPendingFollowUpsCall(limit, priority)
             return pendingFollowUps
+        }
+
+        override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {
+            searchMessagesCalls += SearchMessagesCall(query, conversationName)
+            return searchResults
         }
 
         override suspend fun markMessagePriority(messageEventId: String, priority: String): Boolean {

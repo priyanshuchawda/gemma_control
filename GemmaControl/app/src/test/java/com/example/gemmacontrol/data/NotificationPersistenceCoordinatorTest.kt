@@ -602,6 +602,34 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testRepository_searchMessagesFiltersByQueryAndConversation() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_mom_dinner",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7"
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_peter_dinner",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Dinner moved"
+            )
+        )
+
+        val results = repository.searchMessages(query = "dinner", conversationName = "Mom")
+
+        assertEquals(1, results.size)
+        assertEquals("Mom", results.single().conversationName)
+        assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
     fun testRepository_throwingHmacGeneratorProducesZeroPersistedRows() = runTest {
         preferencesRepository.setStorageEnabled(true)
 

@@ -19,6 +19,7 @@ interface LocalWhatsAppDataRepository {
         remindAt: String,
         reminderNote: String?
     ): String?
+    suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage>
 }
 
 data class LocalFollowUp(
@@ -29,6 +30,15 @@ data class LocalFollowUp(
     val priority: String,
     val createdAt: Long,
     val completedAt: Long?
+)
+
+data class LocalWhatsAppMessage(
+    val id: String,
+    val conversationName: String,
+    val senderName: String?,
+    val text: String?,
+    val postedAt: Long,
+    val priority: String
 )
 
 sealed interface ToolExecutionResult {
@@ -64,6 +74,7 @@ class WhatsAppLocalToolExecutor(
             WhatsAppToolName.MarkFollowUpCompleted -> markFollowUpCompleted(proposal)
             WhatsAppToolName.ScheduleReminderForMessage -> scheduleReminder(proposal)
             WhatsAppToolName.MarkMessagePriority -> markMessagePriority(proposal)
+            WhatsAppToolName.SearchWhatsAppMessages -> searchMessages(proposal)
             WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalWhatsAppData(proposal)
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> ToolExecutionResult.Rejected(
                 "Active notification replies must use the notification reply executor."
@@ -180,6 +191,28 @@ class WhatsAppLocalToolExecutor(
             ToolExecutionResult.Success("Message marked $priority priority.")
         } else {
             ToolExecutionResult.Rejected("No local WhatsApp message matched message_event_id.")
+        }
+    }
+
+    private suspend fun searchMessages(proposal: ToolProposal): ToolExecutionResult {
+        val query = proposal.string("query")?.trim().orEmpty()
+        if (query.isBlank()) {
+            return ToolExecutionResult.Rejected("Search proposals require query.")
+        }
+        val messages = localDataRepository.searchMessages(
+            query = query,
+            conversationName = proposal.string("conversation_name")?.trim()?.takeIf { it.isNotBlank() }
+        )
+        if (messages.isEmpty()) {
+            return ToolExecutionResult.Success("No matching WhatsApp messages.")
+        }
+        return ToolExecutionResult.Success(formatMessages(messages))
+    }
+
+    private fun formatMessages(messages: List<LocalWhatsAppMessage>): String {
+        return messages.joinToString(separator = "\n") { message ->
+            val text = message.text?.takeIf { it.isNotBlank() } ?: "[No message text]"
+            "- [${message.id}] ${message.conversationName}: $text"
         }
     }
 }

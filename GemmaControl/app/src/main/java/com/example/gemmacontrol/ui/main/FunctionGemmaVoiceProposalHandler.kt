@@ -46,6 +46,7 @@ class FunctionGemmaVoiceProposalHandler(
             }
             WhatsAppToolName.PauseWhatsAppCapture,
             WhatsAppToolName.ResumeWhatsAppCapture,
+            WhatsAppToolName.SearchWhatsAppMessages,
             WhatsAppToolName.CreateFollowUpFromMessage,
             WhatsAppToolName.ListPendingFollowUps,
             WhatsAppToolName.MarkFollowUpCompleted,
@@ -71,6 +72,13 @@ class FunctionGemmaVoiceProposalHandler(
                 title = "Resume WhatsApp capture?",
                 description = "GemmaControl will resume processing future WhatsApp notification previews.",
                 confirmText = "Resume Capture",
+                proposal = proposal,
+                decision = decision
+            )
+            WhatsAppToolName.SearchWhatsAppMessages -> PendingLocalToolAction(
+                title = "Search local WhatsApp messages?",
+                description = "GemmaControl will search only locally stored decrypted WhatsApp notification rows.",
+                confirmText = "Search Messages",
                 proposal = proposal,
                 decision = decision
             )
