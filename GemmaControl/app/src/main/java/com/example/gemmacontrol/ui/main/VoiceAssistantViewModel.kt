@@ -441,6 +441,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     override fun onCleared() {
         super.onCleared()
         destroySpeechRecognizer()
+        gemmaModelManager.release()
         try {
             tts?.shutdown()
             tts = null

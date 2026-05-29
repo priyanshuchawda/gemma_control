@@ -93,6 +93,13 @@ class GemmaModelManager(
         return engine.cancelGeneration()
     }
 
+    fun releaseIfIdleForBackground(): Boolean {
+        if (_state.value is GemmaModelState.Streaming) {
+            return false
+        }
+        return releaseForMemoryPressure("APP_BACKGROUND")
+    }
+
     @Suppress("UNUSED_PARAMETER")
     fun releaseForMemoryPressure(reason: String): Boolean {
         if (!engine.isReady && activeConfig == null) {

@@ -20,7 +20,7 @@ This document records the truthful current state of completed modules, verified 
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, and active-notification reply confirmation exist |
-| FunctionGemma / LiteRT-LM Runtime | **PARTIAL LOCAL IMPLEMENTATION** — Lifecycle manager, streaming callback boundary, stop-response hook, unavailable adapter, and isolated LiteRT-LM engine wrapper exist; model-path configuration and physical runtime validation remain deferred |
+| FunctionGemma / LiteRT-LM Runtime | **PARTIAL LOCAL IMPLEMENTATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, and isolated LiteRT-LM engine wrapper exist; model-path configuration and physical runtime validation remain deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, Gallery-style annotated ToolSet adapter, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, and bounded prompt builder exist |
 
 ---
@@ -51,7 +51,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
 - `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
-- `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with duplicate-init protection, streaming state, cancellation, and low-memory release
+- `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with duplicate-init protection, streaming state, cancellation, idle background release, and low-memory release
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
 - `VoiceHoldToSpeakInteraction.kt` — Testable hold-to-speak release/cancel decisions and Gallery-style stop delay constants

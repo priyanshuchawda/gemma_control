@@ -116,6 +116,31 @@ class GemmaModelManagerTest {
         assertEquals(1, engine.cancelGenerationCalls)
     }
 
+    @Test
+    fun releaseIfIdleForBackgroundClosesReadyEngine() = runTest {
+        val engine = FakeGemmaEngine()
+        val manager = GemmaModelManager(engineFactory = { engine })
+        manager.initialize(config)
+
+        assertTrue(manager.releaseIfIdleForBackground())
+
+        assertEquals(1, engine.closeCalls)
+        assertEquals(GemmaModelState.Released, manager.state.value)
+    }
+
+    @Test
+    fun releaseIfIdleForBackgroundKeepsStreamingEngineActive() = runTest {
+        val engine = FakeGemmaEngine(streamingPartials = listOf("partial"))
+        val manager = GemmaModelManager(engineFactory = { engine })
+        manager.initialize(config)
+
+        manager.generateToolProposal("reply ok", registry) {
+            assertFalse(manager.releaseIfIdleForBackground())
+        }
+
+        assertEquals(0, engine.closeCalls)
+    }
+
     private class FakeGemmaEngine(
         private val initializeResult: GemmaEngineResult = GemmaEngineResult.Ready,
         private val proposalResult: GemmaEngineResult = GemmaEngineResult.ProposalText(
