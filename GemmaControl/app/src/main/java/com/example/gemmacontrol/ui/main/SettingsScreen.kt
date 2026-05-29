@@ -1,9 +1,14 @@
 package com.example.gemmacontrol.ui.main
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,6 +73,20 @@ fun SettingsScreen(
         initialValue = VoiceInputMode.TapToggle
     ).value
     val coroutineScope = rememberCoroutineScope()
+    val reminderNotificationsGranted = remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < 33 ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        reminderNotificationsGranted.value = granted
+    }
 
     val miuiAutostartIntent = remember {
         android.content.Intent().apply {
@@ -175,6 +194,27 @@ fun SettingsScreen(
                     }
                 }
             )
+
+            if (Build.VERSION.SDK_INT >= 33) {
+                PermissionLinkCard(
+                    emoji = "⏰",
+                    title = "Reminder Notifications",
+                    description = if (reminderNotificationsGranted.value) {
+                        "Enabled for local reminder alerts. Reminder notes stay encrypted in the local database until the reminder worker runs."
+                    } else {
+                        "Required only for user-confirmed local reminders. WhatsApp capture and model prompts do not use this permission."
+                    },
+                    buttonLabel = if (reminderNotificationsGranted.value) {
+                        "Reminder Notifications Enabled"
+                    } else {
+                        "Grant Reminder Notifications →"
+                    },
+                    enabled = !reminderNotificationsGranted.value,
+                    onAction = {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                )
+            }
 
             SectionHeader("Voice Assistant")
 
@@ -545,6 +585,7 @@ private fun PermissionLinkCard(
     title: String,
     description: String,
     buttonLabel: String,
+    enabled: Boolean = true,
     onAction: () -> Unit
 ) {
     Card(
@@ -571,6 +612,7 @@ private fun PermissionLinkCard(
             )
             Button(
                 onClick = onAction,
+                enabled = enabled,
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
