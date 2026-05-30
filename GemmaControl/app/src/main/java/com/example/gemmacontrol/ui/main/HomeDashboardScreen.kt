@@ -30,6 +30,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -62,19 +64,20 @@ fun HomeDashboardScreen(
     onNavigateToVoice: () -> Unit,
     onNavigateToInbox: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: MainScreenViewModel = viewModel { MainScreenViewModel() }
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as android.app.Application
+    val viewModel: HomeDashboardViewModel = viewModel { HomeDashboardViewModel(app) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { viewModel.checkPermission(context) }
+    LaunchedEffect(Unit) { viewModel.refreshDashboard(context) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.checkPermission(context)
+                viewModel.refreshDashboard(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -82,18 +85,13 @@ fun HomeDashboardScreen(
     }
 
     when (val currentState = state) {
-        MainScreenUiState.Loading -> LoadingHomeDashboard(modifier)
-        is MainScreenUiState.Success -> {
-            val summary = buildHomeDashboardSummary(
-                notifications = currentState.notifications,
-                isPermissionGranted = currentState.isPermissionGranted
-            )
+        HomeDashboardScreenState.Loading -> LoadingHomeDashboard(modifier)
+        is HomeDashboardReadyState -> {
             HomeDashboardScaffold(
                 modifier = modifier,
-                summary = summary,
-                notifications = currentState.notifications,
+                state = currentState,
                 onPrimaryAction = {
-                    when (summary.heroAction) {
+                    when (currentState.summary.heroAction) {
                         HomeHeroAction.OpenVoiceAssistant -> onNavigateToVoice()
                         HomeHeroAction.RequestNotificationAccess -> {
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -104,7 +102,7 @@ fun HomeDashboardScreen(
                 onNavigateToInbox = onNavigateToInbox,
                 onNavigateToSettings = onNavigateToSettings,
                 onClearNotifications = viewModel::clearNotifications,
-                onRefreshPermission = { viewModel.checkPermission(context) }
+                onRefreshDashboard = { viewModel.refreshDashboard(context) }
             )
         }
     }
@@ -129,14 +127,13 @@ private fun LoadingHomeDashboard(modifier: Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeDashboardScaffold(
-    summary: HomeDashboardSummary,
-    notifications: List<ParsedWhatsAppNotificationEvent>,
+    state: HomeDashboardReadyState,
     onPrimaryAction: () -> Unit,
     onNavigateToVoice: () -> Unit,
     onNavigateToInbox: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onClearNotifications: () -> Unit,
-    onRefreshPermission: () -> Unit,
+    onRefreshDashboard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -170,29 +167,31 @@ private fun HomeDashboardScaffold(
     ) { innerPadding ->
         HomeDashboardContent(
             modifier = Modifier.padding(innerPadding),
-            summary = summary,
-            notifications = notifications,
+            state = state,
             onPrimaryAction = onPrimaryAction,
             onNavigateToVoice = onNavigateToVoice,
             onNavigateToInbox = onNavigateToInbox,
+            onNavigateToSettings = onNavigateToSettings,
             onClearNotifications = onClearNotifications,
-            onRefreshPermission = onRefreshPermission
+            onRefreshDashboard = onRefreshDashboard
         )
     }
 }
 
 @Composable
 private fun HomeDashboardContent(
-    summary: HomeDashboardSummary,
-    notifications: List<ParsedWhatsAppNotificationEvent>,
+    state: HomeDashboardReadyState,
     onPrimaryAction: () -> Unit,
     onNavigateToVoice: () -> Unit,
     onNavigateToInbox: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onClearNotifications: () -> Unit,
-    onRefreshPermission: () -> Unit,
+    onRefreshDashboard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val formatter = rememberFormatter()
+    val summary = state.summary
+    val notifications = state.notifications
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -218,14 +217,14 @@ private fun HomeDashboardContent(
                     modifier = Modifier.weight(1f)
                 )
                 DashboardMetricCard(
-                    title = "Active",
-                    value = summary.activeNotificationsCount.toString(),
+                    title = "Stored",
+                    value = state.storedMessageCount.toString(),
                     icon = Icons.Default.CheckCircle,
                     modifier = Modifier.weight(1f)
                 )
                 DashboardMetricCard(
-                    title = "Inbox",
-                    value = if (summary.latestConversationTitle == null) "New" else "Open",
+                    title = "Actionable",
+                    value = state.actionableItemCount.toString(),
                     icon = Icons.Default.Lock,
                     modifier = Modifier.weight(1f)
                 )
@@ -233,9 +232,10 @@ private fun HomeDashboardContent(
         }
 
         item(key = "status") {
-            PermissionStatusCard(
-                summary = summary,
-                onRefreshPermission = onRefreshPermission
+            ReadinessStatusCard(
+                state = state,
+                onRefreshDashboard = onRefreshDashboard,
+                onNavigateToSettings = onNavigateToSettings
             )
         }
 
@@ -402,10 +402,12 @@ private fun DashboardMetricCard(
 }
 
 @Composable
-private fun PermissionStatusCard(
-    summary: HomeDashboardSummary,
-    onRefreshPermission: () -> Unit
+private fun ReadinessStatusCard(
+    state: HomeDashboardReadyState,
+    onRefreshDashboard: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
+    val summary = state.summary
     val isHealthy = summary.heroAction == HomeHeroAction.OpenVoiceAssistant
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -416,37 +418,76 @@ private fun PermissionStatusCard(
             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.72f)
         }
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = if (isHealthy) Icons.Default.CheckCircle else Icons.Default.Warning,
-                contentDescription = null,
-                tint = if (isHealthy) {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onErrorContainer
-                }
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isHealthy) "Notification listener active" else "Notification access required",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = if (isHealthy) {
-                        "Capture, storage, and voice actions can use the latest local WhatsApp context."
+        Column {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = if (isHealthy) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (isHealthy) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
                     } else {
-                        "Grant access from the hero action, then refresh this card."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.onErrorContainer
+                    }
                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isHealthy) "Notification listener active" else "Notification access required",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = if (isHealthy) {
+                            "Capture, storage, and voice actions can use the latest local WhatsApp context."
+                        } else {
+                            "Grant access from the hero action, then refresh this card."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = onRefreshDashboard) {
+                    Text("Refresh")
+                }
             }
-            OutlinedButton(onClick = onRefreshPermission) {
-                Text("Refresh")
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = null,
+                    tint = if (state.modelReadiness == HomeModelReadiness.Ready) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "FunctionGemma model: ${state.modelReadinessLabel}",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = state.modelReadiness.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (state.modelReadiness == HomeModelReadiness.Missing) {
+                    TextButton(onClick = onNavigateToSettings) {
+                        Text("Settings")
+                    }
+                }
             }
         }
     }
