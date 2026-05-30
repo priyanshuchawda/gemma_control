@@ -42,8 +42,13 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - Exposes user interfaces built on Jetpack Compose and Material 3 design patterns.
 - **Android 16 Edge-to-Edge**: Mandatorily invokes `enableEdgeToEdge()` inside `MainActivity.onCreate()` before `setContent`. In Compose screens, it utilizes system window insets: `Modifier.safeDrawingPadding()`, `Modifier.imePadding()`, and proper `Scaffold` inner padding values to ensure components do not overlap status or navigation bars.
 - **Predictive Back Gestures**: Binds screen navigation using `androidx.navigation:navigation-compose:2.8.0` or higher, and integrates Compose `BackHandler` inside sub-views to handle gesture progress and transitions smoothly.
+- **Top-level app shell**: `AppShell` owns the Material 3 bottom navigation surface for `Home`, `Voice`, `Inbox`, and `Settings`. Setup remains a separate launch gate; settings, permissions, and model installation are not promoted to extra top-level tabs.
+- **Home dashboard**: `HomeDashboardScreen` is the first production surface after setup. It presents capture readiness, stored-message count, actionable-item count, FunctionGemma model readiness, one hero voice CTA, and short routes into the inbox/settings surfaces.
 - Manages the **Send Confirmation UI Sheet**, which serves as the physical boundary block between drafted actions and external intent triggers.
 - The voice surface supports a persisted `VoiceInputMode`: tap-toggle for normal use, or Gallery-style hold-to-speak where press starts recognition, release finalizes, and sliding off cancels without processing partial speech.
+- **Voice confirmation sheets**: `VoiceAssistantScreen` renders model-proposed reply/action confirmations as bottom sheets. Local tool confirmations show the FunctionGemma tool name, safety label, Kotlin execution boundary, and bounded argument list before a user can execute the action.
+- **Actionable Inbox UI**: `StoredInboxScreen` includes an actionable section for local follow-ups and priority messages, and uses bottom sheets for storage opt-in, reply review, and local-delete confirmations.
+- **FunctionGemma model card**: `FunctionGemmaModelCard` in Settings presents installed/missing/downloading/failed/canceled states, WorkManager progress with transfer metadata, a cancel action, and a collapsed manual download section for URL/SHA-256 input.
 
 ### B. Ingestion Module (`com.example.gemmacontrol.notifications`)
 - **`WhatsAppNotificationListener`**: Extends `NotificationListenerService`. BINDs to Android's system pipeline.
@@ -79,12 +84,65 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **`ai/model/ModelDownloadWorker.kt`**: WorkManager-backed model download worker with HTTPS-only request validation, Gallery-style `.gallerytmp` partial files, resume support through HTTP range requests, SHA-256 verification, and progress data for future UI wiring.
 - **`ai/model/ModelDownloadManager.kt`**: Unique-work enqueue/cancel boundary for model downloads, constrained to connected-network execution.
 - **`ai/model/ModelDownloadUiState.kt`**: Maps WorkManager progress/output data into stable UI states for progress, transfer rate, ETA, verified output path, and safe errors.
-- **`ui/main/SettingsScreen.kt`**: Hosts the FunctionGemma MobileActions download card, including HTTPS URL/SHA-256 inputs, WorkManager enqueue/cancel, installed-path status, and progress display.
+- **`ui/main/SettingsScreen.kt`**: Hosts the FunctionGemma MobileActions model section. The default card is production-shaped and status-first; manual URL/SHA-256 entry remains available only in the advanced section.
 - **`ServiceLocator.getGemmaModelManager(context)`**: Exposes one app-wide Android model manager instance with lazy LiteRT engine creation, keeping model lifecycle separate from Room and notification ingestion singletons.
 
 ---
 
-## 3. Strict Safety Routing Flow
+## 3. Premium App Flow & UI Safety Surface
+
+### Top-Level App Shell
+
+The app shell follows a four-tab production flow:
+
+```text
+Home | Voice | Inbox | Settings
+```
+
+`Home` is the default return point. `Voice` is the primary action surface. `Inbox` is the local encrypted message/action workspace. `Settings` keeps permissions, voice mode, and model installation controls off the main task path.
+
+### Home Dashboard
+
+The dashboard answers three questions before the user acts:
+
+```text
+Is capture ready?
+Is there local WhatsApp context?
+Is FunctionGemma installed?
+```
+
+It keeps one prominent CTA: speak to GemmaControl. Secondary routes open the inbox or settings only when the user needs context or setup work.
+
+### Voice Confirmation Sheets
+
+Voice actions are never sent directly from model text. FunctionGemma output becomes a Kotlin `ToolProposal`, then the UI shows a sheet with:
+
+- proposal summary
+- tool name
+- safety label
+- bounded argument preview
+- local execution boundary text
+- explicit confirm/cancel actions
+
+Success and failure states return the user to the voice surface without hiding the safety result.
+
+### Actionable Inbox UI
+
+The inbox separates passive stored messages from actionable local items. Follow-ups, priority marks, reminders, and prepared drafts are visible as local app state before any Android intent or `RemoteInput` execution is attempted.
+
+### FunctionGemma Model Card
+
+Model installation is explicit and auditable:
+
+- the official MobileActions model URL is derived from the catalog entry
+- the app still requires a user-supplied SHA-256 before download
+- downloads run through WorkManager with HTTPS-only validation, partial-file resume, and checksum verification
+- `.litertlm` model binaries are app-private runtime artifacts and must never be committed
+- physical model runtime quality and latency remain unverified until device validation
+
+---
+
+## 4. Strict Safety Routing Flow
 
 To prevent untrusted actions or silent auto-sends, all execution triggers obey this Kotlin check:
 
@@ -113,7 +171,7 @@ Proposed Tool Call (from FunctionGemma)
 
 ---
 
-## 4. Operational & OS Limitations
+## 5. Operational & OS Limitations
 
 - **Strict Sandbox Bounds**: The assistant cannot access WhatsApp's private sandbox (`/data/data/com.whatsapp/`). It only accesses text captured from active, visible system notifications.
 - **Scoped Network Permission**: The manifest declares `android.permission.INTERNET` only for explicit model binary downloads. Runtime WhatsApp capture, prompts, tool proposals, local database content, and confirmed replies remain on device.
