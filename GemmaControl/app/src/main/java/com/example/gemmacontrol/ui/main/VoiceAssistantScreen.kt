@@ -385,6 +385,7 @@ private fun MicButtonCircle(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun VoiceAssistantActionPanel(
     state: VoiceAssistantState,
     onCancel: () -> Unit,
@@ -398,7 +399,58 @@ private fun VoiceAssistantActionPanel(
     onContinueSystemRecognition: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val presentation = voiceAssistantActionPresentation(state)
+
     Box(modifier = modifier) {
+        when {
+            presentation == VoiceActionPresentation.Inline && state == VoiceAssistantState.Idle -> VoiceCommandExamplesCard()
+            presentation == VoiceActionPresentation.Inline && state is VoiceAssistantState.Streaming -> StreamingResponseCard(
+                partialText = state.partialText,
+                onStopResponse = onStopResponse
+            )
+            presentation == VoiceActionPresentation.Inline && state is VoiceAssistantState.SpeakingMessages -> {
+                SpeakingMessagesCard(onStopSpeaking)
+            }
+        }
+    }
+
+    if (presentation == VoiceActionPresentation.BottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = onCancel,
+            sheetState = sheetState
+        ) {
+            VoiceAssistantActionSheetContent(
+                state = state,
+                onCancel = onCancel,
+                onReadAloud = onReadAloud,
+                onConfirmSend = onConfirmSend,
+                onConfirmLocalTool = onConfirmLocalTool,
+                onOpenSpeechSettings = onOpenSpeechSettings,
+                onAllowSystemRecognition = onAllowSystemRecognition,
+                onContinueSystemRecognition = onContinueSystemRecognition
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceAssistantActionSheetContent(
+    state: VoiceAssistantState,
+    onCancel: () -> Unit,
+    onReadAloud: () -> Unit,
+    onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onContinueSystemRecognition: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         when (state) {
             VoiceAssistantState.Idle -> VoiceCommandExamplesCard()
             is VoiceAssistantState.CommandReady -> {
@@ -423,11 +475,6 @@ private fun VoiceAssistantActionPanel(
                 message = state.message,
                 onDismiss = onCancel
             )
-            is VoiceAssistantState.Streaming -> StreamingResponseCard(
-                partialText = state.partialText,
-                onStopResponse = onStopResponse
-            )
-            is VoiceAssistantState.SpeakingMessages -> SpeakingMessagesCard(onStopSpeaking)
             is VoiceAssistantState.Failure -> VoiceFailureCard(
                 reason = state.safeReason,
                 onDismiss = onCancel

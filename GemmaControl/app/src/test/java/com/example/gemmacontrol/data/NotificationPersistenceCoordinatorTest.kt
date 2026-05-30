@@ -604,7 +604,7 @@ class NotificationPersistenceCoordinatorTest {
 
         val reminderId = repository.scheduleReminder(
             messageEventId = messageId,
-            remindAt = "2026-05-30T09:00:00+05:30",
+            remindAt = "2099-05-30T09:00:00+05:30",
             reminderNote = "Call back"
         )
 
