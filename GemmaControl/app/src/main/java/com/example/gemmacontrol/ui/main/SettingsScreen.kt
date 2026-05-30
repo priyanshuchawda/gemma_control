@@ -30,13 +30,10 @@ import com.example.gemmacontrol.ServiceLocator
 import com.example.gemmacontrol.ai.model.FunctionGemmaModelCatalog
 import com.example.gemmacontrol.ai.model.ModelDownloadManager
 import com.example.gemmacontrol.ai.model.ModelDownloadRequest
-import com.example.gemmacontrol.ai.model.ModelDownloadStatus
-import com.example.gemmacontrol.ai.model.ModelDownloadUiState
 import com.example.gemmacontrol.ai.model.ModelDownloadUiStateMapper
 import com.example.gemmacontrol.ai.model.ModelDownloadFiles
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -230,10 +227,7 @@ fun SettingsScreen(
             SectionHeader("FunctionGemma Model")
 
             FunctionGemmaModelDownloadCard(
-                modelName = mobileActionsModel.name,
-                fileName = mobileActionsModel.fileName,
-                modelId = mobileActionsModel.modelId,
-                sizeInBytes = mobileActionsModel.sizeInBytes,
+                model = mobileActionsModel,
                 expectedPath = expectedModelFile.absolutePath,
                 installed = isModelInstalled.value,
                 downloadState = modelDownloadState,
@@ -384,198 +378,6 @@ private fun VoiceInputModeCard(
                 }
             )
         }
-    }
-}
-
-@Composable
-private fun FunctionGemmaModelDownloadCard(
-    modelName: String,
-    fileName: String,
-    modelId: String,
-    sizeInBytes: Long,
-    expectedPath: String,
-    installed: Boolean,
-    downloadState: ModelDownloadUiState,
-    onDownload: (url: String, sha256: String) -> Unit,
-    onCancel: () -> Unit
-) {
-    val modelUrl = remember { mutableStateOf("") }
-    val modelSha256 = remember { mutableStateOf("") }
-    val validationError = remember { mutableStateOf<String?>(null) }
-    val downloading = downloadState.status == ModelDownloadStatus.Enqueued ||
-        downloadState.status == ModelDownloadStatus.Running
-
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("🧠", style = MaterialTheme.typography.titleMedium)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        modelName,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        modelId,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Text(
-                text = if (installed) {
-                    "Installed: $fileName (${formatBytes(sizeInBytes)})"
-                } else {
-                    "Not installed: $fileName (${formatBytes(sizeInBytes)})"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (installed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                expectedPath,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ModelDownloadProgressBlock(downloadState)
-
-            OutlinedTextField(
-                value = modelUrl.value,
-                onValueChange = { modelUrl.value = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Model HTTPS URL") },
-                singleLine = true,
-                enabled = !downloading
-            )
-            OutlinedTextField(
-                value = modelSha256.value,
-                onValueChange = { if (it.length <= 64) modelSha256.value = it.trim() },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("SHA-256") },
-                singleLine = true,
-                enabled = !downloading,
-                supportingText = { Text("${modelSha256.value.length} / 64") }
-            )
-
-            validationError.value?.let { error ->
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        try {
-                            onDownload(modelUrl.value.trim(), modelSha256.value.trim())
-                            validationError.value = null
-                        } catch (e: IllegalArgumentException) {
-                            validationError.value = e.message ?: "Invalid model download request."
-                        }
-                    },
-                    enabled = !downloading && modelUrl.value.isNotBlank() && modelSha256.value.isNotBlank(),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Download")
-                }
-                OutlinedButton(
-                    onClick = onCancel,
-                    enabled = downloading,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancel")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModelDownloadProgressBlock(downloadState: ModelDownloadUiState) {
-    when (downloadState.status) {
-        ModelDownloadStatus.Idle -> Unit
-        ModelDownloadStatus.Enqueued -> {
-            Text(
-                "Queued for download",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
-        ModelDownloadStatus.Running -> {
-            if (downloadState.fraction != null) {
-                LinearProgressIndicator(
-                    progress = { downloadState.fraction },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            Text(
-                listOfNotNull(
-                    "${formatBytes(downloadState.receivedBytes)} / ${formatBytes(downloadState.totalBytes)}",
-                    "${formatBytes(downloadState.bytesPerSecond)}/s",
-                    downloadState.remainingMs?.let { "${formatDuration(it)} left" }
-                ).joinToString(" • "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        ModelDownloadStatus.Succeeded -> Text(
-            "Download verified and installed.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-        ModelDownloadStatus.Failed -> Text(
-            downloadState.errorMessage ?: "Model download failed.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
-        )
-        ModelDownloadStatus.Canceled -> Text(
-            "Download canceled.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0L) return "0 B"
-    val units = listOf("B", "KB", "MB", "GB")
-    var value = bytes.toDouble()
-    var unitIndex = 0
-    while (value >= 1024.0 && unitIndex < units.lastIndex) {
-        value /= 1024.0
-        unitIndex += 1
-    }
-    return if (unitIndex == 0) {
-        "${bytes} B"
-    } else {
-        String.format(Locale.US, "%.1f %s", value, units[unitIndex])
-    }
-}
-
-private fun formatDuration(ms: Long): String {
-    val seconds = (ms / 1000L).coerceAtLeast(0L)
-    return when {
-        seconds < 60L -> "${seconds}s"
-        seconds < 3600L -> "${seconds / 60L}m ${seconds % 60L}s"
-        else -> "${seconds / 3600L}h ${(seconds % 3600L) / 60L}m"
     }
 }
 

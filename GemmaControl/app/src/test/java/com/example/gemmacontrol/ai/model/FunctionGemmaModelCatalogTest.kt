@@ -45,4 +45,14 @@ class FunctionGemmaModelCatalogTest {
         assertEquals(0.0f, config.temperature)
         assertEquals(File(cacheDir, "litertlm").absolutePath, config.cacheDirectoryPath)
     }
+
+    @Test
+    fun mobileActionsModelExposesGalleryStyleDownloadUrl() {
+        val model = FunctionGemmaModelCatalog.MobileActions
+
+        assertEquals(
+            "https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions/resolve/38942192c9b723af836d489074823ff33d4a3e7a/mobile_actions_q8_ekv1024.litertlm?download=true",
+            model.downloadUrl
+        )
+    }
 }

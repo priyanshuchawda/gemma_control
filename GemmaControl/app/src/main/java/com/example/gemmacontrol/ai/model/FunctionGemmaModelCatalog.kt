@@ -31,6 +31,9 @@ data class FunctionGemmaModelDefinition(
             cacheDirectoryPath = cacheDirectoryPath
         )
     }
+
+    val downloadUrl: String
+        get() = "https://huggingface.co/$modelId/resolve/$commitHash/$fileName?download=true"
 }
 
 object FunctionGemmaModelCatalog {
