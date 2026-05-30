@@ -66,11 +66,11 @@ class VoiceAssistantTest {
     fun testParserRejectsUnsupportedNewMessageToContact() {
         val cmd1 = VoiceCommandParser.parse("send a message to Mom: I am late")
         assertTrue(cmd1 is VoiceCommand.Unsupported)
-        assertEquals("Starting a new WhatsApp conversation by voice is not supported yet. I can reply to an active notification.", (cmd1 as VoiceCommand.Unsupported).reason)
+        assertEquals("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.", (cmd1 as VoiceCommand.Unsupported).reason)
 
         val cmd2 = VoiceCommandParser.parse("send message to Dad hello")
         assertTrue(cmd2 is VoiceCommand.Unsupported)
-        assertEquals("Starting a new WhatsApp conversation by voice is not supported yet. I can reply to an active notification.", (cmd2 as VoiceCommand.Unsupported).reason)
+        assertEquals("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.", (cmd2 as VoiceCommand.Unsupported).reason)
     }
 
     @Test
@@ -93,5 +93,14 @@ class VoiceAssistantTest {
         val cmd = VoiceCommandParser.parse("hello can you turn on the flashlight")
         assertTrue(cmd is VoiceCommand.Unsupported)
         assertEquals("I can currently read captured messages or reply to the latest active WhatsApp notification.", (cmd as VoiceCommand.Unsupported).reason)
+    }
+
+    @Test
+    fun testRmsDbToAmplitudeIsClampedAndScaled() {
+        assertEquals(0, convertRmsDbToAmplitude(-20f))
+        assertEquals(0, convertRmsDbToAmplitude(-2f))
+        assertEquals(65535, convertRmsDbToAmplitude(100f))
+        assertEquals(65535, convertRmsDbToAmplitude(120f))
+        assertTrue(convertRmsDbToAmplitude(49f) in 32000..33000)
     }
 }

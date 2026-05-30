@@ -7,13 +7,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,52 +23,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import kotlin.coroutines.cancellation.CancellationException
 
-// ─── Custom Microphone Icon (Compile-Safe) ──────────────────────────────────
-val MicrophoneIcon: ImageVector
-    get() = ImageVector.Builder(
-        name = "Microphone",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).path(
-        fill = null,
-        stroke = SolidColor(Color.White),
-        strokeLineWidth = 2f,
-        strokeLineCap = StrokeCap.Round,
-        strokeLineJoin = StrokeJoin.Round
-    ) {
-        moveTo(12f, 2f)
-        curveTo(10.34f, 2f, 9f, 3.34f, 9f, 5f)
-        lineTo(9f, 11f)
-        curveTo(9f, 12.66f, 10.34f, 14f, 12f, 14f)
-        curveTo(13.66f, 14f, 15f, 12.66f, 15f, 11f)
-        lineTo(15f, 5f)
-        curveTo(15f, 3.34f, 13.66f, 2f, 12f, 2f)
-        close()
-        moveTo(19f, 10f)
-        lineTo(19f, 11f)
-        curveTo(19f, 14.87f, 15.87f, 18f, 12f, 18f)
-        curveTo(8.13f, 18f, 5f, 14.87f, 5f, 11f)
-        lineTo(5f, 10f)
-        moveTo(12f, 18f)
-        lineTo(12f, 22f)
-        moveTo(8f, 22f)
-        lineTo(16f, 22f)
-    }.build()
+private val VoiceCardShape = RoundedCornerShape(8.dp)
+private val VoiceScreenPadding = 24.dp
+private val MicContainerSize = 200.dp
+private val MicButtonSize = 100.dp
+private val MicIconSize = 40.dp
+private const val PulseDurationMillis = 1000
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,14 +55,54 @@ fun VoiceAssistantScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
     val partialTranscript by viewModel.partialTranscript.collectAsStateWithLifecycle()
+    val amplitude by viewModel.amplitude.collectAsStateWithLifecycle()
+    val voiceInputMode by viewModel.voiceInputMode.collectAsStateWithLifecycle()
 
+    MicrophonePermissionEffect(
+        state = state,
+        onPermissionGranted = viewModel::startListening
+    )
+    DisposeVoiceAssistantEffect(onDisposeCallback = viewModel::stopSpeaking)
+    VoiceAssistantScaffold(
+        state = state,
+        isOffline = isOffline,
+        voiceInputMode = voiceInputMode,
+        partialTranscript = partialTranscript,
+        amplitude = amplitude,
+        onBack = onBack,
+        onMicClick = {
+            when (state) {
+                VoiceAssistantState.Listening -> viewModel.stopListening()
+                is VoiceAssistantState.SpeakingMessages -> viewModel.stopSpeaking()
+                else -> viewModel.startListening()
+            }
+        },
+        onHoldStart = viewModel::startListening,
+        onHoldRelease = viewModel::stopListeningAfterHold,
+        onHoldCancel = viewModel::cancelListening,
+        onCancel = viewModel::resetToIdle,
+        onReadAloud = viewModel::executeReadAloud,
+        onConfirmSend = viewModel::confirmSend,
+        onConfirmLocalTool = viewModel::confirmLocalTool,
+        onStopSpeaking = viewModel::stopSpeaking,
+        onStopResponse = viewModel::stopResponse,
+        onOpenSpeechSettings = { context.openSpeechSettings() },
+        onAllowSystemRecognition = viewModel::requestSystemRecognitionConsent,
+        onContinueSystemRecognition = viewModel::allowSystemRecognitionAndStart,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun MicrophonePermissionEffect(
+    state: VoiceAssistantState,
+    onPermissionGranted: () -> Unit,
+) {
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            viewModel.startListening()
-        } else {
-            // Permission denied
+            onPermissionGranted()
         }
     }
 
@@ -97,13 +111,39 @@ fun VoiceAssistantScreen(
             permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
         }
     }
+}
 
+@Composable
+private fun DisposeVoiceAssistantEffect(onDisposeCallback: () -> Unit) {
     DisposableEffect(Unit) {
-        onDispose {
-            viewModel.stopSpeaking()
-        }
+        onDispose { onDisposeCallback() }
     }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoiceAssistantScaffold(
+    state: VoiceAssistantState,
+    isOffline: Boolean,
+    voiceInputMode: VoiceInputMode,
+    partialTranscript: String,
+    amplitude: Int,
+    onBack: () -> Unit,
+    onMicClick: () -> Unit,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
+    onCancel: () -> Unit,
+    onReadAloud: () -> Unit,
+    onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
+    onStopSpeaking: () -> Unit,
+    onStopResponse: () -> Unit,
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onContinueSystemRecognition: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -117,7 +157,7 @@ fun VoiceAssistantScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -130,475 +170,876 @@ fun VoiceAssistantScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp),
+                .padding(VoiceScreenPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Section - Prompt or Status Description
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val statusText = when (state) {
-                    VoiceAssistantState.Idle -> "Speak commands for WhatsApp notifications"
-                    VoiceAssistantState.RequestingMicrophonePermission -> "Requesting microphone access..."
-                    VoiceAssistantState.Listening -> "Listening... Speak now"
-                    is VoiceAssistantState.TranscriptReady -> "Transcribing..."
-                    is VoiceAssistantState.CommandReady -> "Command recognized"
-                    is VoiceAssistantState.ConfirmationRequired -> "Review Dictated Reply"
-                    is VoiceAssistantState.SpeakingMessages -> "Reading latest messages"
-                    is VoiceAssistantState.Failure -> "Error encountered"
-                    VoiceAssistantState.LanguagePackMissingError -> "Language Pack Missing"
-                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Allow System Recognition?"
-                }
-
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                val subText = when (state) {
-                    VoiceAssistantState.Idle -> "Tap microphone below to start speaking."
-                    VoiceAssistantState.Listening -> {
-                        val privacyNote = if (isOffline) {
-                            "Private on-device speech recognition active."
-                        } else {
-                            "System recognition active — speech may be processed outside this device."
-                        }
-                        "$privacyNote\n\nTry: 'Read my latest messages' or 'Reply to the latest message: I am in a meeting'"
-                    }
-                    is VoiceAssistantState.Failure -> (state as VoiceAssistantState.Failure).safeReason
-                    VoiceAssistantState.LanguagePackMissingError -> "Offline language pack unavailable."
-                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> "Requires explicit consent to use network-based recognition."
-                    else -> ""
-                }
-
-                if (subText.isNotEmpty()) {
-                    Text(
-                        text = subText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-
-                if (state is VoiceAssistantState.Listening && partialTranscript.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = partialTranscript,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                }
-            }
-
-            // Middle Section - Interactive Mic Button
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                val isListening = state is VoiceAssistantState.Listening
-                
-                // Pulsing animation when listening
-                if (isListening) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                    val scale by infiniteTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 1.4f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1000, easing = LinearOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "scale"
-                    )
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.4f,
-                        targetValue = 0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1000, easing = LinearOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "alpha"
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
-                                shape = CircleShape
-                            )
-                            .align(Alignment.Center)
-                    )
-                }
-
-                val buttonColor = when (state) {
-                    VoiceAssistantState.Listening -> MaterialTheme.colorScheme.error
-                    is VoiceAssistantState.SpeakingMessages -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.primary
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(buttonColor)
-                        .clickable {
-                            when (state) {
-                                VoiceAssistantState.Listening -> viewModel.stopListening()
-                                is VoiceAssistantState.SpeakingMessages -> viewModel.stopSpeaking()
-                                else -> viewModel.startListening()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = MicrophoneIcon,
-                        contentDescription = "Microphone",
-                        modifier = Modifier.size(40.dp),
-                        tint = Color.White
-                    )
-                }
-            }
-
-            // Bottom Section - Action card based on state
-            Box(
+            VoiceAssistantHeader(
+                state = state,
+                isOffline = isOffline,
+                voiceInputMode = voiceInputMode,
+                partialTranscript = partialTranscript
+            )
+            VoiceAssistantMicButton(
+                state = state,
+                voiceInputMode = voiceInputMode,
+                amplitude = amplitude,
+                onClick = onMicClick,
+                onHoldStart = onHoldStart,
+                onHoldRelease = onHoldRelease,
+                onHoldCancel = onHoldCancel
+            )
+            VoiceAssistantActionPanel(
+                state = state,
+                onCancel = onCancel,
+                onReadAloud = onReadAloud,
+                onConfirmSend = onConfirmSend,
+                onConfirmLocalTool = onConfirmLocalTool,
+                onStopSpeaking = onStopSpeaking,
+                onStopResponse = onStopResponse,
+                onOpenSpeechSettings = onOpenSpeechSettings,
+                onAllowSystemRecognition = onAllowSystemRecognition,
+                onContinueSystemRecognition = onContinueSystemRecognition,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = false)
-            ) {
-                when (val s = state) {
-                    VoiceAssistantState.Idle -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Text(
-                                    "Supported English Commands:",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    CommandExample("Read my latest messages")
-                                    CommandExample("Reply to the latest message: I am in a meeting")
-                                }
-                            }
-                        }
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceAssistantHeader(
+    state: VoiceAssistantState,
+    isOffline: Boolean,
+    voiceInputMode: VoiceInputMode,
+    partialTranscript: String,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = voiceAssistantStatusTitle(state),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        val subtitle = voiceAssistantSubtitle(state, isOffline, voiceInputMode)
+        if (subtitle.isNotEmpty()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
+        if (state is VoiceAssistantState.Listening && partialTranscript.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            PartialTranscriptSurface(partialTranscript)
+        }
+    }
+}
+
+@Composable
+private fun PartialTranscriptSurface(text: String) {
+    Surface(
+        shape = VoiceCardShape,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            ),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun VoiceAssistantMicButton(
+    state: VoiceAssistantState,
+    voiceInputMode: VoiceInputMode,
+    amplitude: Int,
+    onClick: () -> Unit,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.size(MicContainerSize)
+    ) {
+        val isListening = state is VoiceAssistantState.Listening
+        if (isListening) {
+            ListeningWaveformBackdrop(
+                amplitude = amplitude,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(CircleShape)
+            )
+        }
+
+        val buttonColor = when (state) {
+            VoiceAssistantState.Listening -> MaterialTheme.colorScheme.error
+            is VoiceAssistantState.SpeakingMessages -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.primary
+        }
+        MicButtonCircle(
+            buttonColor = buttonColor,
+            voiceInputMode = voiceInputMode,
+            useTapToggle = state is VoiceAssistantState.SpeakingMessages,
+            onClick = onClick,
+            onHoldStart = onHoldStart,
+            onHoldRelease = onHoldRelease,
+            onHoldCancel = onHoldCancel
+        )
+    }
+}
+
+@Composable
+private fun ListeningWaveformBackdrop(
+    amplitude: Int,
+    modifier: Modifier = Modifier,
+) {
+    WaveformAnimation(
+        amplitude = amplitude,
+        bgColor = MaterialTheme.colorScheme.background,
+        modifier = modifier
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(PulseDurationMillis, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(MicButtonSize)
+            .background(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+                shape = CircleShape
+            )
+    )
+}
+
+@Composable
+private fun MicButtonCircle(
+    buttonColor: Color,
+    onClick: () -> Unit,
+    voiceInputMode: VoiceInputMode,
+    useTapToggle: Boolean,
+    onHoldStart: () -> Unit,
+    onHoldRelease: () -> Unit,
+    onHoldCancel: () -> Unit,
+) {
+    val inputModifier = when {
+        useTapToggle || voiceInputMode == VoiceInputMode.TapToggle -> Modifier.clickable(onClick = onClick)
+        else -> Modifier.pointerInput(onHoldStart, onHoldRelease, onHoldCancel) {
+            detectTapGestures(
+                onPress = {
+                    onHoldStart()
+                    val releaseAction = try {
+                        awaitRelease()
+                        voiceHoldToSpeakReleaseAction(wasGestureCancelled = false)
+                    } catch (e: CancellationException) {
+                        voiceHoldToSpeakReleaseAction(wasGestureCancelled = true)
                     }
-
-                    is VoiceAssistantState.CommandReady -> {
-                        if (s.command is VoiceCommand.ReadLatestMessages) {
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    Text(
-                                        "Read your latest captured WhatsApp messages aloud?",
-                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                                        textAlign = TextAlign.Center,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = { viewModel.resetToIdle() },
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text("Cancel")
-                                        }
-                                        Button(
-                                            onClick = { viewModel.executeReadAloud() },
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text("Read Aloud")
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    when (releaseAction) {
+                        VoiceHoldToSpeakReleaseAction.Finalize -> onHoldRelease()
+                        VoiceHoldToSpeakReleaseAction.CancelRecognition -> onHoldCancel()
                     }
+                }
+            )
+        }
+    }
 
-                    is VoiceAssistantState.ConfirmationRequired -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        "Reply to latest active message?",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                }
+    Box(
+        modifier = Modifier
+            .size(MicButtonSize)
+            .clip(CircleShape)
+            .background(buttonColor)
+            .then(inputModifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = "Microphone",
+            modifier = Modifier.size(MicIconSize),
+            tint = Color.White
+        )
+    }
+}
 
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        "To: ${s.draft.conversationTitle}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = s.draft.replyText,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.padding(12.dp),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun VoiceAssistantActionPanel(
+    state: VoiceAssistantState,
+    onCancel: () -> Unit,
+    onReadAloud: () -> Unit,
+    onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
+    onStopSpeaking: () -> Unit,
+    onStopResponse: () -> Unit,
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onContinueSystemRecognition: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val presentation = voiceAssistantActionPresentation(state)
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.resetToIdle() },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Cancel")
-                                    }
-                                    Button(
-                                        onClick = { viewModel.confirmSend(s.draft) },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Confirm Send")
-                                    }
-                                }
-                            }
-                        }
-                    }
+    Box(modifier = modifier) {
+        when {
+            presentation == VoiceActionPresentation.Inline && state == VoiceAssistantState.Idle -> VoiceCommandExamplesCard()
+            presentation == VoiceActionPresentation.Inline && state is VoiceAssistantState.Streaming -> StreamingResponseCard(
+                partialText = state.partialText,
+                onStopResponse = onStopResponse
+            )
+            presentation == VoiceActionPresentation.Inline && state is VoiceAssistantState.SpeakingMessages -> {
+                SpeakingMessagesCard(onStopSpeaking)
+            }
+        }
+    }
 
-                    is VoiceAssistantState.SpeakingMessages -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
-                                Text(
-                                    "Reading latest messages aloud...",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Button(
-                                    onClick = { viewModel.stopSpeaking() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Stop Speaking", color = Color.White)
-                                }
-                            }
-                        }
-                    }
+    if (presentation == VoiceActionPresentation.BottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = onCancel,
+            sheetState = sheetState
+        ) {
+            VoiceAssistantActionSheetContent(
+                state = state,
+                onCancel = onCancel,
+                onReadAloud = onReadAloud,
+                onConfirmSend = onConfirmSend,
+                onConfirmLocalTool = onConfirmLocalTool,
+                onOpenSpeechSettings = onOpenSpeechSettings,
+                onAllowSystemRecognition = onAllowSystemRecognition,
+                onContinueSystemRecognition = onContinueSystemRecognition
+            )
+        }
+    }
+}
 
-                    is VoiceAssistantState.Failure -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Text(
-                                    s.safeReason,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    textAlign = TextAlign.Center
-                                )
-                                Button(
-                                    onClick = { viewModel.resetToIdle() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Okay", color = Color.White)
-                                }
-                            }
-                        }
-                    }
-
-                    VoiceAssistantState.LanguagePackMissingError -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Text(
-                                    text = "Offline speech language data is not installed for this language. Download it in speech settings, or explicitly allow system recognition.",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    textAlign = TextAlign.Center
-                                )
-                                Button(
-                                    onClick = {
-                                        try {
-                                            context.startActivity(Intent("android.settings.VOICE_INPUT_SETTINGS"))
-                                        } catch (e: Exception) {
-                                            try {
-                                                context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                                            } catch (ex: Exception) {
-                                                context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Open Speech Settings")
-                                }
-                                Button(
-                                    onClick = { viewModel.requestSystemRecognitionConsent() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Allow System Recognition")
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.resetToIdle() },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Cancel")
-                                }
-                            }
-                        }
-                    }
-
-                    VoiceAssistantState.ConfirmSystemRecognitionConsent -> {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Text(
-                                    text = "System speech recognition may use Google services or network processing. Your spoken command may leave the device. Continue for this command?",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.resetToIdle() },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Cancel")
-                                    }
-                                    Button(
-                                        onClick = { viewModel.allowSystemRecognitionAndStart() },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Continue")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    else -> {}
+@Composable
+private fun VoiceAssistantActionSheetContent(
+    state: VoiceAssistantState,
+    onCancel: () -> Unit,
+    onReadAloud: () -> Unit,
+    onConfirmSend: (PendingVoiceReply) -> Unit,
+    onConfirmLocalTool: (PendingLocalToolAction) -> Unit,
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onContinueSystemRecognition: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        when (state) {
+            VoiceAssistantState.Idle -> VoiceCommandExamplesCard()
+            is VoiceAssistantState.CommandReady -> {
+                if (state.command is VoiceCommand.ReadLatestMessages) {
+                    ReadLatestConfirmationCard(
+                        onCancel = onCancel,
+                        onReadAloud = onReadAloud
+                    )
                 }
             }
+            is VoiceAssistantState.ConfirmationRequired -> VoiceReplyConfirmationCard(
+                draft = state.draft,
+                onCancel = onCancel,
+                onConfirmSend = onConfirmSend
+            )
+            is VoiceAssistantState.LocalToolConfirmationRequired -> LocalToolConfirmationCard(
+                action = state.action,
+                onCancel = onCancel,
+                onConfirm = onConfirmLocalTool
+            )
+            is VoiceAssistantState.LocalToolSucceeded -> LocalToolSucceededCard(
+                message = state.message,
+                onDismiss = onCancel
+            )
+            is VoiceAssistantState.Failure -> VoiceFailureCard(
+                reason = state.safeReason,
+                onDismiss = onCancel
+            )
+            VoiceAssistantState.LanguagePackMissingError -> LanguagePackMissingCard(
+                onOpenSpeechSettings = onOpenSpeechSettings,
+                onAllowSystemRecognition = onAllowSystemRecognition,
+                onCancel = onCancel
+            )
+            VoiceAssistantState.ConfirmSystemRecognitionConsent -> SystemRecognitionConsentCard(
+                onCancel = onCancel,
+                onContinue = onContinueSystemRecognition
+            )
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun VoiceCommandExamplesCard() {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Supported English Commands:",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CommandExample("Read my latest messages")
+                CommandExample("Reply to the latest message: I am in a meeting")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadLatestConfirmationCard(
+    onCancel: () -> Unit,
+    onReadAloud: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                "Read your latest captured WhatsApp messages aloud?",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            TwoButtonRow(
+                secondaryText = "Cancel",
+                primaryText = "Read Aloud",
+                onSecondaryClick = onCancel,
+                onPrimaryClick = onReadAloud
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceReplyConfirmationCard(
+    draft: PendingVoiceReply,
+    onCancel: () -> Unit,
+    onConfirmSend: (PendingVoiceReply) -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ReplyCardHeader()
+            ReplyDraftPreview(draft)
+            TwoButtonRow(
+                secondaryText = "Cancel",
+                primaryText = "Confirm Send",
+                onSecondaryClick = onCancel,
+                onPrimaryClick = { onConfirmSend(draft) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplyCardHeader() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            "Reply to latest active message?",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        )
+    }
+}
+
+@Composable
+private fun ReplyDraftPreview(draft: PendingVoiceReply) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            "To: ${draft.conversationTitle}",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Surface(
+            shape = VoiceCardShape,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = draft.replyText,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocalToolConfirmationCard(
+    action: PendingLocalToolAction,
+    onCancel: () -> Unit,
+    onConfirm: (PendingLocalToolAction) -> Unit,
+) {
+    val details = remember(action) { toolCallDetailsUiState(action) }
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    action.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Text(
+                action.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            ToolCallDetailsPanel(details)
+            TwoButtonRow(
+                secondaryText = "Cancel",
+                primaryText = action.confirmText,
+                onSecondaryClick = onCancel,
+                onPrimaryClick = { onConfirm(action) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolCallDetailsPanel(details: ToolCallDetailsUiState) {
+    Surface(
+        shape = VoiceCardShape,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription =
+                    "FunctionGemma proposed ${details.toolName}. ${details.safetyLabel}."
+            }
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "FunctionGemma call",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        details.toolName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(50.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(
+                    details.safetyLabel,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+            Text(
+                details.boundaryLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (details.arguments.isEmpty()) {
+                    Text(
+                        details.emptyArgumentsLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    details.arguments.forEach { row ->
+                        ToolCallArgumentRow(row)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolCallArgumentRow(row: ToolCallDetailRow) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            row.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            row.value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun LocalToolSucceededCard(
+    message: String,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
+            )
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Done")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreamingResponseCard(
+    partialText: String,
+    onStopResponse: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+            Text(
+                partialText.ifBlank { "Waiting for FunctionGemma..." },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedButton(
+                onClick = onStopResponse,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Stop Response")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeakingMessagesCard(onStopSpeaking: () -> Unit) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
+            Text(
+                "Reading latest messages aloud...",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Button(
+                onClick = onStopSpeaking,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Stop Speaking", color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceFailureCard(
+    reason: String,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                reason,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                textAlign = TextAlign.Center
+            )
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Okay", color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguagePackMissingCard(
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                text = "Offline speech language data is not installed for this language. Download it in speech settings, or explicitly allow system recognition.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                textAlign = TextAlign.Center
+            )
+            LanguagePackActions(
+                onOpenSpeechSettings = onOpenSpeechSettings,
+                onAllowSystemRecognition = onAllowSystemRecognition,
+                onCancel = onCancel
+            )
+        }
+    }
+}
+
+@Composable
+private fun LanguagePackActions(
+    onOpenSpeechSettings: () -> Unit,
+    onAllowSystemRecognition: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Button(
+        onClick = onOpenSpeechSettings,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Open Speech Settings")
+    }
+    Button(
+        onClick = onAllowSystemRecognition,
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Allow System Recognition")
+    }
+    OutlinedButton(
+        onClick = onCancel,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Cancel")
+    }
+}
+
+@Composable
+private fun SystemRecognitionConsentCard(
+    onCancel: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                text = "System speech recognition may use Google services or network processing. Your spoken command may leave the device. Continue for this command?",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            TwoButtonRow(
+                secondaryText = "Cancel",
+                primaryText = "Continue",
+                onSecondaryClick = onCancel,
+                onPrimaryClick = onContinue
+            )
+        }
+    }
+}
+
+@Composable
+private fun TwoButtonRow(
+    secondaryText: String,
+    primaryText: String,
+    onSecondaryClick: () -> Unit,
+    onPrimaryClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedButton(
+            onClick = onSecondaryClick,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(secondaryText)
+        }
+        Button(
+            onClick = onPrimaryClick,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(primaryText)
         }
     }
 }
@@ -620,5 +1061,17 @@ private fun CommandExample(command: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         )
+    }
+}
+
+private fun android.content.Context.openSpeechSettings() {
+    try {
+        startActivity(Intent("android.settings.VOICE_INPUT_SETTINGS"))
+    } catch (e: Exception) {
+        try {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        } catch (ex: Exception) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
     }
 }

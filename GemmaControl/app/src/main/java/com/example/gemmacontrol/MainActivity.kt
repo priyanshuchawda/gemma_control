@@ -1,5 +1,6 @@
 package com.example.gemmacontrol
 
+import android.content.ComponentCallbacks2
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +18,19 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       GemmaControlTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+    }
+  }
+
+  override fun onStop() {
+    super.onStop()
+    ServiceLocator.getGemmaModelManager(this).releaseIfIdleForBackground()
+  }
+
+  @Suppress("DEPRECATION")
+  override fun onTrimMemory(level: Int) {
+    super.onTrimMemory(level)
+    if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+      ServiceLocator.getGemmaModelManager(this).releaseForMemoryPressure("TRIM_MEMORY_$level")
     }
   }
 }

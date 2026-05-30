@@ -23,4 +23,14 @@ interface ActiveNotificationReferenceDao {
 
     @Query("DELETE FROM active_notification_references")
     suspend fun deleteAll()
+
+    @Query(
+        """
+        DELETE FROM active_notification_references
+        WHERE latestMessageEventId IN (
+            SELECT id FROM message_events WHERE conversationId = :conversationId
+        )
+        """
+    )
+    suspend fun deleteForConversation(conversationId: String)
 }

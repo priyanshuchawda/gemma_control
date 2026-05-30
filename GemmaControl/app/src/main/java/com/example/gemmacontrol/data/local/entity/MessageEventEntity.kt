@@ -35,7 +35,8 @@ data class MessageEventEntity(
     val parseSource: NotificationParseSource,
     val dedupeToken: String, // HMAC token, not plaintext SHA-256
     val isContentUnavailable: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val priority: InboxPriority = InboxPriority.NORMAL
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -68,6 +69,7 @@ data class MessageEventEntity(
         if (dedupeToken != other.dedupeToken) return false
         if (isContentUnavailable != other.isContentUnavailable) return false
         if (createdAt != other.createdAt) return false
+        if (priority != other.priority) return false
 
         return true
     }
@@ -86,6 +88,7 @@ data class MessageEventEntity(
         result = 31 * result + dedupeToken.hashCode()
         result = 31 * result + isContentUnavailable.hashCode()
         result = 31 * result + createdAt.hashCode()
+        result = 31 * result + priority.hashCode()
         return result
     }
 }

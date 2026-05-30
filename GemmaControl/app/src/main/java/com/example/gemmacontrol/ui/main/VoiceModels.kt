@@ -1,5 +1,7 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
+import com.example.gemmacontrol.ai.tools.ToolProposal
 import java.util.Locale
 
 sealed interface VoiceCommand {
@@ -20,13 +22,24 @@ data class PendingVoiceReply(
     val conversationTitle: String
 )
 
+data class PendingLocalToolAction(
+    val title: String,
+    val description: String,
+    val confirmText: String,
+    val proposal: ToolProposal,
+    val decision: ToolExecutionDecision
+)
+
 sealed interface VoiceAssistantState {
     data object Idle : VoiceAssistantState
     data object RequestingMicrophonePermission : VoiceAssistantState
     data object Listening : VoiceAssistantState
     data class TranscriptReady(val transcript: String) : VoiceAssistantState
     data class CommandReady(val command: VoiceCommand) : VoiceAssistantState
+    data class Streaming(val partialText: String) : VoiceAssistantState
     data class ConfirmationRequired(val draft: PendingVoiceReply) : VoiceAssistantState
+    data class LocalToolConfirmationRequired(val action: PendingLocalToolAction) : VoiceAssistantState
+    data class LocalToolSucceeded(val message: String) : VoiceAssistantState
     data class SpeakingMessages(val count: Int) : VoiceAssistantState
     data class Failure(val safeReason: String) : VoiceAssistantState
     data object LanguagePackMissingError : VoiceAssistantState
@@ -50,7 +63,7 @@ object VoiceCommandParser {
         if (lower.contains("send a message to") ||
             lower.contains("send message to")
         ) {
-            return VoiceCommand.Unsupported("Starting a new WhatsApp conversation by voice is not supported yet. I can reply to an active notification.")
+            return VoiceCommand.Unsupported("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.")
         }
 
         // Check for read messages
@@ -111,10 +124,8 @@ object VoiceCommandParser {
             "tell them"
         )
         
-        var matchedReplyPrefix = false
         for (prefix in prefixes) {
             if (lower.startsWith(prefix)) {
-                matchedReplyPrefix = true
                 val rawText = trimmed.substring(prefix.length).trim()
                 val cleaned = rawText.removePrefix(":").removePrefix("that").trim().removePrefix(":").trim()
                 if (cleaned.isEmpty()) {

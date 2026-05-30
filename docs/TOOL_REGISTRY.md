@@ -78,7 +78,7 @@ All tool calling runs with **LiteRT-LM Automatic Tool Calling Disabled** (`autom
 ### Message Preparation Tools (Confirmation Required)
 
 #### 10. `draft_whatsapp_reply`
-- **Purpose**: Prepare a reply draft without sending anything, caching it in `DraftReplyEntity` and presenting it in the UI text box.
+- **Purpose**: Prepare reply draft text locally without sending anything. The confirmed result is shown inside GemmaControl; use the WhatsApp open-draft tools when the user explicitly wants to move prepared text into WhatsApp.
 - **Parameters**:
   - `message_event_id` (optional string): Reference message row ID.
   - `conversation_name` (string): Target contact name.

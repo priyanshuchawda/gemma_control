@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -24,12 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -40,27 +38,23 @@ import com.example.gemmacontrol.StoredInbox
 import com.example.gemmacontrol.VoiceAssistant
 import com.example.gemmacontrol.AppSettings
 import androidx.compose.material.icons.filled.Settings
-import com.example.gemmacontrol.notifications.ConversationType
-import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
-import java.text.SimpleDateFormat
-import java.util.*
 
 // ─── Color palette ────────────────────────────────────────────────────────────
-private val Green800  = Color(0xFF2E7D32)
-private val Blue800   = Color(0xFF1565C0)
-private val Red800    = Color(0xFFC62828)
-private val Teal700   = Color(0xFF00796B)
-private val Purple700 = Color(0xFF5E35B1)
-private val Orange800 = Color(0xFFE65100)
-private val Grey600   = Color(0xFF757575)
+internal val Green800  = Color(0xFF2E7D32)
+internal val Blue800   = Color(0xFF1565C0)
+internal val Red800    = Color(0xFFC62828)
+internal val Teal700   = Color(0xFF00796B)
+internal val Purple700 = Color(0xFF5E35B1)
+internal val Orange800 = Color(0xFFE65100)
+internal val Grey600   = Color(0xFF757575)
 
-private val GreenBg  = Color(0xFFE8F5E9)
-private val BlueBg   = Color(0xFFE3F2FD)
-private val RedBg    = Color(0xFFFFEBEE)
-private val TealBg   = Color(0xFFE0F2F1)
-private val PurpleBg = Color(0xFFEDE7F6)
-private val OrangeBg = Color(0xFFFFF3E0)
+internal val GreenBg  = Color(0xFFE8F5E9)
+internal val BlueBg   = Color(0xFFE3F2FD)
+internal val RedBg    = Color(0xFFFFEBEE)
+internal val TealBg   = Color(0xFFE0F2F1)
+internal val PurpleBg = Color(0xFFEDE7F6)
+internal val OrangeBg = Color(0xFFFFF3E0)
 
 // ─── Screen root ──────────────────────────────────────────────────────────────
 @Composable
@@ -156,7 +150,7 @@ fun GemmaTopBar(
         actions = {
             IconButton(onClick = onNavigateToVoice) {
                 Icon(
-                    imageVector = MicrophoneIcon,
+                    imageVector = Icons.Default.Mic,
                     contentDescription = "Voice Assistant",
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -371,175 +365,6 @@ fun PermissionCard(
     }
 }
 
-// ─── Event Card ───────────────────────────────────────────────────────────────
-@Composable
-fun NotificationEventCard(event: ParsedWhatsAppNotificationEvent, formatter: SimpleDateFormat) {
-    val observedTime = formatter.format(Date(event.observedAt))
-    val safeKey = if (event.notificationKey.length > 8) "…${event.notificationKey.takeLast(8)}" else event.notificationKey
-
-    // Event type styling
-    val (evBg, evFg) = when (event.eventType) {
-        NotificationEventType.POSTED  -> Pair(GreenBg,  Green800)
-        NotificationEventType.UPDATED -> Pair(BlueBg,   Blue800)
-        NotificationEventType.REMOVED -> Pair(RedBg,    Red800)
-    }
-
-    // Conversation type styling
-    val (cvBg, cvFg) = when (event.conversationType) {
-        ConversationType.DIRECT  -> Pair(TealBg,   Teal700)
-        ConversationType.GROUP   -> Pair(PurpleBg, Purple700)
-        ConversationType.UNKNOWN -> Pair(OrangeBg, Orange800)
-    }
-
-    val isActive = event.isCurrentlyActive
-
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-
-            // ── Row 1: badges + status dot ──────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Badge(bg = evBg, fg = evFg, text = event.eventType.name)
-                    Badge(bg = cvBg, fg = cvFg, text = event.conversationType.name)
-                }
-                // Dot + label
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Box(
-                        Modifier
-                            .size(7.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isActive) Green800 else Grey600)
-                    )
-                    Text(
-                        text = if (isActive) "Active" else "Expired",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = if (isActive) Green800 else Grey600
-                    )
-                }
-            }
-
-            // ── Row 2: Chat title ────────────────────────────────────────────
-            Text(
-                text = event.conversationTitle ?: "[No Title]",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.3).sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            // ── Row 3: Message bubble ────────────────────────────────────────
-            if (!event.isContentUnavailable) {
-                val latestMsg = event.messages.lastOrNull()
-                if (latestMsg != null) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            if (latestMsg.senderName != null) {
-                                Text(
-                                    text = latestMsg.senderName,
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(Modifier.height(2.dp))
-                            }
-                            Text(
-                                text = latestMsg.messageText ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    text = "Content unavailable",
-                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-
-            // ── Row 4: Metadata strip ────────────────────────────────────────
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Left: source + counts
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Chip(label = event.parseSource.name)
-                    Text(
-                        text = "${event.currentMessageCount} msg · ${event.historicMessageCount} hist",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-                // Right: times + key
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = observedTime,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = safeKey,
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ─── Small reusable composables ───────────────────────────────────────────────
-@Composable
-private fun Badge(bg: Color, fg: Color, text: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-    ) {
-        Text(text = text, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = fg)
-    }
-}
-
-@Composable
-private fun Chip(label: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-fun rememberFormatter(): SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
-
 @Composable
 fun VoiceAssistantHomeCard(
     onNavigateToVoice: () -> Unit,
@@ -576,7 +401,7 @@ fun VoiceAssistantHomeCard(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Icon(
-                    imageVector = MicrophoneIcon,
+                    imageVector = Icons.Default.Mic,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)

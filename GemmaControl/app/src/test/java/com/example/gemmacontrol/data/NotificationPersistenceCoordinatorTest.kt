@@ -3,11 +3,18 @@ package com.example.gemmacontrol.data
 import com.example.gemmacontrol.data.crypto.*
 import com.example.gemmacontrol.data.local.dao.ActiveNotificationReferenceDao
 import com.example.gemmacontrol.data.local.dao.ConversationDao
+import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
+import com.example.gemmacontrol.data.local.dao.ReminderDao
 import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
+import com.example.gemmacontrol.data.local.entity.FollowUpEntity
+import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.data.local.entity.MessageEventEntity
+import com.example.gemmacontrol.data.local.entity.ReminderEntity
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import com.example.gemmacontrol.data.reminder.ReminderScheduler
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 import com.example.gemmacontrol.notifications.ConversationType
@@ -53,6 +60,7 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override val storageEnabledFlow = MutableStateFlow(false)
     override val storageEnabledAtFlow = MutableStateFlow(0L)
     override val xiaomiAutostartAcknowledgedFlow = MutableStateFlow(false)
+    override val voiceInputModeFlow = MutableStateFlow(VoiceInputMode.TapToggle)
 
     override suspend fun setCaptureEnabled(enabled: Boolean) {
         captureEnabledFlow.value = enabled
@@ -70,11 +78,17 @@ class FakeCapturePreferencesRepository : CapturePreferencesRepository {
     override suspend fun setXiaomiAutostartAcknowledged(acknowledged: Boolean) {
         xiaomiAutostartAcknowledgedFlow.value = acknowledged
     }
+
+    override suspend fun setVoiceInputMode(mode: VoiceInputMode) {
+        voiceInputModeFlow.value = mode
+    }
 }
 
 // ─── DAO Fakes ────────────────────────────────────────────────────────────────
 class FakeConversationDao : ConversationDao {
     val list = mutableListOf<ConversationEntity>()
+    var onDeleteById: (String) -> Unit = {}
+
     override suspend fun insert(conversation: ConversationEntity): Long {
         list.add(conversation)
         return list.size.toLong()
@@ -87,6 +101,10 @@ class FakeConversationDao : ConversationDao {
     override fun getAllConversationsFlow(): Flow<List<ConversationEntity>> = flow { emit(list) }
     override suspend fun getAllConversations(): List<ConversationEntity> = list
     override suspend fun deleteAll() = list.clear()
+    override suspend fun deleteById(id: String) {
+        list.removeAll { it.id == id }
+        onDeleteById(id)
+    }
 }
 
 class FakeMessageEventDao(
@@ -102,6 +120,7 @@ class FakeMessageEventDao(
         return list.size.toLong()
     }
     override suspend fun getByDedupeToken(dedupeToken: String): MessageEventEntity? = list.find { it.dedupeToken == dedupeToken }
+    override suspend fun getById(id: String): MessageEventEntity? = list.find { it.id == id }
     override fun getAllMessagesFlow(): Flow<List<MessageEventEntity>> = flow { emit(list) }
     override suspend fun getAllMessages(): List<MessageEventEntity> = list
     override fun getMessagesForConversationFlow(conversationId: String): Flow<List<MessageEventEntity>> = flow { emit(list.filter { it.conversationId == conversationId }) }
@@ -116,6 +135,15 @@ class FakeMessageEventDao(
         activeRefDao.deleteAll()
     }
 
+    override suspend fun updatePriority(messageEventId: String, priority: InboxPriority): Int {
+        val index = list.indexOfFirst { it.id == messageEventId }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(priority = priority)
+        return 1
+    }
+
     override suspend fun deleteAllData() {
         deleteAll()
         deleteConversations()
@@ -125,6 +153,8 @@ class FakeMessageEventDao(
 
 class FakeActiveNotificationReferenceDao : ActiveNotificationReferenceDao {
     val list = mutableListOf<ActiveNotificationReferenceEntity>()
+    var messageIdsForConversation: (String) -> Set<String> = { emptySet() }
+
     override suspend fun insertOrUpdate(reference: ActiveNotificationReferenceEntity) {
         list.removeAll { it.notificationKey == reference.notificationKey }
         list.add(reference)
@@ -133,7 +163,99 @@ class FakeActiveNotificationReferenceDao : ActiveNotificationReferenceDao {
     override fun getActiveReferencesFlow(): Flow<List<ActiveNotificationReferenceEntity>> = flow { emit(list.filter { it.removedAt == null }) }
     override suspend fun getActiveReferences(): List<ActiveNotificationReferenceEntity> = list.filter { it.removedAt == null }
     override suspend fun deleteAll() = list.clear()
+    override suspend fun deleteForConversation(conversationId: String) {
+        val messageIds = messageIdsForConversation(conversationId)
+        list.removeAll { it.latestMessageEventId in messageIds }
+    }
 }
+
+class FakeFollowUpDao : FollowUpDao {
+    val list = mutableListOf<FollowUpEntity>()
+
+    override suspend fun insert(followUp: FollowUpEntity): Long {
+        list.add(followUp)
+        return list.size.toLong()
+    }
+
+    override suspend fun getPending(priority: InboxPriority?, limit: Int): List<FollowUpEntity> {
+        return list
+            .filter { it.completedAt == null }
+            .filter { priority == null || it.priority == priority }
+            .sortedByDescending { it.createdAt }
+            .take(limit)
+    }
+
+    override suspend fun getByStatus(status: String?, priority: InboxPriority?, limit: Int): List<FollowUpEntity> {
+        return list
+            .filter { followUp ->
+                status == null ||
+                    (status == "PENDING" && followUp.completedAt == null) ||
+                    (status == "COMPLETED" && followUp.completedAt != null)
+            }
+            .filter { priority == null || it.priority == priority }
+            .sortedWith(
+                compareBy<FollowUpEntity> { if (it.completedAt == null) 0 else 1 }
+                    .thenByDescending { it.createdAt }
+            )
+            .take(limit)
+    }
+
+    override suspend fun markCompleted(id: String, completedAt: Long): Int {
+        val index = list.indexOfFirst { it.id == id && it.completedAt == null }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(completedAt = completedAt)
+        return 1
+    }
+
+    override suspend fun deleteAll() {
+        list.clear()
+    }
+}
+
+class FakeReminderDao : ReminderDao {
+    val list = mutableListOf<ReminderEntity>()
+
+    override suspend fun insert(reminder: ReminderEntity): Long {
+        list.add(reminder)
+        return list.size.toLong()
+    }
+
+    override suspend fun getById(id: String): ReminderEntity? = list.find { it.id == id }
+
+    override suspend fun setScheduledWorkName(id: String, workName: String): Int {
+        val index = list.indexOfFirst { it.id == id }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(scheduledWorkName = workName)
+        return 1
+    }
+
+    override suspend fun markDelivered(id: String, deliveredAt: Long): Int {
+        val index = list.indexOfFirst { it.id == id && it.deliveredAt == null }
+        if (index == -1) {
+            return 0
+        }
+        list[index] = list[index].copy(deliveredAt = deliveredAt)
+        return 1
+    }
+}
+
+class FakeReminderScheduler : ReminderScheduler {
+    val calls = mutableListOf<ScheduledReminderCall>()
+
+    override suspend fun schedule(reminderId: String, remindAtEpochMillis: Long): String {
+        calls += ScheduledReminderCall(reminderId, remindAtEpochMillis)
+        return "reminder:$reminderId"
+    }
+}
+
+data class ScheduledReminderCall(
+    val reminderId: String,
+    val remindAtEpochMillis: Long
+)
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 class NotificationPersistenceCoordinatorTest {
@@ -141,6 +263,9 @@ class NotificationPersistenceCoordinatorTest {
     private lateinit var conversationDao: FakeConversationDao
     private lateinit var messageEventDao: FakeMessageEventDao
     private lateinit var activeNotificationReferenceDao: FakeActiveNotificationReferenceDao
+    private lateinit var followUpDao: FakeFollowUpDao
+    private lateinit var reminderDao: FakeReminderDao
+    private lateinit var reminderScheduler: FakeReminderScheduler
     private lateinit var sensitiveTextCipher: FakeSensitiveTextCipher
     private lateinit var dedupeTokenGenerator: FakeDedupeTokenGenerator
     private lateinit var preferencesRepository: FakeCapturePreferencesRepository
@@ -152,6 +277,18 @@ class NotificationPersistenceCoordinatorTest {
         conversationDao = FakeConversationDao()
         activeNotificationReferenceDao = FakeActiveNotificationReferenceDao()
         messageEventDao = FakeMessageEventDao(conversationDao, activeNotificationReferenceDao)
+        followUpDao = FakeFollowUpDao()
+        reminderDao = FakeReminderDao()
+        reminderScheduler = FakeReminderScheduler()
+        conversationDao.onDeleteById = { conversationId ->
+            messageEventDao.list.removeAll { it.conversationId == conversationId }
+        }
+        activeNotificationReferenceDao.messageIdsForConversation = { conversationId ->
+            messageEventDao.list
+                .filter { it.conversationId == conversationId }
+                .map { it.id }
+                .toSet()
+        }
         sensitiveTextCipher = FakeSensitiveTextCipher()
         dedupeTokenGenerator = FakeDedupeTokenGenerator()
         preferencesRepository = FakeCapturePreferencesRepository()
@@ -161,7 +298,10 @@ class NotificationPersistenceCoordinatorTest {
             messageEventDao,
             activeNotificationReferenceDao,
             sensitiveTextCipher,
-            dedupeTokenGenerator
+            dedupeTokenGenerator,
+            followUpDao = followUpDao,
+            reminderDao = reminderDao,
+            reminderScheduler = reminderScheduler
         )
 
         coordinator = NotificationPersistenceCoordinator(
@@ -368,6 +508,259 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testRepository_deleteConversationDataPurgesOnlyMatchingConversation() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_aunt_may",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Aunt May",
+                text = "Dinner at 7"
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_peter",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "On my way"
+            )
+        )
+
+        val deleted = repository.deleteConversationData("aunt   may")
+
+        assertTrue(deleted)
+        val remainingMessages = repository.getAllDecryptedMessages()
+        assertEquals(1, remainingMessages.size)
+        assertEquals("Peter", remainingMessages.single().conversationId)
+        assertEquals(1, activeNotificationReferenceDao.list.size)
+    }
+
+    @Test
+    fun testRepository_createAndCompleteFollowUp() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_follow_up",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Aunt May",
+                text = "Can you call back?"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        val followUpId = repository.createFollowUp(
+            messageEventId = messageId,
+            title = "Call back",
+            dueAt = "2026-05-30T09:00:00+05:30",
+            priority = "HIGH"
+        )
+
+        assertTrue(followUpId != null)
+        val pending = repository.listPendingFollowUps(limit = 10, priority = "HIGH")
+        assertEquals(1, pending.size)
+        assertEquals("Call back", pending.single().title)
+        assertEquals(messageId, pending.single().messageEventId)
+
+        assertTrue(repository.markFollowUpCompleted(followUpId!!))
+        assertTrue(repository.listPendingFollowUps(limit = 10, priority = null).isEmpty())
+    }
+
+    @Test
+    fun testRepository_markMessagePriorityUpdatesDecryptedMessage() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_priority",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Deadline moved earlier"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        assertTrue(repository.markMessagePriority(messageId, "HIGH"))
+
+        val decryptedMessages = repository.getAllDecryptedMessages()
+        assertEquals("HIGH", decryptedMessages.single().priority)
+    }
+
+    @Test
+    fun testRepository_scheduleReminderEncryptsNoteAndEnqueuesWork() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_reminder",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Aunt May",
+                text = "Call me tomorrow"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        val reminderId = repository.scheduleReminder(
+            messageEventId = messageId,
+            remindAt = "2099-05-30T09:00:00+05:30",
+            reminderNote = "Call back"
+        )
+
+        assertTrue(reminderId != null)
+        val reminder = reminderDao.list.single()
+        assertEquals(messageId, reminder.messageEventId)
+        assertEquals("Call back", sensitiveTextCipher.decrypt(EncryptedPayload(reminder.encryptedReminderNote!!, reminder.reminderNoteIv!!)))
+        assertEquals(reminderId, reminderScheduler.calls.single().reminderId)
+        assertTrue(reminderScheduler.calls.single().remindAtEpochMillis > System.currentTimeMillis())
+    }
+
+    @Test
+    fun testRepository_searchMessagesFiltersByQueryAndConversation() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_mom_dinner",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7"
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_peter_dinner",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Dinner moved"
+            )
+        )
+
+        val results = repository.searchMessages(query = "dinner", conversationName = "Mom")
+
+        assertEquals(1, results.size)
+        assertEquals("Mom", results.single().conversationName)
+        assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
+    fun testRepository_listRecentMessagesFiltersByConversationAndSinceMinutes() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        val now = System.currentTimeMillis()
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_mom",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7",
+                timestamp = now - 30_000L
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_old_mom",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Old dinner note",
+                timestamp = now - 10 * 60_000L
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_peter",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Project update",
+                timestamp = now - 20_000L
+            )
+        )
+
+        val results = repository.listRecentMessages(
+            conversationName = "Mom",
+            limit = 5,
+            sinceMinutes = 2
+        )
+
+        assertEquals(1, results.size)
+        assertEquals("Mom", results.single().conversationName)
+        assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
+    fun testRepository_getMessageDetailsReturnsStoredMessage() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_details",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Dinner at 7"
+            )
+        )
+        val messageId = messageEventDao.list.single().id
+
+        val result = repository.getMessageDetails(messageId)
+
+        assertEquals(messageId, result?.id)
+        assertEquals("Mom", result?.conversationName)
+        assertEquals("Dinner at 7", result?.text)
+    }
+
+    @Test
+    fun testRepository_getActionableInboxReturnsPendingFollowUpsAndPriorityMessages() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_actionable_follow_up",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Call me tomorrow"
+            )
+        )
+        val followUpMessageId = messageEventDao.list.single().id
+        repository.createFollowUp(
+            messageEventId = followUpMessageId,
+            title = "Call back",
+            dueAt = "2026-05-30T09:00:00+05:30",
+            priority = "HIGH"
+        )
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_actionable_priority",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Peter",
+                text = "Deadline moved earlier"
+            )
+        )
+        val priorityMessageId = messageEventDao.list.last().id
+        repository.markMessagePriority(priorityMessageId, "HIGH")
+
+        val pending = repository.getActionableInbox(status = "PENDING", priority = "HIGH", limit = 10)
+        val byType = pending.associateBy { it.type }
+
+        assertEquals(setOf("FOLLOW_UP", "PRIORITY_MESSAGE"), byType.keys)
+        assertEquals("Call back", byType["FOLLOW_UP"]?.title)
+        assertEquals(followUpMessageId, byType["FOLLOW_UP"]?.messageEventId)
+        assertEquals("Mom", byType["FOLLOW_UP"]?.conversationName)
+        assertEquals("Deadline moved earlier", byType["PRIORITY_MESSAGE"]?.text)
+        assertEquals(priorityMessageId, byType["PRIORITY_MESSAGE"]?.messageEventId)
+
+        val followUpId = followUpDao.list.single().id
+        repository.markFollowUpCompleted(followUpId)
+
+        val completed = repository.getActionableInbox(status = "COMPLETED", priority = "HIGH", limit = 10)
+
+        assertEquals(1, completed.size)
+        assertEquals("FOLLOW_UP", completed.single().type)
+        assertEquals("COMPLETED", completed.single().status)
+    }
+
+    @Test
     fun testRepository_throwingHmacGeneratorProducesZeroPersistedRows() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
@@ -475,9 +868,9 @@ class NotificationPersistenceCoordinatorTest {
         source: NotificationParseSource,
         title: String,
         text: String,
-        eventType: NotificationEventType = NotificationEventType.POSTED
+        eventType: NotificationEventType = NotificationEventType.POSTED,
+        timestamp: Long = 1716900000000L
     ): ParsedWhatsAppNotificationEvent {
-        val timestamp = 1716900000000L
         val dedupe = WhatsAppNotificationParser.generateDedupeCandidate(
             packageName = "com.whatsapp",
             notificationKey = key,

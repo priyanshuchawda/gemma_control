@@ -1,8 +1,8 @@
 # GemmaControl: Private On-Device WhatsApp AI Productivity Agent
 
-GemmaControl is an English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, enables reminders and follow-ups, and supports safe user-confirmed WhatsApp replies.
+GemmaControl is an English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, saves local follow-ups, priority flags, encrypted local reminders, and supports safe user-confirmed WhatsApp replies.
 
-Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl runs fully offline on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and a customized **FunctionGemma 270M** model.
+Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl keeps WhatsApp capture, storage, voice handling, and model inference local on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and a customized **FunctionGemma 270M** model.
 
 ---
 
@@ -15,8 +15,9 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 - **Privacy Constraints**: Captured alerts are parsed in memory, and stored locally *only* under explicit storage consent toggles.
 
 ### 2. Local Task Management & Productivity
-- **Follow-Ups**: Save notification events as unresolved local tasks (`create_follow_up_from_message`).
-- **Reminders**: Schedule alert reminders managed by the Android system `WorkManager`.
+- **Follow-Ups**: Save notification events as unresolved local tasks (`create_follow_up_from_message`), list pending tasks, and mark follow-ups complete.
+- **Prioritization**: Mark captured WhatsApp messages as high or normal priority inside the local inbox.
+- **Reminders**: Schedule encrypted local reminder rows and WorkManager notification delivery (`schedule_reminder_for_message`).
 - **Priorities**: Flag and pin important messages inside the local Compose inbox.
 - **Inbox Cleanup**: Dismiss and hide noise from the local inbox without clearing notifications inside WhatsApp.
 
@@ -33,7 +34,8 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 
 - **Clean MVVM Architecture**: Separates data structures (Room SQLite database), notification handlers, LiteRT engines, and Jetpack Compose views.
 - **Encryption at Rest**: Encrypts sensitive message texts and drafted responses inside Room SQLite utilizing **AES-GCM 256-bit encryption** keys protected by the **Android Keystore**.
-- **No Internet Access**: The application does not declare the `android.permission.INTERNET` flag, ensuring data is locked locally.
+- **Scoped Network Access**: `android.permission.INTERNET` is declared only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification data, prompts, tool calls, and replies stay local.
+- **Local Reminder Notifications**: `android.permission.POST_NOTIFICATIONS` is declared only for user-confirmed local reminder alerts on Android 13+.
 - **LiteRT-LM Manual Configuration**: Disables automatic tool calling (`automaticToolCalling = false`) in `ConversationConfig`. The AI acts purely as a proposal engine; Kotlin logic enforces all safety checks.
 
 ---

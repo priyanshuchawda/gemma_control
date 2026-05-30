@@ -1,12 +1,15 @@
 package com.example.gemmacontrol
 
 import android.content.Context
+import com.example.gemmacontrol.ai.runtime.AndroidGemmaEngineFactory
+import com.example.gemmacontrol.ai.runtime.GemmaModelManager
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreSensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.AndroidKeystoreHmacDedupeTokenGenerator
 import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
 import com.example.gemmacontrol.data.local.GemmaControlDatabase
 import com.example.gemmacontrol.data.preferences.DataStoreCapturePreferencesRepository
+import com.example.gemmacontrol.data.reminder.WorkManagerReminderScheduler
 import com.example.gemmacontrol.data.repository.NotificationPersistenceCoordinator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
 
@@ -19,6 +22,8 @@ object ServiceLocator {
     private var storedInboxRepository: StoredInboxRepository? = null
     @Volatile
     private var persistenceCoordinator: NotificationPersistenceCoordinator? = null
+    @Volatile
+    private var gemmaModelManager: GemmaModelManager? = null
     @Volatile
     private var sensitiveTextCipher: SensitiveTextCipher? = null
     @Volatile
@@ -57,7 +62,10 @@ object ServiceLocator {
                 db.activeNotificationReferenceDao(),
                 getSensitiveTextCipher(),
                 getDedupeTokenGenerator(),
-                db
+                db,
+                db.followUpDao(),
+                db.reminderDao(),
+                WorkManagerReminderScheduler(context.applicationContext)
             ).also { storedInboxRepository = it }
         }
     }
@@ -71,6 +79,20 @@ object ServiceLocator {
                 getPreferencesRepository(context),
                 db.activeNotificationReferenceDao()
             ).also { persistenceCoordinator = it }
+        }
+    }
+
+    fun getGemmaModelManager(): GemmaModelManager {
+        return gemmaModelManager ?: synchronized(this) {
+            gemmaModelManager ?: GemmaModelManager().also { gemmaModelManager = it }
+        }
+    }
+
+    fun getGemmaModelManager(context: Context): GemmaModelManager {
+        return gemmaModelManager ?: synchronized(this) {
+            gemmaModelManager ?: GemmaModelManager(
+                engineFactory = AndroidGemmaEngineFactory(context.applicationContext)
+            ).also { gemmaModelManager = it }
         }
     }
 }

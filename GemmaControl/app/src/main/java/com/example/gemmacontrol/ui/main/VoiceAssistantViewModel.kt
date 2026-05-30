@@ -9,18 +9,36 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.ai.model.FunctionGemmaModelResolver
+import com.example.gemmacontrol.ai.model.InstalledFunctionGemmaModel
+import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
+import com.example.gemmacontrol.ai.tools.AndroidWhatsAppDraftLauncher
+import com.example.gemmacontrol.ai.tools.GemmaMessageContext
+import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
+import com.example.gemmacontrol.ai.tools.ToolExecutionResult
+import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
+import com.example.gemmacontrol.ai.tools.WhatsAppLocalToolExecutor
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
 import com.example.gemmacontrol.notifications.ReplySendResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+private const val AUDIO_METER_MIN_DB = -2.0f
+private const val AUDIO_METER_MAX_DB = 100.0f
 
 class VoiceAssistantViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -29,7 +47,22 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     }
 
     private val repository = ServiceLocator.getStoredInboxRepository(application)
+    private val preferencesRepository = ServiceLocator.getPreferencesRepository(application)
+    private val gemmaModelManager = ServiceLocator.getGemmaModelManager(application)
+    private val functionGemmaModelResolver = FunctionGemmaModelResolver(
+        filesDir = application.filesDir,
+        cacheDir = application.cacheDir
+    )
     private val replyExecutor = ActiveNotificationReplyExecutor(InMemoryActiveReplyActionRegistry)
+    private val toolProposalMapper = VoiceCommandToolProposalMapper()
+    private val functionGemmaProposalHandler = FunctionGemmaVoiceProposalHandler(toolProposalMapper)
+    private val localToolExecutor = WhatsAppLocalToolExecutor(
+        preferencesRepository = preferencesRepository,
+        localDataRepository = repository,
+        draftLauncher = AndroidWhatsAppDraftLauncher(application)
+    )
+    private val gemmaPromptBuilder = GemmaPromptBuilder()
+    private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
 
     private val _state = MutableStateFlow<VoiceAssistantState>(VoiceAssistantState.Idle)
     val state: StateFlow<VoiceAssistantState> = _state.asStateFlow()
@@ -40,14 +73,43 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val _partialTranscript = MutableStateFlow("")
     val partialTranscript: StateFlow<String> = _partialTranscript.asStateFlow()
 
+    private val _amplitude = MutableStateFlow(0)
+    val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
+
+    val voiceInputMode: StateFlow<VoiceInputMode> = preferencesRepository.voiceInputModeFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = VoiceInputMode.TapToggle
+    )
+
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var pendingStopListeningJob: Job? = null
     private var isTtsInitialized = false
     private var forceSystemRecognition = false
     private var isCurrentRecognizerOnDevice: Boolean? = null
 
     init {
         initTextToSpeech()
+        initializeFunctionGemmaIfInstalled()
+    }
+
+    private fun initializeFunctionGemmaIfInstalled() {
+        viewModelScope.launch {
+            ensureFunctionGemmaReady()
+        }
+    }
+
+    private suspend fun ensureFunctionGemmaReady(): Boolean {
+        if (gemmaModelManager.isReady) {
+            return true
+        }
+        return when (val model = functionGemmaModelResolver.resolveMobileActionsModel()) {
+            is InstalledFunctionGemmaModel.Ready -> {
+                gemmaModelManager.initialize(model.config) == GemmaEngineResult.Ready
+            }
+            is InstalledFunctionGemmaModel.Missing -> false
+        }
     }
 
     private fun initTextToSpeech() {
@@ -56,7 +118,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 isTtsInitialized = true
                 tts?.language = Locale.US
                 
-                tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
                         Log.d(TAG, "TTS started: $utteranceId")
                     }
@@ -68,8 +130,18 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                         }
                     }
 
+                    @Suppress("OVERRIDE_DEPRECATION")
                     override fun onError(utteranceId: String?) {
-                        Log.e(TAG, "TTS error: $utteranceId")
+                        handleTtsError(utteranceId, null)
+                    }
+
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        handleTtsError(utteranceId, errorCode)
+                    }
+
+                    private fun handleTtsError(utteranceId: String?, errorCode: Int?) {
+                        val suffix = errorCode?.let { " code=$it" }.orEmpty()
+                        Log.e(TAG, "TTS error: $utteranceId$suffix")
                         if (_state.value is VoiceAssistantState.SpeakingMessages) {
                             _state.value = VoiceAssistantState.Idle
                         }
@@ -83,6 +155,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun startListening() {
         val context = getApplication<Application>()
+        pendingStopListeningJob?.cancel()
         
         // 1. Check permission first
         val hasMicrophonePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -137,7 +210,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onBeginningOfSpeech() {}
 
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) {
+                    _amplitude.value = convertRmsDbToAmplitude(rmsdB)
+                }
 
                 override fun onBufferReceived(buffer: ByteArray?) {}
 
@@ -145,6 +220,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onError(error: Int) {
                     _partialTranscript.value = ""
+                    _amplitude.value = 0
                     if (useOnDevice && (error == 13 || error == 12)) {
                         Log.w(TAG, "Offline recognition language pack unavailable (code $error).")
                         _state.value = VoiceAssistantState.LanguagePackMissingError
@@ -169,6 +245,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
                 override fun onResults(results: Bundle?) {
                     _partialTranscript.value = ""
+                    _amplitude.value = 0
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     val transcript = matches?.firstOrNull() ?: ""
                     if (transcript.isNotEmpty()) {
@@ -196,28 +273,86 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun stopListening() {
-        try {
-            speechRecognizer?.stopListening()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping SpeechRecognizer", e)
+        stopListeningAfterDelay(delayMillis = voiceRecognitionStopDelayMillis(VoiceInputMode.TapToggle))
+    }
+
+    fun stopListeningAfterHold() {
+        stopListeningAfterDelay(delayMillis = voiceRecognitionStopDelayMillis(VoiceInputMode.HoldToSpeak))
+    }
+
+    private fun stopListeningAfterDelay(delayMillis: Long) {
+        pendingStopListeningJob?.cancel()
+        pendingStopListeningJob = viewModelScope.launch {
+            if (delayMillis > 0L) {
+                delay(delayMillis)
+            }
+            try {
+                speechRecognizer?.stopListening()
+                _amplitude.value = 0
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping SpeechRecognizer", e)
+            }
         }
     }
 
     private fun processTranscript(transcript: String) {
         _state.value = VoiceAssistantState.TranscriptReady(transcript)
         val command = VoiceCommandParser.parse(transcript)
-        _state.value = VoiceAssistantState.CommandReady(command)
 
         when (command) {
             is VoiceCommand.ReadLatestMessages -> {
+                _state.value = VoiceAssistantState.CommandReady(command)
                 // ReadLatestMessages does not immediately speak; wait for user confirmation
             }
             is VoiceCommand.ReplyToLatestActiveMessage -> {
+                _state.value = VoiceAssistantState.CommandReady(command)
                 prepareVoiceReply(command.replyText)
             }
             is VoiceCommand.Unsupported -> {
-                _state.value = VoiceAssistantState.Failure(command.reason)
+                requestFunctionGemmaProposal(transcript, command.reason)
             }
+        }
+    }
+
+    private fun requestFunctionGemmaProposal(transcript: String, fallbackReason: String) {
+        viewModelScope.launch {
+            if (!ensureFunctionGemmaReady()) {
+                _state.value = VoiceAssistantState.Failure(fallbackReason)
+                return@launch
+            }
+
+            _state.value = VoiceAssistantState.Streaming("")
+            val decryptedMessages = repository.getAllDecryptedMessages()
+            val promptContext = decryptedMessages.map { message ->
+                GemmaMessageContext.fromDecryptedMessage(
+                    messageEventId = message.id,
+                    notificationKey = message.notificationKey,
+                    conversationName = message.conversationId,
+                    senderName = message.senderName,
+                    decryptedText = message.decryptedText,
+                    postedAt = message.postedAt
+                )
+            }
+            val prompt = gemmaPromptBuilder.buildForUserCommand(
+                userCommand = transcript,
+                messages = promptContext
+            )
+            val result = gemmaModelManager.generateToolProposal(
+                prompt = prompt,
+                registry = whatsAppToolRegistry
+            ) { partialText ->
+                _state.value = VoiceAssistantState.Streaming(partialText)
+            }
+            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            val conversationTitleByNotificationKey = decryptedMessages
+                .associate { it.notificationKey to it.conversationId }
+            _state.value = functionGemmaProposalHandler.resolve(
+                result = result,
+                context = FunctionGemmaVoiceProposalContext(
+                    activeNotificationKeys = activeKeys,
+                    conversationTitleByNotificationKey = conversationTitleByNotificationKey
+                )
+            )
         }
     }
 
@@ -237,6 +372,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             if (latestActiveMessage == null) {
                 // Fallback to active key directly if DB message is missing
                 val fallbackKey = activeKeys.first()
+                val proposal = toolProposalMapper.mapActiveNotificationReply(fallbackKey, replyText)
+                if (proposal is VoiceToolProposalResult.Invalid) {
+                    _state.value = VoiceAssistantState.Failure(proposal.reason)
+                    return@launch
+                }
                 _state.value = VoiceAssistantState.ConfirmationRequired(
                     PendingVoiceReply(
                         notificationKey = fallbackKey,
@@ -245,6 +385,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     )
                 )
             } else {
+                val proposal = toolProposalMapper.mapActiveNotificationReply(latestActiveMessage.notificationKey, replyText)
+                if (proposal is VoiceToolProposalResult.Invalid) {
+                    _state.value = VoiceAssistantState.Failure(proposal.reason)
+                    return@launch
+                }
                 _state.value = VoiceAssistantState.ConfirmationRequired(
                     PendingVoiceReply(
                         notificationKey = latestActiveMessage.notificationKey,
@@ -270,6 +415,19 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 ReplySendResult.FailedSafely -> "Failed to send reply safely."
             }
             _state.value = VoiceAssistantState.Failure(safeReason)
+        }
+    }
+
+    fun confirmLocalTool(action: PendingLocalToolAction) {
+        viewModelScope.launch {
+            when (val result = localToolExecutor.executeConfirmed(action.decision)) {
+                is ToolExecutionResult.Success -> {
+                    _state.value = VoiceAssistantState.LocalToolSucceeded(result.message)
+                }
+                is ToolExecutionResult.Rejected -> {
+                    _state.value = VoiceAssistantState.Failure(result.reason)
+                }
+            }
         }
     }
 
@@ -313,9 +471,15 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             Log.e(TAG, "Error stopping TTS", e)
         }
         _partialTranscript.value = ""
+        _amplitude.value = 0
         if (_state.value is VoiceAssistantState.SpeakingMessages) {
             _state.value = VoiceAssistantState.Idle
         }
+    }
+
+    fun stopResponse() {
+        gemmaModelManager.stopResponse()
+        resetToIdle()
     }
 
     private fun speakText(text: String) {
@@ -338,7 +502,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun resetToIdle() {
         forceSystemRecognition = false
+        pendingStopListeningJob?.cancel()
         _partialTranscript.value = ""
+        _amplitude.value = 0
         try {
             tts?.stop()
         } catch (e: Exception) {
@@ -352,8 +518,14 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         _state.value = VoiceAssistantState.Idle
     }
 
+    fun cancelListening() {
+        resetToIdle()
+    }
+
     private fun destroySpeechRecognizer() {
+        pendingStopListeningJob?.cancel()
         _partialTranscript.value = ""
+        _amplitude.value = 0
         try {
             speechRecognizer?.destroy()
             speechRecognizer = null
@@ -365,6 +537,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     override fun onCleared() {
         super.onCleared()
         destroySpeechRecognizer()
+        gemmaModelManager.release()
         try {
             tts?.shutdown()
             tts = null
@@ -372,4 +545,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             Log.e(TAG, "Error shutting down TTS", e)
         }
     }
+}
+
+internal fun convertRmsDbToAmplitude(rmsdB: Float): Int {
+    val clamped = rmsdB.coerceIn(AUDIO_METER_MIN_DB, AUDIO_METER_MAX_DB)
+    return ((clamped - AUDIO_METER_MIN_DB) * 65535f / (AUDIO_METER_MAX_DB - AUDIO_METER_MIN_DB)).toInt()
 }

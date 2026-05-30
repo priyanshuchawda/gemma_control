@@ -1,22 +1,40 @@
 package com.example.gemmacontrol.ui.main
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.ai.model.FunctionGemmaModelCatalog
+import com.example.gemmacontrol.ai.model.ModelDownloadManager
+import com.example.gemmacontrol.ai.model.ModelDownloadRequest
+import com.example.gemmacontrol.ai.model.ModelDownloadUiStateMapper
+import com.example.gemmacontrol.ai.model.ModelDownloadFiles
+import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import java.io.File
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +44,46 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val preferencesRepository = remember(context.applicationContext) {
+        ServiceLocator.getPreferencesRepository(context.applicationContext)
+    }
+    val modelDownloadManager = remember { ModelDownloadManager() }
+    val mobileActionsModel = FunctionGemmaModelCatalog.MobileActions
+    val modelWorkInfoFlow = remember(context.applicationContext, mobileActionsModel.fileName) {
+        modelDownloadManager.observe(context.applicationContext, mobileActionsModel.fileName)
+    }
+    val modelWorkInfos = modelWorkInfoFlow
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+        .value
+    val modelDownloadState = ModelDownloadUiStateMapper.map(modelWorkInfos.firstOrNull())
+    val expectedModelFile = remember(context.applicationContext) {
+        File(
+            File(context.applicationContext.filesDir, ModelDownloadFiles.MODEL_DIRECTORY),
+            mobileActionsModel.fileName
+        )
+    }
+    val isModelInstalled = remember { mutableStateOf(expectedModelFile.isFile && expectedModelFile.length() > 0L) }
+    LaunchedEffect(modelDownloadState.status) {
+        isModelInstalled.value = expectedModelFile.isFile && expectedModelFile.length() > 0L
+    }
+    val voiceInputMode = preferencesRepository.voiceInputModeFlow.collectAsStateWithLifecycle(
+        initialValue = VoiceInputMode.TapToggle
+    ).value
+    val coroutineScope = rememberCoroutineScope()
+    val reminderNotificationsGranted = remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < 33 ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        reminderNotificationsGranted.value = granted
+    }
 
     val miuiAutostartIntent = remember {
         android.content.Intent().apply {
@@ -58,7 +116,7 @@ fun SettingsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -131,6 +189,59 @@ fun SettingsScreen(
                     } catch (e: Exception) {
                         context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS))
                     }
+                }
+            )
+
+            if (Build.VERSION.SDK_INT >= 33) {
+                PermissionLinkCard(
+                    emoji = "⏰",
+                    title = "Reminder Notifications",
+                    description = if (reminderNotificationsGranted.value) {
+                        "Enabled for local reminder alerts. Reminder notes stay encrypted in the local database until the reminder worker runs."
+                    } else {
+                        "Required only for user-confirmed local reminders. WhatsApp capture and model prompts do not use this permission."
+                    },
+                    buttonLabel = if (reminderNotificationsGranted.value) {
+                        "Reminder Notifications Enabled"
+                    } else {
+                        "Grant Reminder Notifications →"
+                    },
+                    enabled = !reminderNotificationsGranted.value,
+                    onAction = {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                )
+            }
+
+            SectionHeader("Voice Assistant")
+
+            VoiceInputModeCard(
+                voiceInputMode = voiceInputMode,
+                onVoiceInputModeChange = { mode ->
+                    coroutineScope.launch {
+                        preferencesRepository.setVoiceInputMode(mode)
+                    }
+                }
+            )
+
+            SectionHeader("FunctionGemma Model")
+
+            FunctionGemmaModelDownloadCard(
+                model = mobileActionsModel,
+                expectedPath = expectedModelFile.absolutePath,
+                installed = isModelInstalled.value,
+                downloadState = modelDownloadState,
+                onDownload = { url, sha256 ->
+                    ModelDownloadRequest(
+                        url = url,
+                        fileName = mobileActionsModel.fileName,
+                        sha256 = sha256
+                    ).also { request ->
+                        modelDownloadManager.enqueue(context.applicationContext, request)
+                    }
+                },
+                onCancel = {
+                    modelDownloadManager.cancel(context.applicationContext, mobileActionsModel.fileName)
                 }
             )
 
@@ -210,57 +321,6 @@ fun SettingsScreen(
 
             // Bottom padding for scroll breathing room
             Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 4.dp)
-    )
-}
-
-@Composable
-private fun PermissionLinkCard(
-    emoji: String,
-    title: String,
-    description: String,
-    buttonLabel: String,
-    onAction: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(emoji, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = onAction,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(buttonLabel, style = MaterialTheme.typography.labelLarge)
-            }
         }
     }
 }
