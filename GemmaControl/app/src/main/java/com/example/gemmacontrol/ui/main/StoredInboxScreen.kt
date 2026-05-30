@@ -62,13 +62,8 @@ fun StoredInboxScreen(
     val activeRepliesAvailability by viewModel.activeRepliesAvailability.collectAsStateWithLifecycle()
     val actionableItems by viewModel.actionableItems.collectAsStateWithLifecycle()
 
-    var showStorageConfirmDialog by remember { mutableStateOf(false) }
-    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-
-    var activeReplyMessage by remember { mutableStateOf<DecryptedMessage?>(null) }
+    var activeSheet by remember { mutableStateOf<StoredInboxSheet?>(null) }
     var replyText by remember { mutableStateOf("") }
-    var showReplyDialog by remember { mutableStateOf(false) }
-    var showReplyConfirmDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -111,7 +106,7 @@ fun StoredInboxScreen(
                 },
                 actions = {
                     if (messages.isNotEmpty()) {
-                        IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        IconButton(onClick = { activeSheet = StoredInboxSheet.DeleteAll }) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete All",
@@ -187,7 +182,7 @@ fun StoredInboxScreen(
                                 checked = storageEnabled,
                                 onCheckedChange = { checked ->
                                     if (checked) {
-                                        showStorageConfirmDialog = true
+                                        activeSheet = StoredInboxSheet.EnableStorage
                                     } else {
                                         viewModel.setStorageEnabled(false)
                                     }
@@ -298,9 +293,8 @@ fun StoredInboxScreen(
                         formatter = formatter,
                         isReplyAvailable = isReplyAvailable,
                         onReplyClick = {
-                            activeReplyMessage = message
                             replyText = ""
-                            showReplyDialog = true
+                            activeSheet = StoredInboxSheet.ComposeReply(message)
                         }
                     )
                 }
@@ -308,191 +302,275 @@ fun StoredInboxScreen(
         }
     }
 
-    // Confirmation Dialog for enabling storage
-    if (showStorageConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showStorageConfirmDialog = false },
-            title = { Text("Enable Local Storage?") },
-            text = {
-                Text("This will encrypt and persist incoming WhatsApp message previews locally on this device. Your data will never leave your phone.")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.setStorageEnabled(true)
-                        showStorageConfirmDialog = false
-                    }
-                ) {
-                    Text("Enable")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStorageConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Confirmation Dialog for deleting all data
-    if (showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Delete All Messages?") },
-            text = {
-                Text("Are you sure you want to permanently delete all locally stored WhatsApp messages? This action cannot be undone and will not affect your chats in WhatsApp.")
-            },
-            confirmButton = {
-                Button(
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    onClick = {
-                        viewModel.deleteAllMessages()
-                        showDeleteConfirmDialog = false
-                    }
-                ) {
-                    Text("Delete All", color = MaterialTheme.colorScheme.onError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Reply Composer Dialog
-    if (showReplyDialog && activeReplyMessage != null) {
-        val message = activeReplyMessage!!
-        AlertDialog(
+    activeSheet?.let { sheet ->
+        ModalBottomSheet(
             onDismissRequest = {
-                showReplyDialog = false
+                activeSheet = null
                 replyText = ""
-                activeReplyMessage = null
             },
-            title = {
-                Text(
-                    text = "Reply to ${message.conversationId}",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Preview bubble of what is being replied to
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            if (message.senderName != null && message.senderName != message.conversationId) {
-                                Text(
-                                    text = message.senderName,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Text(
-                                text = message.decryptedText ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            StoredInboxSheetContent(
+                sheet = sheet,
+                replyText = replyText,
+                onReplyTextChange = { if (it.length <= 1000) replyText = it },
+                onEnableStorage = {
+                    viewModel.setStorageEnabled(true)
+                    activeSheet = null
+                },
+                onDeleteAll = {
+                    viewModel.deleteAllMessages()
+                    activeSheet = null
+                },
+                onCancel = {
+                    activeSheet = null
+                    replyText = ""
+                },
+                onReviewReply = { message ->
+                    if (replyText.trim().isNotEmpty()) {
+                        activeSheet = StoredInboxSheet.ConfirmReply(message)
                     }
+                },
+                onSendReply = { message ->
+                    val result = viewModel.sendConfirmedReply(message.notificationKey, replyText)
+                    activeSheet = null
+                    replyText = ""
+                    scope.launch {
+                        snackbarHostState.showSnackbar(result.toSnackbarMessage())
+                    }
+                }
+            )
+        }
+    }
+}
 
-                    OutlinedTextField(
-                        value = replyText,
-                        onValueChange = { if (it.length <= 1000) replyText = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        label = { Text("Your reply") },
-                        placeholder = { Text("Type your reply...") },
-                        maxLines = 5,
-                        supportingText = {
-                            Text(
-                                text = "${replyText.length} / 1000",
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.End
-                            )
-                        }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (replyText.trim().isNotEmpty()) {
-                            showReplyConfirmDialog = true
-                        }
-                    },
-                    enabled = replyText.trim().isNotEmpty()
-                ) {
-                    Text("Review Send")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showReplyDialog = false
-                        replyText = ""
-                        activeReplyMessage = null
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
+@Composable
+private fun StoredInboxSheetContent(
+    sheet: StoredInboxSheet,
+    replyText: String,
+    onReplyTextChange: (String) -> Unit,
+    onEnableStorage: () -> Unit,
+    onDeleteAll: () -> Unit,
+    onCancel: () -> Unit,
+    onReviewReply: (DecryptedMessage) -> Unit,
+    onSendReply: (DecryptedMessage) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            text = storedInboxSheetTitle(sheet),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+        )
+
+        when (sheet) {
+            StoredInboxSheet.EnableStorage -> EnableStorageSheetBody(
+                onCancel = onCancel,
+                onEnableStorage = onEnableStorage
+            )
+            StoredInboxSheet.DeleteAll -> DeleteAllSheetBody(
+                onCancel = onCancel,
+                onDeleteAll = onDeleteAll
+            )
+            is StoredInboxSheet.ComposeReply -> ComposeReplySheetBody(
+                message = sheet.message,
+                replyText = replyText,
+                onReplyTextChange = onReplyTextChange,
+                onCancel = onCancel,
+                onReviewReply = onReviewReply
+            )
+            is StoredInboxSheet.ConfirmReply -> ConfirmReplySheetBody(
+                message = sheet.message,
+                replyText = replyText,
+                onCancel = onCancel,
+                onSendReply = onSendReply
+            )
+        }
+    }
+}
+
+@Composable
+private fun EnableStorageSheetBody(
+    onCancel: () -> Unit,
+    onEnableStorage: () -> Unit
+) {
+    Text(
+        text = "Incoming WhatsApp message previews will be encrypted and stored locally on this device. Your data stays on the phone.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    TwoActionButtons(
+        secondaryText = "Cancel",
+        primaryText = "Enable",
+        onSecondaryClick = onCancel,
+        onPrimaryClick = onEnableStorage
+    )
+}
+
+@Composable
+private fun DeleteAllSheetBody(
+    onCancel: () -> Unit,
+    onDeleteAll: () -> Unit
+) {
+    Text(
+        text = "This permanently deletes locally stored WhatsApp messages, follow-ups, reminders, and active references from this app. It does not affect WhatsApp chats.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    TwoActionButtons(
+        secondaryText = "Cancel",
+        primaryText = "Delete All",
+        onSecondaryClick = onCancel,
+        onPrimaryClick = onDeleteAll,
+        destructive = true
+    )
+}
+
+@Composable
+private fun ComposeReplySheetBody(
+    message: DecryptedMessage,
+    replyText: String,
+    onReplyTextChange: (String) -> Unit,
+    onCancel: () -> Unit,
+    onReviewReply: (DecryptedMessage) -> Unit
+) {
+    ReplyMessagePreview(message)
+    OutlinedTextField(
+        value = replyText,
+        onValueChange = onReplyTextChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(132.dp),
+        label = { Text("Your reply") },
+        placeholder = { Text("Type your reply...") },
+        maxLines = 5,
+        supportingText = {
+            Text(
+                text = "${replyText.length} / 1000",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End
+            )
+        }
+    )
+    TwoActionButtons(
+        secondaryText = "Cancel",
+        primaryText = "Review Send",
+        onSecondaryClick = onCancel,
+        onPrimaryClick = { onReviewReply(message) },
+        primaryEnabled = replyText.trim().isNotEmpty()
+    )
+}
+
+@Composable
+private fun ConfirmReplySheetBody(
+    message: DecryptedMessage,
+    replyText: String,
+    onCancel: () -> Unit,
+    onSendReply: (DecryptedMessage) -> Unit
+) {
+    Text(
+        text = "Send this reply through the active WhatsApp notification?",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    ReplyMessagePreview(message)
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = replyText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(12.dp)
         )
     }
+    TwoActionButtons(
+        secondaryText = "Cancel",
+        primaryText = "Confirm Send",
+        onSecondaryClick = onCancel,
+        onPrimaryClick = { onSendReply(message) }
+    )
+}
 
-    // Final Confirmation Dialog
-    if (showReplyConfirmDialog && activeReplyMessage != null) {
-        val message = activeReplyMessage!!
-        AlertDialog(
-            onDismissRequest = { showReplyConfirmDialog = false },
-            title = { Text("Confirm Send?") },
-            text = {
-                Text("Send this reply through the active WhatsApp notification?")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showReplyConfirmDialog = false
-                        showReplyDialog = false
-
-                        val result = viewModel.sendConfirmedReply(message.notificationKey, replyText)
-
-                        replyText = ""
-                        activeReplyMessage = null
-
-                        scope.launch {
-                            val msg = when (result) {
-                                com.example.gemmacontrol.notifications.ReplySendResult.Success ->
-                                    "Reply sent through active notification."
-                                com.example.gemmacontrol.notifications.ReplySendResult.NoActiveReplyAction,
-                                com.example.gemmacontrol.notifications.ReplySendResult.NotificationExpired ->
-                                    "Reply unavailable. The notification may have expired or been cleared."
-                                else ->
-                                    "Reply could not be sent safely. Try from a new notification."
-                            }
-                            snackbarHostState.showSnackbar(msg)
-                        }
-                    }
-                ) {
-                    Text("Confirm Send")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showReplyConfirmDialog = false }) {
-                    Text("Cancel")
-                }
+@Composable
+private fun ReplyMessagePreview(message: DecryptedMessage) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (message.senderName != null && message.senderName != message.conversationId) {
+                Text(
+                    text = message.senderName,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
-        )
+            Text(
+                text = message.decryptedText ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun TwoActionButtons(
+    secondaryText: String,
+    primaryText: String,
+    onSecondaryClick: () -> Unit,
+    onPrimaryClick: () -> Unit,
+    destructive: Boolean = false,
+    primaryEnabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedButton(
+            onClick = onSecondaryClick,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(secondaryText)
+        }
+        Button(
+            onClick = onPrimaryClick,
+            enabled = primaryEnabled,
+            colors = if (destructive) {
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(primaryText)
+        }
+    }
+}
+
+private fun com.example.gemmacontrol.notifications.ReplySendResult.toSnackbarMessage(): String {
+    return when (this) {
+        com.example.gemmacontrol.notifications.ReplySendResult.Success ->
+            "Reply sent through active notification."
+        com.example.gemmacontrol.notifications.ReplySendResult.NoActiveReplyAction,
+        com.example.gemmacontrol.notifications.ReplySendResult.NotificationExpired ->
+            "Reply unavailable. The notification may have expired or been cleared."
+        else ->
+            "Reply could not be sent safely. Try from a new notification."
     }
 }
 
