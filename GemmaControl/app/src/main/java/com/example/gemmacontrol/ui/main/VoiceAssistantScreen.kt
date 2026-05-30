@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -635,6 +637,7 @@ private fun LocalToolConfirmationCard(
     onCancel: () -> Unit,
     onConfirm: (PendingLocalToolAction) -> Unit,
 ) {
+    val details = remember(action) { toolCallDetailsUiState(action) }
     Card(
         shape = VoiceCardShape,
         colors = CardDefaults.cardColors(
@@ -666,6 +669,7 @@ private fun LocalToolConfirmationCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            ToolCallDetailsPanel(details)
             TwoButtonRow(
                 secondaryText = "Cancel",
                 primaryText = action.confirmText,
@@ -673,6 +677,93 @@ private fun LocalToolConfirmationCard(
                 onPrimaryClick = { onConfirm(action) }
             )
         }
+    }
+}
+
+@Composable
+private fun ToolCallDetailsPanel(details: ToolCallDetailsUiState) {
+    Surface(
+        shape = VoiceCardShape,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription =
+                    "FunctionGemma proposed ${details.toolName}. ${details.safetyLabel}."
+            }
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "FunctionGemma call",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        details.toolName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(50.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(
+                    details.safetyLabel,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+            Text(
+                details.boundaryLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (details.arguments.isEmpty()) {
+                    Text(
+                        details.emptyArgumentsLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    details.arguments.forEach { row ->
+                        ToolCallArgumentRow(row)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolCallArgumentRow(row: ToolCallDetailRow) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            row.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            row.value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
