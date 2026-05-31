@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/assets",
+    "rootDir": "src",
+    "sourceMap": true,
+    "removeComments": true
+  }
+}
