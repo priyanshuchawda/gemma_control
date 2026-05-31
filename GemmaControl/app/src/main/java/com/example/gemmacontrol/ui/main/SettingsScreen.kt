@@ -231,18 +231,20 @@ fun SettingsScreen(
                 expectedPath = expectedModelFile.absolutePath,
                 installed = isModelInstalled.value,
                 downloadState = modelDownloadState,
-                onDownload = { url, sha256 ->
-                    ModelDownloadRequest(
-                        url = url,
-                        fileName = mobileActionsModel.fileName,
-                        sha256 = sha256
-                    ).also { request ->
-                        modelDownloadManager.enqueue(context.applicationContext, request)
+                actions = FunctionGemmaModelDownloadActions(
+                    onDownload = { url, sha256 ->
+                        ModelDownloadRequest(
+                            url = url,
+                            fileName = mobileActionsModel.fileName,
+                            sha256 = sha256
+                        ).also { request ->
+                            modelDownloadManager.enqueue(context.applicationContext, request)
+                        }
+                    },
+                    onCancel = {
+                        modelDownloadManager.cancel(context.applicationContext, mobileActionsModel.fileName)
                     }
-                },
-                onCancel = {
-                    modelDownloadManager.cancel(context.applicationContext, mobileActionsModel.fileName)
-                }
+                )
             )
 
             SectionHeader("Xiaomi / HyperOS Background Settings")
