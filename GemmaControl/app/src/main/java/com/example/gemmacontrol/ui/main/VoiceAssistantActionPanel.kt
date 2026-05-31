@@ -72,13 +72,7 @@ private fun VoiceAssistantActionBottomSheet(
     ) {
         VoiceAssistantActionSheetContent(
             state = state,
-            onCancel = actions.onCancel,
-            onReadAloud = actions.onReadAloud,
-            onConfirmSend = actions.onConfirmSend,
-            onConfirmLocalTool = actions.onConfirmLocalTool,
-            onOpenSpeechSettings = actions.onOpenSpeechSettings,
-            onAllowSystemRecognition = actions.onAllowSystemRecognition,
-            onContinueSystemRecognition = actions.onContinueSystemRecognition
+            actions = actions
         )
     }
 }
