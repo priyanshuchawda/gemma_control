@@ -40,6 +40,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+data class SetupStepCardState(
+    val step: Int,
+    val icon: ImageVector,
+    val title: String,
+    val description: String,
+    val isGranted: Boolean,
+    val buttonLabel: String
+)
+
 @Composable
 fun ProgressBadge(done: Int, total: Int) {
     val color = when (done) {
@@ -65,16 +74,11 @@ fun ProgressBadge(done: Int, total: Int) {
 
 @Composable
 fun SetupStepCard(
-    step: Int,
-    icon: ImageVector,
-    title: String,
-    description: String,
-    isGranted: Boolean,
-    buttonLabel: String,
+    state: SetupStepCardState,
     onAction: () -> Unit
 ) {
-    val accentColor = if (isGranted) AccentGreen else AccentBlue
-    val borderColor = if (isGranted) AccentGreen.copy(alpha = 0.4f) else CardBorder
+    val accentColor = if (state.isGranted) AccentGreen else AccentBlue
+    val borderColor = if (state.isGranted) AccentGreen.copy(alpha = 0.4f) else CardBorder
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -84,59 +88,80 @@ fun SetupStepCard(
             .border(1.dp, borderColor, RoundedCornerShape(16.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(accentColor.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(20.dp))
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Step $step",
-                        fontSize = 11.sp,
-                        color = accentColor,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp
-                    )
-                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                }
-                if (isGranted) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = AccentGreen, modifier = Modifier.size(24.dp))
-                } else {
-                    Icon(Icons.Default.Warning, contentDescription = "Required", tint = AccentOrange, modifier = Modifier.size(24.dp))
-                }
-            }
+            SetupStepCardHeader(state = state, accentColor = accentColor)
+            Text(state.description, fontSize = 13.sp, color = TextMuted, lineHeight = 18.sp)
+            SetupStepCardAction(
+                isGranted = state.isGranted,
+                buttonLabel = state.buttonLabel,
+                accentColor = accentColor,
+                onAction = onAction
+            )
+        }
+    }
+}
 
-            Text(description, fontSize = 13.sp, color = TextMuted, lineHeight = 18.sp)
+@Composable
+private fun SetupStepCardHeader(
+    state: SetupStepCardState,
+    accentColor: androidx.compose.ui.graphics.Color
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(accentColor.copy(alpha = 0.12f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(state.icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(20.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Step ${state.step}",
+                fontSize = 11.sp,
+                color = accentColor,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Text(state.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        }
+        if (state.isGranted) {
+            Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = AccentGreen, modifier = Modifier.size(24.dp))
+        } else {
+            Icon(Icons.Default.Warning, contentDescription = "Required", tint = AccentOrange, modifier = Modifier.size(24.dp))
+        }
+    }
+}
 
-            if (!isGranted) {
-                Button(
-                    onClick = onAction,
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(buttonLabel, fontWeight = FontWeight.SemiBold)
-                }
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentGreen.copy(alpha = 0.1f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "✓  Configured",
-                        fontSize = 13.sp,
-                        color = AccentGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
+@Composable
+private fun SetupStepCardAction(
+    isGranted: Boolean,
+    buttonLabel: String,
+    accentColor: androidx.compose.ui.graphics.Color,
+    onAction: () -> Unit
+) {
+    if (!isGranted) {
+        Button(
+            onClick = onAction,
+            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(buttonLabel, fontWeight = FontWeight.SemiBold)
+        }
+    } else {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = AccentGreen.copy(alpha = 0.1f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                "✓  Configured",
+                fontSize = 13.sp,
+                color = AccentGreen,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(vertical = 10.dp),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

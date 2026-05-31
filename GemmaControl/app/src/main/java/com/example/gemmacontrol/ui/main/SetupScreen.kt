@@ -1,52 +1,34 @@
 package com.example.gemmacontrol.ui.main
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Battery5Bar
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-internal val DarkBg       = Color(0xFF0D1117)
-internal val CardBg       = Color(0xFF161B22)
-internal val CardBorder   = Color(0xFF30363D)
-internal val AccentGreen  = Color(0xFF3FB950)
-internal val AccentBlue   = Color(0xFF58A6FF)
+internal val DarkBg = Color(0xFF0D1117)
+internal val CardBg = Color(0xFF161B22)
+internal val CardBorder = Color(0xFF30363D)
+internal val AccentGreen = Color(0xFF3FB950)
+internal val AccentBlue = Color(0xFF58A6FF)
 internal val AccentOrange = Color(0xFFF0883E)
-internal val AccentRed    = Color(0xFFF85149)
-internal val TextPrimary  = Color(0xFFE6EDF3)
-internal val TextMuted    = Color(0xFF8B949E)
+internal val AccentRed = Color(0xFFF85149)
+internal val TextPrimary = Color(0xFFE6EDF3)
+internal val TextMuted = Color(0xFF8B949E)
 
 @Composable
 fun SetupScreen(
@@ -56,10 +38,49 @@ fun SetupScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+    val progressState = uiState.setupProgressState()
     var showWarningDialog by remember { mutableStateOf(false) }
 
-    // Refresh on every resume (user might have toggled settings and come back)
+    SetupPermissionRefreshEffect(context = context, viewModel = viewModel)
+    SetupAutoCompleteEffect(uiState = uiState, onSetupComplete = onSetupComplete)
+
+    SetupScreenContent(
+        modifier = modifier,
+        state = SetupScreenContentState(
+            uiState = uiState,
+            totalSteps = progressState.totalSteps,
+            displayDoneCount = progressState.displayDoneCount
+        ),
+        setupActions = SetupScreenActions(
+            onRefresh = { viewModel.refreshPermissions(context) },
+            onContinue = onSetupComplete,
+            onContinueAnyway = { showWarningDialog = true }
+        ),
+        permissionActions = SetupPermissionActions(
+            onOpenNotificationAccess = {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
+            onOpenBatterySettings = { openBatterySettings(context) },
+            onAcknowledgeAutostart = { viewModel.acknowledgeAutostart(it) }
+        )
+    )
+
+    if (showWarningDialog) {
+        SetupWarningDialog(
+            onDismiss = { showWarningDialog = false },
+            onConfirm = {
+                showWarningDialog = false
+                onSetupComplete()
+            }
+        )
+    }
+}
+
+@Composable
+private fun SetupPermissionRefreshEffect(
+    context: Context,
+    viewModel: SetupViewModel
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -70,230 +91,43 @@ fun SetupScreen(
     }
 
     LaunchedEffect(Unit) { viewModel.refreshPermissions(context) }
+}
 
-    // Auto-proceed once reliability is complete
+@Composable
+private fun SetupAutoCompleteEffect(
+    uiState: SetupUiState,
+    onSetupComplete: () -> Unit
+) {
     LaunchedEffect(uiState) {
         if (uiState.reliabilitySetupComplete) {
             onSetupComplete()
         }
     }
+}
 
-    val totalSteps = if (uiState.isXiaomiLikeDevice) 3 else 2
+private data class SetupProgressState(
+    val totalSteps: Int,
+    val displayDoneCount: Int
+)
+
+private fun SetupUiState.setupProgressState(): SetupProgressState {
+    val totalSteps = if (isXiaomiLikeDevice) 3 else 2
     val displayDoneCount = listOf(
-        uiState.notificationAccessEnabled,
-        uiState.batteryOptimizationIgnored,
-        uiState.xiaomiAutostartAcknowledged
+        notificationAccessEnabled,
+        batteryOptimizationIgnored,
+        xiaomiAutostartAcknowledged
     ).take(totalSteps).count { it }
+    return SetupProgressState(totalSteps = totalSteps, displayDoneCount = displayDoneCount)
+}
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(DarkBg)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 56.dp, bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Header
-            AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically()) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(AccentBlue.copy(alpha = 0.3f), Color.Transparent)
-                                ),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                    Text(
-                        "GemmaControl Setup",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = TextPrimary,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        "Configure notification access and background reliability settings to enable capture.",
-                        fontSize = 14.sp,
-                        color = TextMuted,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
-                }
-            }
-
-            // Progress indicator
-            ProgressBadge(done = displayDoneCount, total = totalSteps)
-
-            // Step 1 – Notification Listener (Core Requirement)
-            SetupStepCard(
-                step = 1,
-                icon = Icons.Default.Notifications,
-                title = "Grant Notification Access",
-                description = "Allows GemmaControl to read WhatsApp notifications on-device. Nothing is sent off your phone.",
-                isGranted = uiState.notificationAccessEnabled,
-                buttonLabel = "Open Notification Access",
-                onAction = {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
-            )
-
-            // Step 2 – Battery Settings
-            SetupStepCard(
-                step = 2,
-                icon = Icons.Default.Battery5Bar,
-                title = "Configure Battery Settings",
-                description = "On the tested Redmi 13 5G, notification capture resumed after allowing unrestricted battery usage and enabling Autostart. Xiaomi/HyperOS background controls may affect reliability.",
-                isGranted = uiState.batteryOptimizationIgnored,
-                buttonLabel = "Open Battery Settings",
-                onAction = {
-                    try {
-                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                    } catch (e: Exception) {
-                        val intent = Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                        context.startActivity(intent)
-                    }
-                }
-            )
-
-            // Step 3 – MIUI Autostart (Xiaomi-specific)
-            if (uiState.isXiaomiLikeDevice) {
-                MiuiAutostartCard(
-                    acknowledged = uiState.xiaomiAutostartAcknowledged,
-                    onAcknowledge = { viewModel.acknowledgeAutostart(it) }
-                )
-            }
-
-            // Status message if complete
-            if (uiState.reliabilitySetupComplete) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AccentGreen.copy(alpha = 0.15f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, AccentGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                ) {
-                    Text(
-                        text = "Ready for reliable background capture on this tested device configuration.",
-                        color = AccentGreen,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-
-            // Refresh + Continue / Continue anyway buttons
-            Spacer(Modifier.height(4.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { viewModel.refreshPermissions(context) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentBlue.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Refresh Status", fontWeight = FontWeight.SemiBold)
-                    }
-                    Button(
-                        onClick = onSetupComplete,
-                        enabled = uiState.reliabilitySetupComplete,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (uiState.reliabilitySetupComplete) AccentGreen else AccentBlue,
-                            disabledContainerColor = CardBorder
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            if (uiState.reliabilitySetupComplete) Icons.Default.CheckCircle else Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (uiState.reliabilitySetupComplete) "All Set!" else "Continue",
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                // If Notification Access is enabled but reliability setup is incomplete, show "Continue anyway"
-                if (uiState.notificationAccessEnabled && !uiState.reliabilitySetupComplete) {
-                    TextButton(
-                        onClick = { showWarningDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColors(contentColor = AccentOrange)
-                    ) {
-                        Text("Continue anyway", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                }
-            }
-        }
-    }
-
-    // Warning Dialog for Continuing anyway
-    if (showWarningDialog) {
-        AlertDialog(
-            onDismissRequest = { showWarningDialog = false },
-            title = { Text("Unreliable Capture Warning", color = TextPrimary, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Background notification capture may be unreliable until battery and Autostart settings are configured.",
-                    color = TextMuted,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showWarningDialog = false
-                        onSetupComplete()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
-                ) {
-                    Text("Continue Anyway", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showWarningDialog = false }) {
-                    Text("Go Back", color = TextMuted)
-                }
-            },
-            containerColor = CardBg,
-            shape = RoundedCornerShape(16.dp)
+private fun openBatterySettings(context: Context) {
+    try {
+        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+    } catch (e: Exception) {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${context.packageName}")
         )
+        context.startActivity(intent)
     }
 }
