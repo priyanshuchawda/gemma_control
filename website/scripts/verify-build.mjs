@@ -12,11 +12,17 @@ const requiredFiles = [
   "assets/main.js.map",
   "assets/app-icon.webp",
   "downloads/README.md",
+  // Legacy stubs (kept for backward compat)
   "styles/base.css",
   "styles/header.css",
   "styles/hero.css",
   "styles/sections.css",
-  "styles/responsive.css"
+  "styles/responsive.css",
+  // New domain-specific partials
+  "styles/tokens.css",
+  "styles/reset.css",
+  "styles/animations.css",
+  "styles/layout.css",
 ];
 
 for (const file of requiredFiles) {

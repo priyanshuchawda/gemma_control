@@ -1,4 +1,24 @@
-@import url("./styles/base.css");
+/*
+ * styles.css — Main CSS entry point
+ *
+ * Import order matters:
+ *   1. tokens     — CSS custom properties (must be first)
+ *   2. reset      — Normalize + body base
+ *   3. animations — @keyframes + reveal utilities
+ *   4. layout     — Orbs, shell, buttons, typography
+ *   5. header     — Sticky nav
+ *   6. hero       — Hero section + phone mockup + proof strip
+ *   7. sections   — Features, Download, Privacy, Install, CTA, Footer
+ *   8. responsive — Breakpoint overrides (must be last)
+ *
+ * Legacy partials (base, hero, sections, responsive) are kept as stubs
+ * so the build-verify script can confirm they exist in dist/styles/.
+ */
+
+@import url("./styles/tokens.css");
+@import url("./styles/reset.css");
+@import url("./styles/animations.css");
+@import url("./styles/layout.css");
 @import url("./styles/header.css");
 @import url("./styles/hero.css");
 @import url("./styles/sections.css");
