@@ -1,0 +1,167 @@
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: clamp(2rem, 7vw, 5rem);
+  align-items: center;
+  min-height: calc(100svh - 5rem);
+  padding-top: clamp(3rem, 7vw, 5.5rem);
+}
+
+.eyebrow,
+.card-eyebrow,
+.tiny-label {
+  margin: 0 0 0.8rem;
+  color: var(--primary-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-lede,
+.section-heading p,
+.support-section p {
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 2rem 0 2.25rem;
+}
+
+.hero-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  max-width: 620px;
+  margin: 0;
+}
+
+.hero-facts div {
+  border: 1px solid rgba(8, 47, 73, 0.1);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.64);
+  padding: 1rem;
+}
+
+.hero-facts dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.hero-facts dd {
+  margin: 0.35rem 0 0;
+  font-weight: 900;
+}
+
+.device-visual {
+  display: grid;
+  place-items: center;
+}
+
+.phone-frame {
+  width: min(100%, 390px);
+  border: 10px solid #082f49;
+  border-radius: 2.5rem;
+  background: #eff6ff;
+  padding: 1.2rem;
+  box-shadow: var(--shadow);
+}
+
+.phone-status,
+.bottom-tabs,
+.app-card,
+.split {
+  display: flex;
+  align-items: center;
+}
+
+.phone-status {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.phone-status span {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.phone-status span:first-child {
+  width: 4.5rem;
+}
+
+.phone-status span:last-child {
+  width: 2rem;
+}
+
+.app-card {
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 1rem;
+  box-shadow: 0 10px 24px rgba(8, 47, 73, 0.08);
+}
+
+.app-card + .app-card {
+  margin-top: 0.85rem;
+}
+
+.app-card p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.app-card-primary {
+  background: #0f766e;
+  color: white;
+}
+
+.app-card-primary .tiny-label {
+  color: #ccfbf1;
+}
+
+.mic-mark {
+  display: grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mic-mark svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.split {
+  justify-content: space-between;
+}
+
+.bottom-tabs {
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.bottom-tabs span {
+  width: 0.56rem;
+  height: 0.56rem;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.bottom-tabs .active {
+  width: 1.8rem;
+  background: var(--primary);
+}
