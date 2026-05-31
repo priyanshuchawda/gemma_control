@@ -1,0 +1,134 @@
+/* ════════════════ DOWNLOAD ════════════════ */
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.download-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+  padding: 1.5rem;
+  border-radius: var(--r-lg);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  transition:
+    transform     var(--t) var(--ease),
+    border-color  var(--t) ease,
+    box-shadow    var(--t) ease;
+}
+
+.download-card.primary {
+  background: linear-gradient(140deg, rgba(16, 217, 160, 0.08), rgba(56, 189, 248, 0.05));
+  border-color: rgba(16, 217, 160, 0.28);
+  box-shadow: 0 0 50px rgba(16, 217, 160, 0.08), 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.download-card:hover { transform: translateY(-5px); }
+
+.download-card.primary:hover {
+  border-color: rgba(16, 217, 160, 0.45);
+  box-shadow: 0 0 70px rgba(16, 217, 160, 0.15), 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.download-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.download-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--emerald);
+  flex-shrink: 0;
+}
+
+.download-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.card-eyebrow {
+  display: block;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--emerald);
+  margin-bottom: 0.2rem;
+}
+
+.download-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.download-description {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.7;
+  flex: 1;
+}
+
+.download-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+
+.download-meta li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.download-meta li::before {
+  content: "·";
+  color: var(--emerald);
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.download-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: auto;
+}
+
+.text-link {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  transition: color var(--t) ease, background var(--t) ease;
+}
+
+.text-link:hover { color: var(--text); background: var(--glass); }
+

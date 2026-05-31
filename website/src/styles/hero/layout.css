@@ -1,0 +1,10 @@
+/* ── Hero grid ── */
+.hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: clamp(3rem, 7vw, 5rem);
+  align-items: center;
+  min-height: calc(100svh - 60px);
+  padding-top: clamp(3rem, 6vw, 4rem);
+}
+
