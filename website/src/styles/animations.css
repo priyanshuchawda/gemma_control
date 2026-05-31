@@ -1,0 +1,118 @@
+/* ─────────────────────────────────────────────
+   animations.css — Keyframes & reveal utilities
+   All motion lives here. Prefer reduced-motion
+   override at the bottom of this file.
+───────────────────────────────────────────── */
+
+/* ── Entrance ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Ambient orbs ── */
+@keyframes orbIn {
+  to { opacity: 1; }
+}
+
+@keyframes orbFloat {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -20px) scale(1.07); }
+  66%  { transform: translate(-15px, 25px) scale(0.97); }
+  100% { transform: translate(20px, -10px) scale(1.04); }
+}
+
+/* ── Phone hero ── */
+@keyframes phoneFloat {
+  0%,  100% { transform: translateY(0)    rotate(-0.8deg); }
+  50%        { transform: translateY(-14px) rotate(0.4deg); }
+}
+
+@keyframes glowPulse {
+  0%,  100% { opacity: 0.7; transform: scale(1);   }
+  50%        { opacity: 1;   transform: scale(1.1); }
+}
+
+/* ── UI micro ── */
+@keyframes dotPulse {
+  0%,  100% { box-shadow: 0 0  8px var(--emerald-glow); }
+  50%        { box-shadow: 0 0 18px var(--emerald-glow); }
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Scroll-reveal base state ── */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.55s ease, transform 0.55s var(--ease);
+}
+
+[data-reveal].revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Feature cards */
+.feature-card {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity     0.5s ease,
+    transform   0.5s var(--ease),
+    background  var(--t) ease,
+    border-color var(--t) ease,
+    box-shadow  var(--t) ease;
+}
+
+.feature-card.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Install steps slide in from left */
+.install-steps li {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition:
+    opacity      var(--t) ease,
+    transform    var(--t) var(--ease),
+    background   var(--t) ease,
+    border-color var(--t) ease;
+}
+
+.install-steps li.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Reduced-motion override ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:   0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration:  0.01ms !important;
+  }
+
+  [data-reveal],
+  .feature-card,
+  .install-steps li {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

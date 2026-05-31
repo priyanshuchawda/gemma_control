@@ -1,5 +1,5 @@
+export type DownloadKind = "android" | "model" | "source";
 export type DownloadStatus = "available" | "planned";
-export type DownloadKind = "android" | "windows" | "source";
 
 export interface DownloadItem {
   readonly id: string;

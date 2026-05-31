@@ -1,5 +1,7 @@
 import type { DownloadItem } from "./types.js";
 
+const GH_RELEASE = "https://github.com/priyanshuchawda/gemma_control/releases/latest/download";
+
 export const downloadItems: readonly DownloadItem[] = [
   {
     id: "android-apk",
@@ -7,39 +9,43 @@ export const downloadItems: readonly DownloadItem[] = [
     title: "Android APK",
     eyebrow: "Recommended",
     description:
-      "Install GemmaControl directly on a supported Android phone. Use a signed APK for real users.",
-    href: "downloads/GemmaControl.apk",
+      "Install GemmaControl directly on any Android 16 device. Debug build — sideloading required. Enable Unknown Sources in your browser or file manager.",
+    href: `${GH_RELEASE}/GemmaControl-v1.0.0-debug.apk`,
     fileName: "GemmaControl.apk",
     status: "available",
     primary: true,
-    meta: ["Version 1.0", "Android 16 target", "Local-only workflows"],
+    meta: ["v1.0.0 · Debug build", "Android 16 (API 36)", "arm64-v8a · ~71 MB", "Offline · AES-GCM encrypted"],
     secondaryHref: "https://github.com/priyanshuchawda/gemma_control/releases/latest",
-    secondaryLabel: "GitHub release"
+    secondaryLabel: "View on GitHub →"
   },
   {
-    id: "windows-installer",
-    kind: "windows",
-    title: "Windows installer",
-    eyebrow: "Not available",
+    id: "ai-model",
+    kind: "model",
+    title: "FunctionGemma Model",
+    eyebrow: "AI Model",
     description:
-      "GemmaControl is currently a native Android app. A Windows package should stay disabled until a real desktop build exists.",
-    href: "#support",
-    fileName: "GemmaControl.exe",
-    status: "planned",
+      "The FunctionGemma 270M Q8 quantised model binary for LiteRT-LM. Download separately and place it via the app Settings screen. SHA-256 verified on load.",
+    href: `${GH_RELEASE}/mobile_actions_q8_ekv1024.litertlm`,
+    fileName: "mobile_actions_q8_ekv1024.litertlm",
+    status: "available",
     primary: false,
-    meta: ["No desktop build yet", "Do not upload placeholder EXEs"]
+    meta: ["270M parameters · Q8 quantised", "LiteRT-LM SDK format", "EKV 1024 · ~276 MB", "100% on-device inference"],
+    secondaryHref: "https://github.com/priyanshuchawda/gemma_control/blob/main/docs/ARCHITECTURE.md",
+    secondaryLabel: "Architecture docs →"
   },
   {
     id: "source",
     kind: "source",
-    title: "Source code",
-    eyebrow: "Developers",
+    title: "Source Code",
+    eyebrow: "Open Source",
     description:
-      "Review the Android project, docs, and local verification workflow before building your own artifact.",
+      "Full Kotlin + Jetpack Compose Android source. Review the MVVM architecture, notification parsers, LiteRT engine, and every security boundary before you build.",
     href: "https://github.com/priyanshuchawda/gemma_control",
     fileName: "gemma_control",
     status: "available",
     primary: false,
-    meta: ["Kotlin", "Jetpack Compose", "LiteRT-LM"]
+    meta: ["Kotlin · Jetpack Compose", "Clean MVVM architecture", "MIT License · Open Source", "16 AI tool functions"],
+    secondaryHref: "https://github.com/priyanshuchawda/gemma_control/issues",
+    secondaryLabel: "Report an issue →"
   }
 ];
