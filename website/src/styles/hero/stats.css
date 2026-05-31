@@ -1,0 +1,32 @@
+/* ── Stats strip ── */
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.65rem;
+  max-width: 500px;
+  animation: fadeUp 0.7s 0.4s var(--ease) both;
+}
+
+.stat-item {
+  padding: 0.9rem 1rem;
+  border-radius: var(--r-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+}
+
+.stat-item dt {
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.35rem;
+}
+
+.stat-item dd {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+

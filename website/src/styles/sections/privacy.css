@@ -1,0 +1,81 @@
+/* ════════════════ PRIVACY ════════════════ */
+
+.privacy-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(3rem, 7vw, 6rem);
+  align-items: center;
+}
+
+.privacy-copy h2 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 1rem;
+}
+
+.privacy-copy > p {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+  margin-bottom: 1.75rem;
+}
+
+.privacy-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.privacy-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.privacy-checklist svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Shield visual */
+.shield-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.big-shield {
+  width: min(100%, 200px);
+  filter: drop-shadow(0 0 30px rgba(16, 217, 160, 0.2));
+}
+
+.shield-labels {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.shield-labels span {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: border-color var(--t) ease, transform var(--t) var(--ease);
+}
+
+.shield-labels span:hover {
+  border-color: rgba(16, 217, 160, 0.3);
+  transform: translateY(-2px);
+}
+

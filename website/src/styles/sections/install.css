@@ -1,0 +1,73 @@
+/* ════════════════ INSTALL ════════════════ */
+
+.install-steps { display: grid; gap: 0.7rem; }
+
+.install-steps li {
+  display: grid;
+  grid-template-columns: 4rem 1fr auto;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.4rem 1.5rem;
+  border-radius: var(--r-md);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+}
+
+.install-steps li:hover {
+  background: var(--surface-hi);
+  border-color: rgba(16, 217, 160, 0.18);
+  transform: translateX(6px) !important;
+}
+
+.step-num {
+  font-family: var(--mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--emerald);
+  opacity: 0.5;
+  line-height: 1;
+  text-align: center;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.step-body strong { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+.step-body span   { font-size: 0.84rem; color: var(--text-muted); line-height: 1.6; }
+.step-body em     { color: var(--amber); }
+
+.step-body code {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--sky);
+  background: var(--sky-dim);
+  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.step-link {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: var(--emerald-dim);
+  border: 1px solid rgba(16, 217, 160, 0.22);
+  color: var(--emerald);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background    var(--t) ease,
+    border-color  var(--t) ease,
+    transform     var(--t) var(--ease);
+}
+
+.step-link:hover {
+  background: rgba(16, 217, 160, 0.2);
+  border-color: rgba(16, 217, 160, 0.38);
+  transform: scale(1.04);
+}
+

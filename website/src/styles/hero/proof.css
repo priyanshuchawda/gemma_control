@@ -1,0 +1,45 @@
+/* ── Proof / tech strip ── */
+.proof-strip {
+  padding-top: 0;
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.proof-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.proof-items { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+
+.proof-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition:
+    background    var(--t) ease,
+    border-color  var(--t) ease,
+    transform     var(--t) var(--ease);
+}
+
+.proof-tag:hover {
+  background: var(--surface-hi);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.proof-tag svg { width: 14px; height: 14px; flex-shrink: 0; }

@@ -7,8 +7,8 @@
  *   3. animations — @keyframes + reveal utilities
  *   4. layout     — Orbs, shell, buttons, typography
  *   5. header     — Sticky nav
- *   6. hero       — Hero section + phone mockup + proof strip
- *   7. sections   — Features, Download, Privacy, Install, CTA, Footer
+ *   6. hero       — Hero import index (layout, copy, phone, proof)
+ *   7. sections   — Section import index (features, download, privacy, install, CTA, footer)
  *   8. responsive — Breakpoint overrides (must be last)
  *
  * Legacy partials (base, hero, sections, responsive) are kept as stubs
