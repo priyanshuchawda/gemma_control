@@ -30,6 +30,15 @@ skills-lock.json
 # Android build artifacts
 *.apk
 *.aab
+*.exe
+*.msi
+
+# Website build output and local distributables
+website/dist/
+website/public/downloads/*.apk
+website/public/downloads/*.aab
+website/public/downloads/*.exe
+website/public/downloads/*.msi
 
 # Log files
 *.log

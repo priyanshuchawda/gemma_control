@@ -55,10 +55,25 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   │   ├── build.gradle.kts  # Target and compile configurations (API 36)
 │   │   └── src/main/         # Kotlin Compose sources, listener services, and manifest
 │   └── build.gradle.kts      # Project root Gradle declaration
+├── website/                  # Static TypeScript download website
 ├── plan.md                   # High-level product roadmap
 ├── detailed_plan.md          # Actionable phase-by-phase implementation blueprints
 └── README.md                 # Project cockpit reference
 ```
+
+---
+
+## 🌐 Download Website
+
+The `website/` directory contains a static TypeScript site for distributing GemmaControl without committing app binaries.
+
+```powershell
+cd website
+npm run verify
+npm run serve
+```
+
+The primary APK button points to `downloads/GemmaControl.apk` in the built site. Place a signed APK at `website/public/downloads/GemmaControl.apk` before building, or update `website/src/main.ts` to point to the canonical GitHub Releases artifact. APK/AAB/EXE/MSI files remain ignored and must not be committed.
 
 ---
 

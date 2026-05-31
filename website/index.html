@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; object-src 'none'"
+    />
+    <meta
+      name="description"
+      content="Download GemmaControl, a private on-device Android assistant for safer WhatsApp notification workflows."
+    />
+    <title>GemmaControl - Download</title>
+    <link rel="icon" type="image/webp" href="assets/app-icon.webp" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="assets/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" aria-label="Primary">
+      <a class="brand" href="#top" aria-label="GemmaControl home">
+        <img src="assets/app-icon.webp" width="40" height="40" alt="" />
+        <span>GemmaControl</span>
+      </a>
+      <nav class="nav-links" aria-label="Page sections">
+        <a href="#download">Download</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#install">Install</a>
+        <a href="#support">Support</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section id="top" class="hero section-shell">
+        <div class="hero-copy">
+          <p class="eyebrow">Private WhatsApp workflow assistant</p>
+          <h1>Download the on-device AI assistant built for controlled WhatsApp actions.</h1>
+          <p class="hero-lede">
+            GemmaControl keeps notification capture, voice handling, FunctionGemma proposals,
+            reminders, and reply confirmation on your Android phone. The model proposes;
+            you approve every action.
+          </p>
+          <div class="hero-actions" aria-label="Primary download actions">
+            <a class="button button-primary" href="#download">
+              <span class="button-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" />
+                </svg>
+              </span>
+              Download APK
+            </a>
+            <a class="button button-secondary" href="#install">
+              <span class="button-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M8 7h8M8 12h8M8 17h5M5 3h14v18H5z" />
+                </svg>
+              </span>
+              Install guide
+            </a>
+          </div>
+          <dl class="hero-facts" aria-label="Release facts">
+            <div>
+              <dt>Platform</dt>
+              <dd>Android APK</dd>
+            </div>
+            <div>
+              <dt>App version</dt>
+              <dd>1.0</dd>
+            </div>
+            <div>
+              <dt>Target</dt>
+              <dd>Android 16</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="device-visual" aria-label="GemmaControl app preview">
+          <div class="phone-frame">
+            <div class="phone-status" aria-hidden="true">
+              <span></span>
+              <span></span>
+            </div>
+            <div class="app-card app-card-primary">
+              <div>
+                <span class="tiny-label">Ready</span>
+                <strong>Speak to GemmaControl</strong>
+              </div>
+              <span class="mic-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+                </svg>
+              </span>
+            </div>
+            <div class="app-card">
+              <span class="tiny-label">Function call</span>
+              <strong>reply_to_latest_notification</strong>
+              <p>Needs your confirmation before Android sends anything.</p>
+            </div>
+            <div class="app-card split">
+              <span>Inbox</span>
+              <strong>4 action items</strong>
+            </div>
+            <div class="bottom-tabs" aria-hidden="true">
+              <span class="active"></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" class="section-shell download-section" aria-labelledby="download-title">
+        <div class="section-heading">
+          <p class="eyebrow">Download</p>
+          <h2 id="download-title">Choose the right package.</h2>
+          <p>
+            Production distribution should use signed release artifacts. The APK is not stored
+            in git; place it in the download folder for a local/static build or publish it through
+            GitHub Releases.
+          </p>
+        </div>
+        <div id="download-grid" class="download-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="privacy" class="section-shell trust-section" aria-labelledby="privacy-title">
+        <div class="section-heading compact">
+          <p class="eyebrow">Privacy boundary</p>
+          <h2 id="privacy-title">Private by design, explicit by default.</h2>
+        </div>
+        <div class="trust-grid">
+          <article>
+            <span class="trust-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" /></svg>
+            </span>
+            <h3>On-device workflow</h3>
+            <p>WhatsApp notification content, voice handling, and tool decisions stay local on the handset.</p>
+          </article>
+          <article>
+            <span class="trust-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M8 11V8a4 4 0 0 1 8 0v3M6 11h12v10H6z" /></svg>
+            </span>
+            <h3>Encrypted storage</h3>
+            <p>Room data uses Android Keystore-backed AES-GCM for sensitive local message metadata and text.</p>
+          </article>
+          <article>
+            <span class="trust-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M12 5v14M5 12h14M7 7l10 10M17 7 7 17" /></svg>
+            </span>
+            <h3>No silent sends</h3>
+            <p>FunctionGemma proposes actions only. Kotlin validation and a physical confirmation tap gate execution.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="install" class="section-shell install-section" aria-labelledby="install-title">
+        <div class="section-heading compact">
+          <p class="eyebrow">Setup</p>
+          <h2 id="install-title">Install checklist.</h2>
+        </div>
+        <ol class="install-steps">
+          <li>
+            <strong>Download the signed APK.</strong>
+            <span>Use the Android package from this site or the latest GitHub release.</span>
+          </li>
+          <li>
+            <strong>Install on Android.</strong>
+            <span>Allow installation from your browser or file manager only for this install.</span>
+          </li>
+          <li>
+            <strong>Grant notification access.</strong>
+            <span>GemmaControl reads visible WhatsApp notifications after explicit permission.</span>
+          </li>
+          <li>
+            <strong>Configure Xiaomi background settings.</strong>
+            <span>On HyperOS/MIUI, enable Autostart and set battery usage to no restrictions.</span>
+          </li>
+          <li>
+            <strong>Install the FunctionGemma model in Settings.</strong>
+            <span>The app verifies model downloads with SHA-256 before using LiteRT-LM.</span>
+          </li>
+        </ol>
+      </section>
+
+      <section id="support" class="section-shell support-section" aria-labelledby="support-title">
+        <div>
+          <p class="eyebrow">Support</p>
+          <h2 id="support-title">Need the latest package?</h2>
+          <p>
+            Release builds should be uploaded outside git. Keep raw APKs, AABs, model binaries,
+            logs, screenshots with private data, and credentials out of commits.
+          </p>
+        </div>
+        <a class="button button-secondary" href="https://github.com/priyanshuchawda/gemma_control/releases/latest">
+          <span class="button-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false"><path d="M7 17 17 7M9 7h8v8" /></svg>
+          </span>
+          Open releases
+        </a>
+      </section>
+    </main>
+  </body>
+</html>
