@@ -12,6 +12,17 @@ npm run serve
 
 The build output is written to `website/dist/`.
 
+## Source Structure
+
+```text
+src/main.ts              # Page bootstrap only
+src/downloads.ts         # Download card data
+src/download-card.ts     # Download card DOM rendering
+src/icons.ts             # Inline SVG icon helpers
+src/header.ts            # Sticky header scroll state
+src/styles/              # CSS split by base/header/hero/sections/responsive
+```
+
 ## APK Distribution
 
 The primary Android button points to:

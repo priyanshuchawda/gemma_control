@@ -1,0 +1,163 @@
+.section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(320px, 1fr);
+  gap: 2rem;
+  align-items: end;
+  margin-bottom: 2rem;
+}
+
+.section-heading.compact {
+  display: block;
+  max-width: 760px;
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.download-card,
+.trust-grid article,
+.install-steps li,
+.support-section {
+  border: 1px solid rgba(8, 47, 73, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 28px rgba(8, 47, 73, 0.08);
+}
+
+.download-card {
+  display: flex;
+  min-height: 390px;
+  flex-direction: column;
+  padding: 1.25rem;
+}
+
+.download-card.primary {
+  border-color: rgba(15, 118, 110, 0.34);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.download-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.2rem;
+}
+
+.download-card-header h3 {
+  margin: 0;
+}
+
+.download-icon,
+.trust-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 1rem;
+  background: #e0f2fe;
+  color: var(--primary-strong);
+}
+
+.download-description {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.download-meta {
+  display: grid;
+  gap: 0.55rem;
+  margin: auto 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.download-meta li {
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: #334155;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.download-actions {
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.text-link {
+  padding: 0.55rem 0.65rem;
+}
+
+.trust-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.trust-grid article {
+  padding: 1.25rem;
+}
+
+.trust-grid p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.install-steps {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: install;
+}
+
+.install-steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 1rem;
+  padding: 1rem 1.15rem 1rem 4.5rem;
+  counter-increment: install;
+}
+
+.install-steps li::before {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  content: counter(install);
+  font-weight: 900;
+}
+
+.install-steps strong,
+.install-steps span {
+  grid-column: 1 / -1;
+}
+
+.install-steps span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.support-section {
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.support-section h2 {
+  max-width: 15ch;
+}
