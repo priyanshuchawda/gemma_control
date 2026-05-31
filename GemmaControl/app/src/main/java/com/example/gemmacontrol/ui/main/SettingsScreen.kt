@@ -15,6 +15,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Battery5Bar
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -165,10 +170,12 @@ fun SettingsScreen(
 
             // 1. Notification Listener
             PermissionLinkCard(
-                emoji = "🔔",
-                title = "Notification Listener Access",
-                description = "Required for GemmaControl to read WhatsApp notifications. Toggle OFF & ON to refresh after reinstall.",
-                buttonLabel = "Open Notification Access →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Notifications,
+                    title = "Notification Listener Access",
+                    description = "Required for GemmaControl to read WhatsApp notifications. Toggle OFF & ON to refresh after reinstall.",
+                    buttonLabel = "Open Notification Access →"
+                ),
                 onAction = {
                     context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
@@ -176,10 +183,12 @@ fun SettingsScreen(
 
             // 2. Microphone permission (direct App Info where RECORD_AUDIO is visible)
             PermissionLinkCard(
-                emoji = "🎙️",
-                title = "Microphone Permission",
-                description = "Required for the Voice Assistant. Grant via App Info → Permissions → Microphone.",
-                buttonLabel = "Open App Permissions →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Mic,
+                    title = "Microphone Permission",
+                    description = "Required for the Voice Assistant. Grant via App Info → Permissions → Microphone.",
+                    buttonLabel = "Open App Permissions →"
+                ),
                 onAction = {
                     try {
                         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -194,19 +203,21 @@ fun SettingsScreen(
 
             if (Build.VERSION.SDK_INT >= 33) {
                 PermissionLinkCard(
-                    emoji = "⏰",
-                    title = "Reminder Notifications",
-                    description = if (reminderNotificationsGranted.value) {
-                        "Enabled for local reminder alerts. Reminder notes stay encrypted in the local database until the reminder worker runs."
-                    } else {
-                        "Required only for user-confirmed local reminders. WhatsApp capture and model prompts do not use this permission."
-                    },
-                    buttonLabel = if (reminderNotificationsGranted.value) {
-                        "Reminder Notifications Enabled"
-                    } else {
-                        "Grant Reminder Notifications →"
-                    },
-                    enabled = !reminderNotificationsGranted.value,
+                    state = PermissionLinkCardState(
+                        icon = Icons.Default.Notifications,
+                        title = "Reminder Notifications",
+                        description = if (reminderNotificationsGranted.value) {
+                            "Enabled for local reminder alerts. Reminder notes stay encrypted in the local database until the reminder worker runs."
+                        } else {
+                            "Required only for user-confirmed local reminders. WhatsApp capture and model prompts do not use this permission."
+                        },
+                        buttonLabel = if (reminderNotificationsGranted.value) {
+                            "Reminder Notifications Enabled"
+                        } else {
+                            "Grant Reminder Notifications →"
+                        },
+                        enabled = !reminderNotificationsGranted.value
+                    ),
                     onAction = {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
@@ -251,10 +262,12 @@ fun SettingsScreen(
 
             // 3. Autostart
             PermissionLinkCard(
-                emoji = "🚀",
-                title = "Autostart",
-                description = "Allow GemmaControl to start in background on boot. Required on Xiaomi / HyperOS / MIUI devices for reliable capture.",
-                buttonLabel = "Open Autostart Settings →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Settings,
+                    title = "Autostart",
+                    description = "Allow GemmaControl to start in background on boot. Required on Xiaomi / HyperOS / MIUI devices for reliable capture.",
+                    buttonLabel = "Open Autostart Settings →"
+                ),
                 onAction = {
                     try {
                         context.startActivity(miuiAutostartIntent)
@@ -269,10 +282,12 @@ fun SettingsScreen(
 
             // 4. Battery unrestricted – try MIUI-specific then standard fallback
             PermissionLinkCard(
-                emoji = "🔋",
-                title = "Battery – No Restrictions",
-                description = "Set GemmaControl to 'No restrictions' in battery settings so it is not killed in the background by HyperOS.",
-                buttonLabel = "Open Battery Settings →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Battery5Bar,
+                    title = "Battery – No Restrictions",
+                    description = "Set GemmaControl to 'No restrictions' in battery settings so it is not killed in the background by HyperOS.",
+                    buttonLabel = "Open Battery Settings →"
+                ),
                 onAction = {
                     try {
                         // Try MIUI-specific battery power saving page first
@@ -294,10 +309,12 @@ fun SettingsScreen(
 
             // 5. App Info (general)
             PermissionLinkCard(
-                emoji = "ℹ️",
-                title = "App Info",
-                description = "View all permissions, storage, usage, and other app details for GemmaControl.",
-                buttonLabel = "Open App Info →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Info,
+                    title = "App Info",
+                    description = "View all permissions, storage, usage, and other app details for GemmaControl.",
+                    buttonLabel = "Open App Info →"
+                ),
                 onAction = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.parse("package:${context.packageName}")
@@ -308,10 +325,12 @@ fun SettingsScreen(
 
             // 6. Speech recognition / voice data
             PermissionLinkCard(
-                emoji = "🗣️",
-                title = "Speech Recognition Language",
-                description = "If on-device voice recognition fails (error 13), open Gboard / Google app → Voice Search → Offline speech and download English.",
-                buttonLabel = "Open Language & Input Settings →",
+                state = PermissionLinkCardState(
+                    icon = Icons.Default.Mic,
+                    title = "Speech Recognition Language",
+                    description = "If on-device voice recognition fails (error 13), open Gboard / Google app → Voice Search → Offline speech and download English.",
+                    buttonLabel = "Open Language & Input Settings →"
+                ),
                 onAction = {
                     try {
                         context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
