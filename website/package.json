@@ -10,7 +10,7 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/copy-static.mjs && node scripts/verify-build.mjs",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/compose-html.mjs && node scripts/copy-static.mjs && node scripts/verify-build.mjs",
     "verify": "npm run typecheck && npm run build",
     "serve": "node scripts/serve.mjs"
   },

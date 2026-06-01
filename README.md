@@ -73,7 +73,7 @@ npm run verify
 npm run serve
 ```
 
-The primary APK button points to `downloads/GemmaControl.apk` in the built site. Place a signed APK at `website/public/downloads/GemmaControl.apk` before building, or update `website/src/main.ts` to point to the canonical GitHub Releases artifact. APK/AAB/EXE/MSI files remain ignored and must not be committed.
+The primary APK button points to the canonical GitHub Releases artifact configured in `website/src/release-links.ts`. APK/AAB/EXE/MSI files remain ignored and must not be committed.
 
 ---
 
