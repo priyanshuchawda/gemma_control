@@ -9,6 +9,75 @@ data class FunctionGemmaVoiceProposalContext(
     val conversationTitleByNotificationKey: Map<String, String> = emptyMap()
 )
 
+private data class LocalToolConfirmationCopy(
+    val title: String,
+    val description: String,
+    val confirmText: String
+)
+
+private val localToolConfirmationCopyByName = mapOf(
+    WhatsAppToolName.PauseWhatsAppCapture to LocalToolConfirmationCopy(
+        title = "Pause WhatsApp capture?",
+        description = "GemmaControl will stop storing new WhatsApp notification previews until capture is resumed.",
+        confirmText = "Pause Capture"
+    ),
+    WhatsAppToolName.ResumeWhatsAppCapture to LocalToolConfirmationCopy(
+        title = "Resume WhatsApp capture?",
+        description = "GemmaControl will resume processing future WhatsApp notification previews.",
+        confirmText = "Resume Capture"
+    ),
+    WhatsAppToolName.SearchWhatsAppMessages to LocalToolConfirmationCopy(
+        title = "Search local WhatsApp messages?",
+        description = "GemmaControl will search only locally stored decrypted WhatsApp notification rows.",
+        confirmText = "Search Messages"
+    ),
+    WhatsAppToolName.GetWhatsAppMessageDetails to LocalToolConfirmationCopy(
+        title = "Show message details?",
+        description = "GemmaControl will read one locally stored WhatsApp message row.",
+        confirmText = "Show Details"
+    ),
+    WhatsAppToolName.GetActionableInbox to LocalToolConfirmationCopy(
+        title = "Show actionable inbox?",
+        description = "GemmaControl will read local pending follow-ups and high-priority WhatsApp message flags.",
+        confirmText = "Show Inbox"
+    ),
+    WhatsAppToolName.CreateFollowUpFromMessage to LocalToolConfirmationCopy(
+        title = "Create follow-up?",
+        description = "GemmaControl will save this as a local follow-up task for the selected WhatsApp message.",
+        confirmText = "Save Follow-Up"
+    ),
+    WhatsAppToolName.ListPendingFollowUps to LocalToolConfirmationCopy(
+        title = "Show pending follow-ups?",
+        description = "GemmaControl will read pending local follow-up tasks from encrypted app storage.",
+        confirmText = "Show Follow-Ups"
+    ),
+    WhatsAppToolName.MarkFollowUpCompleted to LocalToolConfirmationCopy(
+        title = "Mark follow-up complete?",
+        description = "GemmaControl will mark this local follow-up task as completed.",
+        confirmText = "Mark Complete"
+    ),
+    WhatsAppToolName.ScheduleReminderForMessage to LocalToolConfirmationCopy(
+        title = "Schedule reminder?",
+        description = "GemmaControl will store the reminder locally and post a notification at the requested time.",
+        confirmText = "Schedule Reminder"
+    ),
+    WhatsAppToolName.DraftWhatsAppReply to LocalToolConfirmationCopy(
+        title = "Prepare WhatsApp reply draft?",
+        description = "GemmaControl will prepare draft text locally without sending anything.",
+        confirmText = "Prepare Draft"
+    ),
+    WhatsAppToolName.OpenWhatsAppShareDraft to LocalToolConfirmationCopy(
+        title = "Open WhatsApp share draft?",
+        description = "GemmaControl will open WhatsApp with prepared text. You still choose the recipient and send manually.",
+        confirmText = "Open WhatsApp"
+    ),
+    WhatsAppToolName.OpenWhatsAppClickToChat to LocalToolConfirmationCopy(
+        title = "Open WhatsApp chat draft?",
+        description = "GemmaControl will open WhatsApp with prepared text for the verified phone number. You still send manually.",
+        confirmText = "Open WhatsApp"
+    )
+)
+
 class FunctionGemmaVoiceProposalHandler(
     private val mapper: VoiceCommandToolProposalMapper = VoiceCommandToolProposalMapper()
 ) {
@@ -64,108 +133,39 @@ class FunctionGemmaVoiceProposalHandler(
     }
 
     private fun VoiceToolProposalResult.Valid.toLocalToolConfirmationState(): VoiceAssistantState {
-        val action = when (proposal.name) {
-            WhatsAppToolName.PauseWhatsAppCapture -> PendingLocalToolAction(
-                title = "Pause WhatsApp capture?",
-                description = "GemmaControl will stop storing new WhatsApp notification previews until capture is resumed.",
-                confirmText = "Pause Capture",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.ResumeWhatsAppCapture -> PendingLocalToolAction(
-                title = "Resume WhatsApp capture?",
-                description = "GemmaControl will resume processing future WhatsApp notification previews.",
-                confirmText = "Resume Capture",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.SearchWhatsAppMessages -> PendingLocalToolAction(
-                title = "Search local WhatsApp messages?",
-                description = "GemmaControl will search only locally stored decrypted WhatsApp notification rows.",
-                confirmText = "Search Messages",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.GetWhatsAppMessageDetails -> PendingLocalToolAction(
-                title = "Show message details?",
-                description = "GemmaControl will read one locally stored WhatsApp message row.",
-                confirmText = "Show Details",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.GetActionableInbox -> PendingLocalToolAction(
-                title = "Show actionable inbox?",
-                description = "GemmaControl will read local pending follow-ups and high-priority WhatsApp message flags.",
-                confirmText = "Show Inbox",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.CreateFollowUpFromMessage -> PendingLocalToolAction(
-                title = "Create follow-up?",
-                description = "GemmaControl will save this as a local follow-up task for the selected WhatsApp message.",
-                confirmText = "Save Follow-Up",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.ListPendingFollowUps -> PendingLocalToolAction(
-                title = "Show pending follow-ups?",
-                description = "GemmaControl will read pending local follow-up tasks from encrypted app storage.",
-                confirmText = "Show Follow-Ups",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.MarkFollowUpCompleted -> PendingLocalToolAction(
-                title = "Mark follow-up complete?",
-                description = "GemmaControl will mark this local follow-up task as completed.",
-                confirmText = "Mark Complete",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.ScheduleReminderForMessage -> PendingLocalToolAction(
-                title = "Schedule reminder?",
-                description = "GemmaControl will store the reminder locally and post a notification at the requested time.",
-                confirmText = "Schedule Reminder",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.MarkMessagePriority -> PendingLocalToolAction(
-                title = "Mark message ${proposal.string("priority").orEmpty()} priority?",
-                description = "GemmaControl will update only the local inbox priority flag for this captured WhatsApp message.",
-                confirmText = "Mark Priority",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.DraftWhatsAppReply -> PendingLocalToolAction(
-                title = "Prepare WhatsApp reply draft?",
-                description = "GemmaControl will prepare draft text locally without sending anything.",
-                confirmText = "Prepare Draft",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.OpenWhatsAppShareDraft -> PendingLocalToolAction(
-                title = "Open WhatsApp share draft?",
-                description = "GemmaControl will open WhatsApp with prepared text. You still choose the recipient and send manually.",
-                confirmText = "Open WhatsApp",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.OpenWhatsAppClickToChat -> PendingLocalToolAction(
-                title = "Open WhatsApp chat draft?",
-                description = "GemmaControl will open WhatsApp with prepared text for the verified phone number. You still send manually.",
-                confirmText = "Open WhatsApp",
-                proposal = proposal,
-                decision = decision
-            )
-            WhatsAppToolName.DeleteLocalWhatsAppData -> PendingLocalToolAction(
-                title = deleteLocalDataTitle(proposal),
-                description = deleteLocalDataDescription(proposal),
-                confirmText = "Delete Local Data",
-                proposal = proposal,
-                decision = decision
-            )
-            else -> return unsupportedProposalState(proposal)
-        }
+        val copy = localToolConfirmationCopy(proposal) ?: return unsupportedProposalState(proposal)
+        val action = PendingLocalToolAction(
+            title = copy.title,
+            description = copy.description,
+            confirmText = copy.confirmText,
+            proposal = proposal,
+            decision = decision
+        )
         return VoiceAssistantState.LocalToolConfirmationRequired(action)
+    }
+
+    private fun localToolConfirmationCopy(proposal: ToolProposal): LocalToolConfirmationCopy? {
+        return when (proposal.name) {
+            WhatsAppToolName.MarkMessagePriority -> priorityConfirmationCopy(proposal)
+            WhatsAppToolName.DeleteLocalWhatsAppData -> deleteLocalDataConfirmationCopy(proposal)
+            else -> localToolConfirmationCopyByName[proposal.name]
+        }
+    }
+
+    private fun priorityConfirmationCopy(proposal: ToolProposal): LocalToolConfirmationCopy {
+        return LocalToolConfirmationCopy(
+            title = "Mark message ${proposal.string("priority").orEmpty()} priority?",
+            description = "GemmaControl will update only the local inbox priority flag for this captured WhatsApp message.",
+            confirmText = "Mark Priority"
+        )
+    }
+
+    private fun deleteLocalDataConfirmationCopy(proposal: ToolProposal): LocalToolConfirmationCopy {
+        return LocalToolConfirmationCopy(
+            title = deleteLocalDataTitle(proposal),
+            description = deleteLocalDataDescription(proposal),
+            confirmText = "Delete Local Data"
+        )
     }
 
     private fun deleteLocalDataTitle(proposal: ToolProposal): String {
