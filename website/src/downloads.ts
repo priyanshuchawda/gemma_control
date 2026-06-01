@@ -1,6 +1,14 @@
 import type { DownloadItem } from "./types.js";
-
-const GH_RELEASE = "https://github.com/priyanshuchawda/gemma_control/releases/latest/download";
+import {
+  ANDROID_APK_DOWNLOAD_NAME,
+  ANDROID_APK_DOWNLOAD_URL,
+  ARCHITECTURE_DOC_URL,
+  FUNCTION_GEMMA_MODEL_DOWNLOAD_URL,
+  FUNCTION_GEMMA_MODEL_FILE_NAME,
+  ISSUES_URL,
+  RELEASES_URL,
+  REPOSITORY_URL
+} from "./release-links.js";
 
 export const downloadItems: readonly DownloadItem[] = [
   {
@@ -10,12 +18,12 @@ export const downloadItems: readonly DownloadItem[] = [
     eyebrow: "Recommended",
     description:
       "Install GemmaControl directly on any Android 16 device. Debug build — sideloading required. Enable Unknown Sources in your browser or file manager.",
-    href: `${GH_RELEASE}/GemmaControl-v1.0.0-debug.apk`,
-    fileName: "GemmaControl.apk",
+    href: ANDROID_APK_DOWNLOAD_URL,
+    fileName: ANDROID_APK_DOWNLOAD_NAME,
     status: "available",
     primary: true,
     meta: ["v1.0.0 · Debug build", "Android 16 (API 36)", "arm64-v8a · ~71 MB", "Offline · AES-GCM encrypted"],
-    secondaryHref: "https://github.com/priyanshuchawda/gemma_control/releases/latest",
+    secondaryHref: `${RELEASES_URL}/latest`,
     secondaryLabel: "View on GitHub →"
   },
   {
@@ -25,12 +33,12 @@ export const downloadItems: readonly DownloadItem[] = [
     eyebrow: "AI Model",
     description:
       "The FunctionGemma 270M Q8 quantised model binary for LiteRT-LM. Download separately and place it via the app Settings screen. SHA-256 verified on load.",
-    href: `${GH_RELEASE}/mobile_actions_q8_ekv1024.litertlm`,
-    fileName: "mobile_actions_q8_ekv1024.litertlm",
+    href: FUNCTION_GEMMA_MODEL_DOWNLOAD_URL,
+    fileName: FUNCTION_GEMMA_MODEL_FILE_NAME,
     status: "available",
     primary: false,
     meta: ["270M parameters · Q8 quantised", "LiteRT-LM SDK format", "EKV 1024 · ~276 MB", "100% on-device inference"],
-    secondaryHref: "https://github.com/priyanshuchawda/gemma_control/blob/main/docs/ARCHITECTURE.md",
+    secondaryHref: ARCHITECTURE_DOC_URL,
     secondaryLabel: "Architecture docs →"
   },
   {
@@ -40,12 +48,12 @@ export const downloadItems: readonly DownloadItem[] = [
     eyebrow: "Open Source",
     description:
       "Full Kotlin + Jetpack Compose Android source. Review the MVVM architecture, notification parsers, LiteRT engine, and every security boundary before you build.",
-    href: "https://github.com/priyanshuchawda/gemma_control",
+    href: REPOSITORY_URL,
     fileName: "gemma_control",
     status: "available",
     primary: false,
     meta: ["Kotlin · Jetpack Compose", "Clean MVVM architecture", "MIT License · Open Source", "16 AI tool functions"],
-    secondaryHref: "https://github.com/priyanshuchawda/gemma_control/issues",
+    secondaryHref: ISSUES_URL,
     secondaryLabel: "Report an issue →"
   }
 ];

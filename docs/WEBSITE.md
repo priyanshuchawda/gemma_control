@@ -37,20 +37,19 @@ http://localhost:4173
 
 ## APK Distribution
 
-The website download card points to:
+The website download buttons and TypeScript download cards use the canonical GitHub Releases URLs in:
 
 ```text
-downloads/GemmaControl.apk
+website/src/release-links.ts
 ```
 
-For a local static build:
+The current APK target is:
 
-1. Build or obtain a signed APK outside git.
-2. Place it at `website/public/downloads/GemmaControl.apk`.
-3. Run `npm run build`.
-4. Serve or upload `website/dist/`.
+```text
+https://github.com/priyanshuchawda/gemma_control/releases/latest/download/GemmaControl-v1.0.0-debug.apk
+```
 
-For production, prefer GitHub Releases or another release artifact store. If the canonical download URL changes, update the Android APK entry in `website/src/main.ts`.
+When a release artifact name changes, update `website/src/release-links.ts` and run `npm run verify`. Do not commit APKs, AABs, EXEs, MSIs, model binaries, raw logs, private screenshots, or credentials.
 
 ## Artifact Safety
 

@@ -35,6 +35,7 @@ const iconStats = await stat(join(dist, "assets", "app-icon.webp"));
 const requiredHtml = [
   "GemmaControl",
   "Download APK",
+  "https://github.com/priyanshuchawda/gemma_control/releases/latest/download/GemmaControl-v1.0.0-debug.apk",
   "assets/main.js",
   "styles.css",
   "Content-Security-Policy"
@@ -50,6 +51,10 @@ const compiledScript = await readCompiledScript(join(dist, "assets"));
 
 if (!compiledScript.includes("GemmaControl.apk")) {
   throw new Error("Compiled site script does not include the APK download entry.");
+}
+
+if (!compiledScript.includes("GemmaControl-v1.0.0-debug.apk")) {
+  throw new Error("Compiled site script does not include the GitHub Releases APK URL.");
 }
 
 if (!compiledScript.includes("renderDownloads")) {

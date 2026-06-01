@@ -1,0 +1,46 @@
+      <!-- ═══════════════════ INSTALL ═══════════════════ -->
+      <section id="install" class="install-section section-shell" aria-labelledby="install-title">
+        <div class="section-label compact">
+          <span class="eyebrow">Setup guide</span>
+          <h2 id="install-title">Up and running<br/>in 5 steps.</h2>
+          <p class="section-sub">Android 16 required. Tested on Xiaomi Redmi 13 5G.</p>
+        </div>
+        <ol class="install-steps" aria-label="Installation steps">
+          <li data-reveal>
+            <div class="step-num" aria-hidden="true">01</div>
+            <div class="step-body">
+              <strong>Download the APK &amp; model</strong>
+              <span>Grab <code>GemmaControl-v1.0.0-debug.apk</code> and the <code>mobile_actions_q8_ekv1024.litertlm</code> model file from the download section above.</span>
+            </div>
+            <a class="step-link" href="#download">Get files ↓</a>
+          </li>
+          <li data-reveal>
+            <div class="step-num" aria-hidden="true">02</div>
+            <div class="step-body">
+              <strong>Enable Unknown Sources</strong>
+              <span>Settings → Apps → Special app access → Install unknown apps → enable for your file manager or browser, for this install only.</span>
+            </div>
+          </li>
+          <li data-reveal>
+            <div class="step-num" aria-hidden="true">03</div>
+            <div class="step-body">
+              <strong>Grant Notification Access</strong>
+              <span>Settings → Notifications → Notification access → enable GemmaControl. This is how the app reads WhatsApp alerts.</span>
+            </div>
+          </li>
+          <li data-reveal>
+            <div class="step-num" aria-hidden="true">04</div>
+            <div class="step-body">
+              <strong>Xiaomi / HyperOS: disable restrictions</strong>
+              <span>Enable Autostart and set battery mode to <em>No restrictions</em> so the notification listener stays alive in background.</span>
+            </div>
+          </li>
+          <li data-reveal>
+            <div class="step-num" aria-hidden="true">05</div>
+            <div class="step-body">
+              <strong>Load the FunctionGemma model</strong>
+              <span>Open app → Settings → tap "Load model file" → select the <code>.litertlm</code> binary. SHA-256 is verified before LiteRT-LM initialises.</span>
+            </div>
+          </li>
+        </ol>
+      </section>
