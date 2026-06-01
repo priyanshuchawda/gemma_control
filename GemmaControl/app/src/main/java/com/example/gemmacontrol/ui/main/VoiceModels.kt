@@ -4,6 +4,71 @@ import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
 import com.example.gemmacontrol.ai.tools.ToolProposal
 import java.util.Locale
 
+private const val MaxVoiceReplyCharacters = 10 * 10 * 10
+
+private val unsupportedVoiceMessagePhrases = listOf(
+    "send a voice message",
+    "send an audio message",
+    "send a voice note"
+)
+
+private val newConversationPhrases = listOf(
+    "send a message to",
+    "send message to"
+)
+
+private val readPhrases = listOf(
+    "read my latest messages",
+    "read latest messages",
+    "read my notifications",
+    "read current messages",
+    "read recent messages",
+    "read messages",
+    "read my messages",
+    "read notifications",
+    "read latest",
+    "read current",
+    "read recent",
+    "read"
+)
+
+private val replyPrefixes = listOf(
+    "reply to the latest message:",
+    "reply to the latest message",
+    "reply to latest message:",
+    "reply to latest message",
+    "reply to the latest one:",
+    "reply to the latest one",
+    "reply latest message:",
+    "reply latest message",
+    "send reply to latest message:",
+    "send reply to latest message",
+    "send reply:",
+    "send reply",
+    "reply to it:",
+    "reply to it",
+    "reply that:",
+    "reply that",
+    "reply:",
+    "reply",
+    "send message that:",
+    "send message that",
+    "send message:",
+    "send message",
+    "send a message that:",
+    "send a message that",
+    "send a message:",
+    "send a message",
+    "say that:",
+    "say that",
+    "say:",
+    "say",
+    "tell them that:",
+    "tell them that",
+    "tell them:",
+    "tell them"
+)
+
 sealed interface VoiceCommand {
     data object ReadLatestMessages : VoiceCommand
 
@@ -51,93 +116,61 @@ object VoiceCommandParser {
         val trimmed = text.trim()
         val lower = trimmed.lowercase(Locale.US)
 
-        // Check for audio/voice messages first
-        if (lower.contains("send a voice message") ||
-            lower.contains("send an audio message") ||
-            lower.contains("send a voice note")
-        ) {
-            return VoiceCommand.Unsupported("Sending WhatsApp audio voice notes is not supported yet. You can dictate a text reply instead.")
-        }
+        return unsupportedVoiceMessage(lower)
+            ?: unsupportedNewConversation(lower)
+            ?: readLatestMessagesCommand(lower)
+            ?: replyToLatestMessageCommand(trimmed, lower)
+            ?: defaultUnsupportedCommand()
+    }
 
-        // Check for new message to a contact
-        if (lower.contains("send a message to") ||
-            lower.contains("send message to")
-        ) {
-            return VoiceCommand.Unsupported("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.")
+    private fun unsupportedVoiceMessage(lower: String): VoiceCommand.Unsupported? {
+        return if (unsupportedVoiceMessagePhrases.any(lower::contains)) {
+            VoiceCommand.Unsupported("Sending WhatsApp audio voice notes is not supported yet. You can dictate a text reply instead.")
+        } else {
+            null
         }
+    }
 
-        // Check for read messages
+    private fun unsupportedNewConversation(lower: String): VoiceCommand.Unsupported? {
+        return if (newConversationPhrases.any(lower::contains)) {
+            VoiceCommand.Unsupported("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.")
+        } else {
+            null
+        }
+    }
+
+    private fun readLatestMessagesCommand(lower: String): VoiceCommand.ReadLatestMessages? {
         val normalizedRead = lower.removeSuffix(".").removeSuffix("?").trim()
-        val readPhrases = listOf(
-            "read my latest messages",
-            "read latest messages",
-            "read my notifications",
-            "read current messages",
-            "read recent messages",
-            "read messages",
-            "read my messages",
-            "read notifications",
-            "read latest",
-            "read current",
-            "read recent",
-            "read"
-        )
-        if (normalizedRead in readPhrases) {
-            return VoiceCommand.ReadLatestMessages
+        return if (normalizedRead in readPhrases) {
+            VoiceCommand.ReadLatestMessages
+        } else {
+            null
         }
+    }
 
-        // Check for reply to latest message with broad support for variations
-        val prefixes = listOf(
-            "reply to the latest message:",
-            "reply to the latest message",
-            "reply to latest message:",
-            "reply to latest message",
-            "reply to the latest one:",
-            "reply to the latest one",
-            "reply latest message:",
-            "reply latest message",
-            "send reply to latest message:",
-            "send reply to latest message",
-            "send reply:",
-            "send reply",
-            "reply to it:",
-            "reply to it",
-            "reply that:",
-            "reply that",
-            "reply:",
-            "reply",
-            "send message that:",
-            "send message that",
-            "send message:",
-            "send message",
-            "send a message that:",
-            "send a message that",
-            "send a message:",
-            "send a message",
-            "say that:",
-            "say that",
-            "say:",
-            "say",
-            "tell them that:",
-            "tell them that",
-            "tell them:",
-            "tell them"
-        )
-        
-        for (prefix in prefixes) {
-            if (lower.startsWith(prefix)) {
-                val rawText = trimmed.substring(prefix.length).trim()
-                val cleaned = rawText.removePrefix(":").removePrefix("that").trim().removePrefix(":").trim()
-                if (cleaned.isEmpty()) {
-                    return VoiceCommand.Unsupported("Reply text cannot be empty.")
-                }
-                if (cleaned.length > 1000) {
-                    return VoiceCommand.Unsupported("Reply text is too long (maximum 1000 characters).")
-                }
-                return VoiceCommand.ReplyToLatestActiveMessage(cleaned)
-            }
+    private fun replyToLatestMessageCommand(
+        trimmed: String,
+        lower: String
+    ): VoiceCommand? {
+        val prefix = replyPrefixes.firstOrNull(lower::startsWith) ?: return null
+        val cleaned = trimmed.substring(prefix.length)
+            .trim()
+            .removePrefix(":")
+            .removePrefix("that")
+            .trim()
+            .removePrefix(":")
+            .trim()
+
+        return when {
+            cleaned.isEmpty() -> VoiceCommand.Unsupported("Reply text cannot be empty.")
+            cleaned.length > MaxVoiceReplyCharacters -> VoiceCommand.Unsupported(
+                "Reply text is too long (maximum $MaxVoiceReplyCharacters characters)."
+            )
+            else -> VoiceCommand.ReplyToLatestActiveMessage(cleaned)
         }
+    }
 
+    private fun defaultUnsupportedCommand(): VoiceCommand.Unsupported {
         return VoiceCommand.Unsupported("I can currently read captured messages or reply to the latest active WhatsApp notification.")
     }
 }
