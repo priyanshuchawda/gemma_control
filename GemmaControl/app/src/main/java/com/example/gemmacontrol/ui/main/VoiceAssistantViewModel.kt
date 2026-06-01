@@ -2,8 +2,6 @@ package com.example.gemmacontrol.ui.main
 
 import android.app.Application
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -29,7 +27,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 private const val AUDIO_METER_MIN_DB = -2.0f
 private const val AUDIO_METER_MAX_DB = 100.0f
@@ -57,6 +54,10 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     )
     private val gemmaPromptBuilder = GemmaPromptBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
+    private val textToSpeechController = VoiceTextToSpeechController(
+        application = application,
+        onFinished = ::handleTextToSpeechFinished
+    )
 
     private val _state = MutableStateFlow<VoiceAssistantState>(VoiceAssistantState.Idle)
     val state: StateFlow<VoiceAssistantState> = _state.asStateFlow()
@@ -77,9 +78,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     )
 
     private var speechRecognizer: SpeechRecognizer? = null
-    private var tts: TextToSpeech? = null
     private var pendingStopListeningJob: Job? = null
-    private var isTtsInitialized = false
     private var forceSystemRecognition = false
     private var isCurrentRecognizerOnDevice: Boolean? = null
 
@@ -97,7 +96,6 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     )
 
     init {
-        initTextToSpeech()
         initializeFunctionGemmaIfInstalled()
     }
 
@@ -116,47 +114,6 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 gemmaModelManager.initialize(model.config) == GemmaEngineResult.Ready
             }
             is InstalledFunctionGemmaModel.Missing -> false
-        }
-    }
-
-    private fun initTextToSpeech() {
-        tts = TextToSpeech(getApplication()) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                isTtsInitialized = true
-                tts?.language = Locale.US
-                
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
-                        Log.d(TAG, "TTS started: $utteranceId")
-                    }
-
-                    override fun onDone(utteranceId: String?) {
-                        Log.d(TAG, "TTS done: $utteranceId")
-                        if (_state.value is VoiceAssistantState.SpeakingMessages) {
-                            _state.value = VoiceAssistantState.Idle
-                        }
-                    }
-
-                    @Suppress("OVERRIDE_DEPRECATION")
-                    override fun onError(utteranceId: String?) {
-                        handleTtsError(utteranceId, null)
-                    }
-
-                    override fun onError(utteranceId: String?, errorCode: Int) {
-                        handleTtsError(utteranceId, errorCode)
-                    }
-
-                    private fun handleTtsError(utteranceId: String?, errorCode: Int?) {
-                        val suffix = errorCode?.let { " code=$it" }.orEmpty()
-                        Log.e(TAG, "TTS error: $utteranceId$suffix")
-                        if (_state.value is VoiceAssistantState.SpeakingMessages) {
-                            _state.value = VoiceAssistantState.Idle
-                        }
-                    }
-                })
-            } else {
-                Log.e(TAG, "Failed to initialize TextToSpeech")
-            }
         }
     }
 
@@ -364,7 +321,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 .take(3)
 
             if (messages.isEmpty()) {
-                speakText("There are no captured messages to read.")
+                textToSpeechController.speak("There are no captured messages to read.")
                 _state.value = VoiceAssistantState.SpeakingMessages(0)
             } else {
                 val count = messages.size
@@ -385,17 +342,13 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     spokenContent.append(" $ordinal: From $sender. $text.")
                 }
                 
-                speakText(spokenContent.toString())
+                textToSpeechController.speak(spokenContent.toString())
             }
         }
     }
 
     fun stopSpeaking() {
-        try {
-            tts?.stop()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping TTS", e)
-        }
+        textToSpeechController.stop()
         _partialTranscript.value = ""
         _amplitude.value = 0
         if (_state.value is VoiceAssistantState.SpeakingMessages) {
@@ -408,12 +361,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         resetToIdle()
     }
 
-    private fun speakText(text: String) {
-        if (isTtsInitialized) {
-            // Register an utterance ID so UtteranceProgressListener triggers on completion
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "GemmaControlTTS")
-        } else {
-            Log.e(TAG, "TTS not initialized")
+    private fun handleTextToSpeechFinished() {
+        if (_state.value is VoiceAssistantState.SpeakingMessages) {
+            _state.value = VoiceAssistantState.Idle
         }
     }
 
@@ -431,11 +381,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         pendingStopListeningJob?.cancel()
         _partialTranscript.value = ""
         _amplitude.value = 0
-        try {
-            tts?.stop()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping TTS", e)
-        }
+        textToSpeechController.stop()
         try {
             speechRecognizer?.cancel()
         } catch (e: Exception) {
@@ -464,12 +410,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         super.onCleared()
         destroySpeechRecognizer()
         gemmaModelManager.release()
-        try {
-            tts?.shutdown()
-            tts = null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error shutting down TTS", e)
-        }
+        textToSpeechController.shutdown()
     }
 }
 
