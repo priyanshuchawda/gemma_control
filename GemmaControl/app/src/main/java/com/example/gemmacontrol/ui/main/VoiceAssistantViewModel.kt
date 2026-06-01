@@ -1,12 +1,6 @@
 package com.example.gemmacontrol.ui.main
 
 import android.app.Application
-import android.content.Context
-import android.content.Intent
-import android.os.Build
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -89,6 +83,19 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private var forceSystemRecognition = false
     private var isCurrentRecognizerOnDevice: Boolean? = null
 
+    private val recognitionCallbacks = VoiceRecognitionCallbacks(
+        onReadyForSpeech = { _state.value = VoiceAssistantState.Listening },
+        onAmplitudeChanged = { _amplitude.value = it },
+        onPartialTranscriptChanged = { _partialTranscript.value = it },
+        onTranscriptReady = ::processTranscript,
+        onFailure = { _state.value = VoiceAssistantState.Failure(it) },
+        onLanguagePackMissing = { _state.value = VoiceAssistantState.LanguagePackMissingError },
+        onRecognitionFinished = {
+            _partialTranscript.value = ""
+            _amplitude.value = 0
+        }
+    )
+
     init {
         initTextToSpeech()
         initializeFunctionGemmaIfInstalled()
@@ -156,114 +163,33 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     fun startListening() {
         val context = getApplication<Application>()
         pendingStopListeningJob?.cancel()
-        
-        // 1. Check permission first
-        val hasMicrophonePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
 
-        if (!hasMicrophonePermission) {
+        if (!context.hasRecordAudioPermission()) {
             _state.value = VoiceAssistantState.RequestingMicrophonePermission
             return
         }
 
-        // 2. Check if on-device SpeechRecognizer is available
-        val isDeviceRecognitionAvailable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        } else {
-            false
-        }
+        val useOnDevice = shouldUseOnDeviceRecognition(
+            context = context,
+            forceSystemRecognition = forceSystemRecognition
+        )
 
-        val useOnDevice = isDeviceRecognitionAvailable && !forceSystemRecognition
-
-        // 3. Create SpeechRecognizer
         try {
             if (speechRecognizer == null || isCurrentRecognizerOnDevice != useOnDevice) {
                 destroySpeechRecognizer()
-
-                if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-                    _isOffline.value = true
-                } else {
-                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                    _isOffline.value = false
-                }
+                speechRecognizer = createVoiceSpeechRecognizer(context, useOnDevice)
+                _isOffline.value = useOnDevice
                 isCurrentRecognizerOnDevice = useOnDevice
             }
 
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toString())
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                }
-            }
+            speechRecognizer?.setRecognitionListener(
+                voiceAssistantRecognitionListener(
+                    useOnDevice = useOnDevice,
+                    callbacks = recognitionCallbacks
+                )
+            )
 
-            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    _state.value = VoiceAssistantState.Listening
-                }
-
-                override fun onBeginningOfSpeech() {}
-
-                override fun onRmsChanged(rmsdB: Float) {
-                    _amplitude.value = convertRmsDbToAmplitude(rmsdB)
-                }
-
-                override fun onBufferReceived(buffer: ByteArray?) {}
-
-                override fun onEndOfSpeech() {}
-
-                override fun onError(error: Int) {
-                    _partialTranscript.value = ""
-                    _amplitude.value = 0
-                    if (useOnDevice && (error == 13 || error == 12)) {
-                        Log.w(TAG, "Offline recognition language pack unavailable (code $error).")
-                        _state.value = VoiceAssistantState.LanguagePackMissingError
-                        return
-                    }
-
-                    val safeReason = when (error) {
-                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-                        SpeechRecognizer.ERROR_CLIENT -> "Client side error"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
-                        SpeechRecognizer.ERROR_NETWORK -> "Network error (requires connection)"
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized. Try speaking clearly."
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Speech recognition engine is busy"
-                        SpeechRecognizer.ERROR_SERVER -> "Server error"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
-                        13 -> "Language pack for offline recognition is missing."
-                        else -> "Speech recognition error (Code $error)"
-                    }
-                    _state.value = VoiceAssistantState.Failure(safeReason)
-                }
-
-                override fun onResults(results: Bundle?) {
-                    _partialTranscript.value = ""
-                    _amplitude.value = 0
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    val transcript = matches?.firstOrNull() ?: ""
-                    if (transcript.isNotEmpty()) {
-                        processTranscript(transcript)
-                    } else {
-                        _state.value = VoiceAssistantState.Failure("No speech recognized.")
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle?) {
-                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    _partialTranscript.value = matches?.firstOrNull() ?: ""
-                }
-
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-
-            speechRecognizer?.startListening(intent)
+            speechRecognizer?.startListening(voiceRecognitionIntent(useOnDevice))
             _state.value = VoiceAssistantState.Listening
 
         } catch (e: Exception) {
