@@ -329,7 +329,11 @@ class RoomEncryptionInstrumentationTest {
             GemmaControlDatabase::class.java,
             "test_migration_database"
         )
-        .addMigrations(GemmaControlDatabase.MIGRATION_1_2)
+        .addMigrations(
+            GemmaControlDatabase.MIGRATION_1_2,
+            GemmaControlDatabase.MIGRATION_2_3,
+            GemmaControlDatabase.MIGRATION_3_4
+        )
         .build()
 
         // Access database to trigger migration
@@ -489,7 +493,11 @@ class RoomEncryptionInstrumentationTest {
             GemmaControlDatabase::class.java,
             "test_migration_failure_database"
         )
-        .addMigrations(failingMigration)
+        .addMigrations(
+            failingMigration,
+            GemmaControlDatabase.MIGRATION_2_3,
+            GemmaControlDatabase.MIGRATION_3_4
+        )
         .build()
 
         var migrationFailed = false
