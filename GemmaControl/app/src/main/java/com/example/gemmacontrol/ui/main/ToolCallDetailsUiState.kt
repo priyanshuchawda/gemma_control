@@ -21,26 +21,28 @@ data class ToolCallDetailRow(
 fun toolCallDetailsUiState(action: PendingLocalToolAction): ToolCallDetailsUiState {
     return ToolCallDetailsUiState(
         toolName = action.proposal.name.value,
-        safetyLabel = action.decision.toSafetyLabel(),
+        safetyLabel = safetyLabel(action.decision),
         boundaryLabel = "Kotlin validates and runs this local action after you approve it.",
-        arguments = action.proposal.arguments
-            .toSortedMap()
-            .map { (name, value) ->
-                ToolCallDetailRow(
-                    label = name,
-                    value = value.toDisplayValue()
-                )
-            }
+        arguments = toolCallDetailRows(action.proposal.arguments)
     )
 }
 
-private fun ToolExecutionDecision.toSafetyLabel(): String {
-    return when (this) {
-        is ToolExecutionDecision.AllowLocalExecution -> when (scope) {
+private fun toolCallDetailRows(arguments: Map<String, ToolArgument>): List<ToolCallDetailRow> {
+    return arguments.toSortedMap().map { (name, value) ->
+        ToolCallDetailRow(
+            label = name,
+            value = displayValue(value)
+        )
+    }
+}
+
+private fun safetyLabel(decision: ToolExecutionDecision): String {
+    return when (decision) {
+        is ToolExecutionDecision.AllowLocalExecution -> when (decision.scope) {
             ToolExecutionScope.ReadOnlyLocalData -> "Read-only local data"
             ToolExecutionScope.LocalDataWrite -> "Local app data write"
         }
-        is ToolExecutionDecision.RequireUserConfirmation -> when (requirement.mode) {
+        is ToolExecutionDecision.RequireUserConfirmation -> when (decision.requirement.mode) {
             ToolConfirmationMode.Standard -> "Needs your confirmation"
             ToolConfirmationMode.StrictManual -> "Strict manual confirmation"
         }
@@ -48,22 +50,22 @@ private fun ToolExecutionDecision.toSafetyLabel(): String {
     }
 }
 
-private fun ToolArgument.toDisplayValue(): String {
-    val rawValue = when (this) {
-        is ToolArgument.BooleanValue -> value.toString()
-        is ToolArgument.IntegerValue -> value.toString()
-        is ToolArgument.StringValue -> value.trim().ifBlank { "(blank)" }
+private fun displayValue(argument: ToolArgument): String {
+    val rawValue = when (argument) {
+        is ToolArgument.BooleanValue -> argument.value.toString()
+        is ToolArgument.IntegerValue -> argument.value.toString()
+        is ToolArgument.StringValue -> argument.value.trim().ifBlank { "(blank)" }
     }
-    return rawValue.toSingleLine().limitForConfirmation()
+    return limitForConfirmation(singleLine(rawValue))
 }
 
-private fun String.toSingleLine(): String = replace(ToolArgumentWhitespaceRegex, " ").trim()
+private fun singleLine(value: String): String = value.replace(ToolArgumentWhitespaceRegex, " ").trim()
 
-private fun String.limitForConfirmation(): String {
-    return if (length <= MaxToolArgumentValueLength) {
-        this
+private fun limitForConfirmation(value: String): String {
+    return if (value.length <= MaxToolArgumentValueLength) {
+        value
     } else {
-        take(MaxToolArgumentValueLength) + "..."
+        value.take(MaxToolArgumentValueLength) + "..."
     }
 }
 
