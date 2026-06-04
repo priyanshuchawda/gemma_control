@@ -11,7 +11,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 ### 1. Notification Ingestion & Actionable Inbox
 - **MessagingStyle Parsing**: Extracts chat history lists and sender authors dynamically from bundled notification structures.
 - **Group Separation**: Differentiates group conversation headers from the individual message authors.
-- **Event Deduplication**: Uses deterministic deduplication hashes (`dedupe_hash`) to avoid duplicate row creation on repost events.
+- **Event Deduplication**: Uses deterministic parser candidates that are transformed into keyed HMAC `dedupeToken` values before Room storage.
 - **Privacy Constraints**: Captured alerts are parsed in memory, and stored locally *only* under explicit storage consent toggles.
 
 ### 2. Local Task Management & Productivity
@@ -50,7 +50,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
 │   ├── TOOL_REGISTRY.md      # Parameter type schemas for the 16 registry tools
-│   ├── NOTIFICATION_PARSING.md # MessagingStyle parsers and deduplication hashes
+│   ├── NOTIFICATION_PARSING.md # MessagingStyle parsers and keyed dedupe tokens
 │   ├── SECURITY_AND_PRIVACY.md # Key cryptography and search memory trade-offs
 │   └── DEVICE_VALIDATION.md  # Physical telemetry parameters and test milestones
 ├── GemmaControl/             # Native Android 16 Kotlin Application

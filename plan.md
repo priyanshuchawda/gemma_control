@@ -20,7 +20,7 @@ An English-only, private, on-device Android productivity agent for WhatsApp noti
   - **ABI (CPU Architecture)**: arm64-v8a
   - **Total Physical RAM**: approximately 6 GB (5,531,208 kB)
   - **Connection Status**: Connected via USB (Serial: `1431df87`)
-  - **Application Package Dependency**: WhatsApp (`com.whatsapp` or WhatsApp Business `com.whatsapp.w4b`). *Constraint: Until WhatsApp or WhatsApp Business is visible on the phone/profile being tested, real notification capture or direct reply checks cannot run.*
+  - **Application Package Dependency**: WhatsApp (`com.whatsapp`) is confirmed on the connected profile. WhatsApp Business (`com.whatsapp.w4b`) is not present.
 
 ### Strict Scope Constraints
 - **No PC Companion Services**: No desktop apps, Streamlit servers, or Python dashboards.
@@ -37,7 +37,7 @@ An English-only, private, on-device Android productivity agent for WhatsApp noti
 
 ### Non-Negotiable Safety Rules
 1. **Explicit Manual Confirmation**: No outgoing message is sent from the phone without a physical user click on the confirmation screen of the UI.
-2. **LiteRT Manual Execution**: `automaticToolCalling` inside LiteRT-LM's `ConversationConfig` is explicitly disabled (`false`). Model tool calls are treated as proposals. Kotlin safety logic validates schemas and executes tasks.
+2. **LiteRT Native Callback Boundary**: The current app enables LiteRT-LM automatic callbacks for the deliberately small native `WhatsAppTools` surface. Those callbacks only capture typed proposals/results; Kotlin safety logic validates schemas, routes high-risk actions, and requires user confirmation before execution.
 3. **Parameter Type Validation**: No hallucinated or unsupported tools can be executed. All parameters are parsed and strictly typed before routing.
 4. **Ambiguity Resolution**: If a query targets a contact name matching multiple local conversations, execution halts, and a Compose choice sheet is shown.
 5. **No Direct RemoteInput Caching**: The app does not save system `PendingIntent` or `RemoteInput` bindings to SQLite. It stores only `notification_key` metadata. During replies, it retrieves active notifications in real-time. If expired, it triggers a draft fallback instead of failing silently.
@@ -47,14 +47,12 @@ An English-only, private, on-device Android productivity agent for WhatsApp noti
 
 ## 4. Database Schema Architectural Blocks
 
-The local SQLite Room Database utilizes seven dedicated tables to store structured states:
-1. **`ConversationEntity`**: Tracks direct vs group chats, display names, and E.164 phone mappings.
-2. **`MessageEventEntity`**: Caches message previews, timestamps, notification keys, and deduplication hashes. Message bodies are encrypted at rest using AES-GCM backed by Android Keystore.
+The local SQLite Room Database currently uses five dedicated tables to store structured states:
+1. **`ConversationEntity`**: Tracks direct vs group chats, encrypted display names, optional encrypted E.164 phone mappings, and opaque keyed identifiers.
+2. **`MessageEventEntity`**: Caches timestamps, notification keys, parse source, keyed deduplication tokens, encrypted sender names, encrypted message text, and local priority state.
 3. **`ActiveNotificationReferenceEntity`**: Caches the live system `notification_key` to query state at reply confirmation time.
 4. **`FollowUpEntity`**: Models actionable items, priority flags, and task completions.
 5. **`ReminderEntity`**: Manages scheduled reminders powered by standard system `WorkManager`.
-6. **`DraftReplyEntity`**: Holds drafted text responses.
-7. **`AssistantActionEntity`**: Serves as a local audit logger, storing tool requests and safety outcomes, omitting plaintext body payloads.
 
 ---
 
@@ -65,7 +63,7 @@ The local SQLite Room Database utilizes seven dedicated tables to store structur
 - **Phase 1**: Minimal Android 16 Compose sandbox & `NotificationListenerService` proof-of-concept displaying raw parsed notifications.
 - **Phase 2**: Room database models, deduplication parsing, and privacy setup.
 - **Phase 3**: Non-AI tool executions (Intents, RemoteInput live lookup, WorkManager reminders).
-- **Phase 4**: LiteRT-LM FunctionGemma on-device routing implementation (`automaticToolCalling = false`).
+- **Phase 4**: LiteRT-LM FunctionGemma on-device routing implementation using native callback proposals plus Kotlin-owned safety routing.
 - **Phase 5**: Benchmark safety suites against 100+ English queries.
 - **Phase 6**: Future fine-tuning dataset generation (English-only).
 - **Phase 7**: Future semantic search integrations.

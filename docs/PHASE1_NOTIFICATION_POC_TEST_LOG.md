@@ -60,9 +60,9 @@
 | Group-chat classification (`GROUP`) | **PASS** | UI observation | Controlled group test: MessagingStyle card showed `GROUP` |
 | Dual-notification behavior understood | **PASS** | UI + Logcat | See note below |
 | In-memory list bounded to 100 entries | **PASS** | Unit test | `testEventHistoryCappedTo100` |
-| Room persistence | **NOT IMPLEMENTED** | — | Deferred to Phase 2 |
-| Direct reply (RemoteInput) execution | **NOT IMPLEMENTED** | — | Deferred to manual-action phase |
-| FunctionGemma AI routing | **NOT IMPLEMENTED** | — | Deferred to Phase 4 |
+| Room persistence | **OUT OF PHASE 1 SCOPE** | — | Implemented in later phases |
+| Direct reply (RemoteInput) execution | **OUT OF PHASE 1 SCOPE** | — | Implemented locally in later phases; fresh physical send validation remains separate |
+| FunctionGemma AI routing | **OUT OF PHASE 1 SCOPE** | — | Implemented locally in later phases; structured benchmark remains separate |
 
 ---
 

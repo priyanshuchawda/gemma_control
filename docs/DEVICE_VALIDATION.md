@@ -1,6 +1,6 @@
 # Device Validation Reference
 
-Physical handset used for all Phase 1 testing and validation.
+Physical handset used for GemmaControl development and physical validation. Current target scope is this Xiaomi Redmi 13 5G / Android 16 / API 36 profile unless another handset is explicitly added to the test matrix.
 
 ---
 
@@ -62,29 +62,33 @@ Physical handset used for all Phase 1 testing and validation.
 | Deduplication of updated events | **PASS** | UI + Room verification | Repeated notifications on active keys do not duplicate message rows. |
 | Delete All stored messages | **PASS** | UI + Room verification | Data Purge clears all tables concurrently inside single transaction. |
 
-### Milestone 2B: Metadata Encryption and Room Database Migration (NOT YET RE-VERIFIED)
+### Milestone 2B: Metadata Encryption and Room Database Migration (VERIFIED BY TEST LOGS)
 > This milestone covers full metadata encryption, opaque identifiers, keyed tokens, and SQLite database migration.
 
 | Stage / Feature | Status | Evidence Type | Notes |
 | :--- | :--- | :--- | :--- |
-| Opaque Conversation ID | **NOT YET RE-VERIFIED** | Instrumented Test / UI | Plaintext conversation titles replaced with secret Keystore-backed HMAC-SHA256 tokens. |
-| Encrypted Display Name & Sender Name | **NOT YET RE-VERIFIED** | Instrumented Test / UI | Display names and sender names are GCM-encrypted before writing to SQLite. |
-| Keyed Deduplication Token | **NOT YET RE-VERIFIED** | Instrumented Test / UI | Deterministic SHA-256 dedupe Candidates are transformed into keyed HMAC-SHA256 tokens, shielding against offline guessing. |
-| Room v1 to v2 Database Migration | **NOT YET RE-VERIFIED** | Instrumented Test / UI | Explicit `MIGRATION_1_2` executes without data loss, encrypting legacy metadata dynamically. |
-| Raw Room Plaintext Leak Audit | **NOT YET RE-VERIFIED** | Low-level SQLite Cursor Check | Raw column query asserts that zero plaintext message text, titles, or sender names remain at rest. |
-| Atomic Delete All on Migrated DB | **NOT YET RE-VERIFIED** | UI / Room Purge Check | Full atomic wipe clears all upgraded tables cleanly. |
+| Opaque Conversation ID | **PASS** | Instrumented Test / UI | Plaintext conversation titles replaced with secret Keystore-backed HMAC-SHA256 tokens. |
+| Encrypted Display Name & Sender Name | **PASS** | Instrumented Test / UI | Display names and sender names are GCM-encrypted before writing to SQLite. |
+| Keyed Deduplication Token | **PASS** | Instrumented Test / UI | Deterministic parser candidates are transformed into keyed HMAC-SHA256 tokens, shielding against offline guessing. |
+| Room v1 to v2 Database Migration | **PASS** | Instrumented Test / UI | Explicit `MIGRATION_1_2` executes without data loss, encrypting legacy metadata dynamically. |
+| Raw Room Plaintext Leak Audit | **PASS** | Low-level SQLite Cursor Check | Raw column query asserts that zero plaintext message text, titles, or sender names remain at rest. |
+| Atomic Delete All on Migrated DB | **PASS** | UI / Room Purge Check | Full atomic wipe clears upgraded tables cleanly. |
 
 
-### Milestone 3: Manual Action Testing (Deferred to Phase 3)
+### Milestone 3: Manual Action Implementation And Testing
 > This milestone covers RemoteInput reply execution and deep links.
 
-- Inline reply via RemoteInput API — **NOT IMPLEMENTED**
-- Fallback deep-link to WhatsApp — **NOT IMPLEMENTED**
+- Inline reply via RemoteInput API — **IMPLEMENTED LOCALLY; NEEDS FRESH PHYSICAL SEND VALIDATION**
+- WhatsApp share draft and click-to-chat draft intents — **IMPLEMENTED LOCALLY; NEEDS FRESH PHYSICAL INTENT VALIDATION**
+- User confirmation sheet before high-risk execution — **IMPLEMENTED LOCALLY**
+- Active notification liveness lookup by key — **IMPLEMENTED LOCALLY; NEEDS FRESH PHYSICAL EXPIRY TESTING**
 
-### Milestone 4: Model Latency Benchmark (Deferred to Phase 4)
-> Requires LiteRT-LM integration.
+### Milestone 4: Model Runtime Validation
 
-- FunctionGemma 270M load/inference latency — **NOT MEASURED**
+- FunctionGemma MobileActions model installed app-private — **PASS**
+- LiteRT-LM runtime open/no-data read smoke test — **PASS**
+- Structured routing quality benchmark — **NOT MEASURED**
+- Load/inference latency dashboard — **NOT MEASURED**
 - RAM and thermal profiling — **NOT MEASURED**
 
 ---

@@ -52,7 +52,7 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 
 ### B. Ingestion Module (`com.example.gemmacontrol.notifications`)
 - **`WhatsAppNotificationListener`**: Extends `NotificationListenerService`. BINDs to Android's system pipeline.
-- **`WhatsAppNotificationParser`**: Extracts unread history from `Notification.MessagingStyle` structures, isolates group conversation headers from message sender display names, and constructs a deduplication hash (`dedupe_hash`) to avoid duplicate row creation on repost events.
+- **`WhatsAppNotificationParser`**: Extracts unread history from `Notification.MessagingStyle` structures, isolates group conversation headers from message sender display names, and constructs a deterministic dedupe candidate. The repository converts that candidate into a keyed HMAC `dedupeToken` before Room storage.
 - **WhatsApp Package Constraint**: The service parses alert payloads belonging to `"com.whatsapp"` or `"com.whatsapp.w4b"`. The current physical handset has `com.whatsapp` installed; WhatsApp Business is not present in the latest checked profile.
 
 ### C. Storage and Persistence Module (`com.example.gemmacontrol.data`)

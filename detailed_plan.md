@@ -16,7 +16,7 @@ The primary physical development and runtime environment is verified as:
 - **Connection Status**: Connected via USB (Serial: `1431df87`)
 - **Software Dependencies**: WhatsApp (`com.whatsapp`) is confirmed present and active on the test profile of the physically connected Redmi 13 5G. WhatsApp Business (`com.whatsapp.w4b`) is not present. Real notification capture and replies can be fully tested on the connected handset after manual notification access authorization.
 
-All assumptions regarding Android 15 and API Level 35 have been removed.
+The roadmap is scoped to this Xiaomi Redmi 13 5G / Android 16 / API 36 device profile unless a separate test matrix explicitly adds another handset.
 
 ---
 
@@ -61,7 +61,7 @@ Before developing app features, execute a standalone latency, memory pressure, a
   - Code `WhatsAppNotificationListener` extending `NotificationListenerService` and filter for package `"com.whatsapp"` or `"com.whatsapp.w4b"`.
   - Decode notifications utilizing `Notification.MessagingStyle` to parse historical unread message chains, separating group conversation titles from message author display names.
   - Fall back gracefully to notification extras if `MessagingStyle` is missing.
-  - Generate deterministic, unique deduplication hashes (`dedupe_hash`) composed of `posted_at + sender_name + message_text` to prevent duplicated rows on banner refreshes.
+  - Generate deterministic dedupe candidates from notification fields to prevent duplicated rows on banner refreshes. The repository converts candidates into keyed HMAC `dedupeToken` values before Room storage.
   - Monitor `onNotificationRemoved` to update active status.
 - **Debug View Compose Screen**: Build a simple debug screen displaying raw parsed notification parameters on the physical handset to verify basic ingestion mechanisms operate correctly without any AI components.
 
@@ -70,20 +70,18 @@ Before developing app features, execute a standalone latency, memory pressure, a
 ## Phase 2: Local Actionable Inbox Foundation
 
 ### 1. Room SQLite Database Schema
-Create the seven local entities to store structured states:
-- **`ConversationEntity`**: Tracks display names, types (DIRECT or GROUP), and E.164 phone mappings.
-- **`MessageEventEntity`**: Caches message previews, notification keys, dedupe hashes, and priorities. Message text is encrypted at rest using AES-GCM backed by Android Keystore.
+Current Room Version 4 stores five local entities:
+- **`ConversationEntity`**: Tracks opaque conversation IDs, encrypted display names, types (DIRECT or GROUP), and optional encrypted E.164 phone mappings.
+- **`MessageEventEntity`**: Caches notification keys, parse source, keyed dedupe tokens, priorities, encrypted sender names, and encrypted message text.
 - **`ActiveNotificationReferenceEntity`**: Caches the live system `notification_key` to query state at reply confirmation time.
 - **`FollowUpEntity`**: Models unresolved tasks, priorities, and completed timestamps.
-- **`ReminderEntity`**: Manages scheduled reminders powered by standard system `WorkManager`.
-- **`DraftReplyEntity`**: Holds drafted text responses.
-- **`AssistantActionEntity`**: Serves as a local audit logger, storing tool requests and safety outcomes, omitting plaintext body payloads.
+- **`ReminderEntity`**: Manages encrypted local reminder notes and scheduled delivery metadata powered by standard system `WorkManager`.
 
 ### 2. Encryption Strategy
 - **AES-GCM Key Encryption**: Implement AES-GCM (256-bit key) generated inside the Android Keystore container.
 - **Plaintext Search Trade-off**:
   - Encrypted database columns cannot be searched natively via SQLite `LIKE` queries.
-  - **V1 Design**: Conversation metadata (sender names, titles, timestamps) remains in plaintext inside Room, while the actual message bodies are encrypted. Simple keyword queries pull candidate encrypted records (e.g., top 100 rows), decrypt them in memory, and filter them locally. This trade-off is documented honestly.
+  - **Current Design**: Human-readable conversation names, sender names, phone values, message bodies, and reminder notes are encrypted at rest. SQLite may filter by non-sensitive operational metadata such as timestamps, source package, parse source, priority, and keyed dedupe tokens. Keyword searches decrypt bounded candidates in memory and filter locally.
 
 ### 3. Privacy Control States
 - **Storage Toggle**: If set to "OFF", notification items are held in-memory and parsed dynamically, writing nothing to Room.
@@ -132,17 +130,17 @@ Create the seven local entities to store structured states:
   // Future Verification Required: Confirm official Maven artifact path and version
   // implementation("com.google.ai.edge.litertlm:litertlm-android:1.0.0")
   ```
-- Configure the Local Engine using a **Strict Manual Tool Calling** protocol. Do not allow LiteRT-LM to call tools automatically:
+- Configure the local engine using a small native `ToolSet` callback surface. LiteRT-LM may call these callbacks automatically, but the callbacks only capture proposal/result state and do not directly execute sensitive Android actions:
   ```kotlin
   val conversationConfig = ConversationConfig(
-      tools = LocalToolRegistry.getToolsList(),
-      automaticToolCalling = false // Mandatory manual routing
+      tools = listOf(tool(WhatsAppTools(onFunctionCalled = ::recordAction))),
+      automaticToolCalling = true
   )
   ```
 
 ### 2. Command Translation & Schema Validation
 - **Model Role**: FunctionGemma parses the user's English command and selects the correct tool and parameters (e.g., extracting exact target string payloads, dates, or contact identities). It performs **no** creative or summarizing activities.
-- **Safety Parser**: Once the model generates a proposal, the Kotlin application intercepts it, validates it against type schemas, and resolves the arguments. Sensitive execution items (11, 12, 13, 16) are put behind Compose dialog confirmation cards before executing.
+- **Safety Parser**: Once the model generates a proposal or native callback action, the Kotlin application validates it against type schemas and resolves the arguments. Sensitive execution items such as WhatsApp sends, draft opening, capture toggles, and local deletion are put behind Compose confirmation cards before executing.
 
 ---
 

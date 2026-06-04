@@ -20,7 +20,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **WhatsApp Package Presence**: WhatsApp (`com.whatsapp`) is confirmed present and active on the physical handset's test profile. WhatsApp Business (`com.whatsapp.w4b`) is absent. Real notification intercepts, direct replies, and intent launching can be fully tested on the connected handset after manual notification access permission is granted.
 - **MessagingStyle Extraction**: Uses Android `Notification.MessagingStyle` to parse historical message chains and sender details from bundled notifications.
 - **Separation of Titles**: Distinguishes group titles from message sender display names.
-- **Deduplication Engine**: Uses deterministic deduplication hashes (`dedupe_hash`) to block duplicate insertions when notifications update.
+- **Deduplication Engine**: Uses deterministic parser candidates that are converted into keyed HMAC `dedupeToken` values before Room storage, blocking duplicate insertions without storing plaintext-derived hashes.
 - **Actionable Inbox View**: Allows the user to view recent unresolved, pending, and prioritized items.
 
 ### B. Productivity Actions
