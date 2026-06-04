@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ai.runtime
 
+import android.util.Log
 import com.example.gemmacontrol.ai.tools.ToolCallParser
 import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
@@ -18,6 +19,8 @@ import com.google.ai.edge.litertlm.tool
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+private const val TAG = "LiteRtGemmaEngine"
 
 class LiteRtGemmaEngine(
     private val fallbackCacheDirectoryPath: String? = null
@@ -79,6 +82,7 @@ class LiteRtGemmaEngine(
             conversation = newConversation
             GemmaEngineResult.Ready
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize FunctionGemma", e)
             close()
             GemmaEngineResult.Failure("LiteRT-LM failed to initialize FunctionGemma.")
         }
@@ -127,6 +131,7 @@ class LiteRtGemmaEngine(
                     }
 
                     override fun onError(throwable: Throwable) {
+                        Log.e(TAG, "FunctionGemma generation failed", throwable)
                         result.complete(
                             GemmaEngineResult.Failure("LiteRT-LM failed while generating a FunctionGemma proposal.")
                         )
@@ -134,6 +139,7 @@ class LiteRtGemmaEngine(
                 }
             )
         } catch (e: Exception) {
+            Log.e(TAG, "FunctionGemma sendMessageAsync failed", e)
             return@withContext GemmaEngineResult.Failure("LiteRT-LM failed while generating a FunctionGemma proposal.")
         }
 
