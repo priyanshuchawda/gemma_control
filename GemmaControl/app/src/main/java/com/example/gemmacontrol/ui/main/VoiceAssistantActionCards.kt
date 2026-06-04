@@ -43,7 +43,9 @@ private fun VoiceAssistantActionSheetBody(
     actions: VoiceAssistantScreenActions,
 ) {
     when (state) {
-        VoiceAssistantState.Idle -> VoiceCommandExamplesCard()
+        VoiceAssistantState.Idle -> VoiceCommandExamplesCard(
+            onCommandSelected = actions.onTypedCommandSubmit
+        )
         is VoiceAssistantState.CommandReady -> ReadLatestCommandCard(
             command = state.command,
             actions = actions
