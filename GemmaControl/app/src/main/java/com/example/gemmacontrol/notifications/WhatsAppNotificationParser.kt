@@ -6,6 +6,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 object WhatsAppNotificationParser {
 
@@ -16,6 +17,26 @@ object WhatsAppNotificationParser {
      */
     fun isPackageSupported(packageName: String?): Boolean {
         return packageName != null && SUPPORTED_PACKAGES.contains(packageName)
+    }
+
+    fun classifyMessageContent(messageText: String?): WhatsAppContentKind {
+        val normalized = normalizeNotificationText(messageText)
+        if (normalized.isBlank()) {
+            return WhatsAppContentKind.HIDDEN
+        }
+
+        return when {
+            isHiddenPlaceholder(normalized) -> WhatsAppContentKind.HIDDEN
+            isUnsupportedPlaceholder(normalized) -> WhatsAppContentKind.UNKNOWN
+            isMissedCallPlaceholder(normalized) -> WhatsAppContentKind.MISSED_CALL
+            isSystemNotificationText(normalized) -> WhatsAppContentKind.SYSTEM
+            isPhotoPlaceholder(normalized) -> WhatsAppContentKind.PHOTO
+            isVideoPlaceholder(normalized) -> WhatsAppContentKind.VIDEO
+            isStickerPlaceholder(normalized) -> WhatsAppContentKind.STICKER
+            isAudioPlaceholder(normalized) -> WhatsAppContentKind.AUDIO
+            isDocumentPlaceholder(normalized) -> WhatsAppContentKind.DOCUMENT
+            else -> WhatsAppContentKind.TEXT
+        }
     }
 
     /**
@@ -64,7 +85,9 @@ object WhatsAppNotificationParser {
         val title = extras.getString(Notification.EXTRA_TITLE) ?: ""
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         
-        val isContentUnavailable = title.isEmpty() && text.isEmpty()
+        val contentKind = classifyMessageContent(text)
+        val isContentUnavailable = (title.isEmpty() && text.isEmpty()) ||
+            contentKind == WhatsAppContentKind.HIDDEN
 
         // Fallbacks default to UNKNOWN and EXTRAS_FALLBACK
         val conversationType = ConversationType.UNKNOWN
@@ -76,7 +99,8 @@ object WhatsAppNotificationParser {
                 ParsedMessagePreview(
                     senderName = title.ifEmpty { null },
                     messageText = text.ifEmpty { null },
-                    timestamp = notificationPostedAt
+                    timestamp = notificationPostedAt,
+                    contentKind = contentKind
                 )
             )
         }
@@ -129,18 +153,22 @@ object WhatsAppNotificationParser {
         val historicMessages = style.historicMessages ?: emptyList()
 
         val currentMsgPreviews = messages.map { msg ->
+            val text = msg.text?.toString()
             ParsedMessagePreview(
                 senderName = msg.senderDisplayName(),
-                messageText = msg.text?.toString(),
-                timestamp = msg.timestamp
+                messageText = text,
+                timestamp = msg.timestamp,
+                contentKind = classifyMessageContent(text)
             )
         }
 
         val historicMsgPreviews = historicMessages.map { msg ->
+            val text = msg.text?.toString()
             ParsedMessagePreview(
                 senderName = msg.senderDisplayName(),
-                messageText = msg.text?.toString(),
-                timestamp = msg.timestamp
+                messageText = text,
+                timestamp = msg.timestamp,
+                contentKind = classifyMessageContent(text)
             )
         }
 
@@ -148,6 +176,7 @@ object WhatsAppNotificationParser {
         val latestMessage = currentMsgPreviews.lastOrNull()
         val latestSender = latestMessage?.senderName ?: ""
         val latestText = latestMessage?.messageText ?: ""
+        val latestContentKind = latestMessage?.contentKind ?: WhatsAppContentKind.HIDDEN
 
         val conversationType = if (isGroup) {
             ConversationType.GROUP
@@ -157,7 +186,8 @@ object WhatsAppNotificationParser {
             ConversationType.UNKNOWN
         }
 
-        val isContentUnavailable = currentMsgPreviews.isEmpty() || latestText.isEmpty()
+        val isContentUnavailable = currentMsgPreviews.isEmpty() ||
+            latestContentKind == WhatsAppContentKind.HIDDEN
         val timestampToUse = latestMessage?.timestamp ?: notificationPostedAt
 
         val dedupe = generateDedupeCandidate(
@@ -213,5 +243,101 @@ object WhatsAppNotificationParser {
         } catch (e: Exception) {
             rawString.hashCode().toString()
         }
+    }
+
+    private fun normalizeNotificationText(messageText: String?): String {
+        return messageText
+            ?.trim()
+            ?.lowercase(Locale.ROOT)
+            ?.replace(Regex("[^\\p{L}\\p{N}._+\\-/]+"), " ")
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            .orEmpty()
+    }
+
+    private fun isHiddenPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "content hidden",
+            "contents hidden",
+            "notification content hidden",
+            "message content hidden",
+            "hidden content"
+        ) || value.contains("content hidden")
+    }
+
+    private fun isUnsupportedPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "unsupported message",
+            "message type unsupported",
+            "this message type is not supported",
+            "unsupported content"
+        )
+    }
+
+    private fun isMissedCallPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "missed call",
+            "missed voice call",
+            "missed video call",
+            "missed whatsapp call"
+        ) || value.contains("missed voice call") ||
+            value.contains("missed video call") ||
+            value.contains("missed call")
+    }
+
+    private fun isSystemNotificationText(value: String): Boolean {
+        return value.contains("checking for new messages") ||
+            value.contains("whatsapp web is currently active") ||
+            value.contains("messages are syncing") ||
+            value.contains("you may have new messages") ||
+            value.contains("backup in progress") ||
+            value.contains("backing up messages") ||
+            value.contains("waiting for wi-fi")
+    }
+
+    private fun isPhotoPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "photo",
+            "image",
+            "picture",
+            "sent a photo",
+            "sent an image",
+            "sent a picture"
+        )
+    }
+
+    private fun isVideoPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "video",
+            "gif",
+            "sent a video",
+            "sent a gif"
+        )
+    }
+
+    private fun isStickerPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "sticker",
+            "sent a sticker"
+        )
+    }
+
+    private fun isAudioPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "audio",
+            "voice message",
+            "sent an audio",
+            "sent a voice message"
+        )
+    }
+
+    private fun isDocumentPlaceholder(value: String): Boolean {
+        return value in setOf(
+            "document",
+            "file",
+            "pdf",
+            "sent a document",
+            "sent a file"
+        ) || value.matches(Regex(".+\\.(pdf|docx?|xlsx?|pptx?|zip|rar|txt)"))
     }
 }

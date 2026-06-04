@@ -23,6 +23,8 @@ import com.example.gemmacontrol.data.reminder.ReminderScheduler
 import com.example.gemmacontrol.data.reminder.ReminderTimeParser
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
+import com.example.gemmacontrol.notifications.searchableText
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -74,7 +76,8 @@ class StoredInboxRepository(
         val parseSource: NotificationParseSource,
         val isContentUnavailable: Boolean,
         val createdAt: Long,
-        val priority: String
+        val priority: String,
+        val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
     )
 
     data class StoredConversation(
@@ -303,7 +306,8 @@ class StoredInboxRepository(
                 listOfNotNull(
                     message.conversationId,
                     message.senderName,
-                    message.decryptedText
+                    message.decryptedText,
+                    message.contentKind.searchableText(message.decryptedText)
                 ).any { normalizeSearchText(it).contains(normalizedQuery) }
             }
             .sortedByDescending { it.postedAt }
@@ -382,7 +386,8 @@ class StoredInboxRepository(
             senderName = senderName,
             text = decryptedText,
             postedAt = postedAt,
-            priority = priority
+            priority = priority,
+            contentKind = contentKind
         )
     }
 
@@ -397,7 +402,8 @@ class StoredInboxRepository(
             priority = priority.name,
             status = if (completedAt == null) ACTIONABLE_STATUS_PENDING else ACTIONABLE_STATUS_COMPLETED,
             dueAt = dueAt,
-            updatedAt = completedAt ?: createdAt
+            updatedAt = completedAt ?: createdAt,
+            contentKind = message.contentKind
         )
     }
 
@@ -412,7 +418,8 @@ class StoredInboxRepository(
             priority = priority,
             status = ACTIONABLE_STATUS_PENDING,
             dueAt = null,
-            updatedAt = postedAt
+            updatedAt = postedAt,
+            contentKind = contentKind
         )
     }
 
@@ -430,7 +437,8 @@ class StoredInboxRepository(
             parseSource = entity.parseSource,
             isContentUnavailable = entity.isContentUnavailable,
             createdAt = entity.createdAt,
-            priority = entity.priority.name
+            priority = entity.priority.name,
+            contentKind = entity.contentKind
         )
     }
 

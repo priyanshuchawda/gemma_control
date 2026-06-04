@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import com.example.gemmacontrol.data.local.entity.InboxPriority
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationParseSource
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
 
 class RoomTypeConverters {
     @TypeConverter
@@ -34,5 +35,15 @@ class RoomTypeConverters {
         InboxPriority.valueOf(value)
     } catch (e: Exception) {
         InboxPriority.NORMAL
+    }
+
+    @TypeConverter
+    fun fromWhatsAppContentKind(value: WhatsAppContentKind): String = value.name
+
+    @TypeConverter
+    fun toWhatsAppContentKind(value: String): WhatsAppContentKind = try {
+        WhatsAppContentKind.valueOf(value)
+    } catch (e: Exception) {
+        WhatsAppContentKind.UNKNOWN
     }
 }

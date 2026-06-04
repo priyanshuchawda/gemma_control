@@ -24,11 +24,12 @@ Current LiteRT-LM Kotlin docs support native tool execution through annotated `T
 - `ToolProposal` carries typed parameters and the safety level into UI/controller code.
 - `ToolSafetyRouter` converts a parsed proposal into an execution decision: read-only local execution, local data write, user confirmation, strict manual confirmation, or rejection.
 - `WhatsAppLocalToolExecutor` executes only operations that already have Kotlin repository, preference, or Android intent boundaries, currently capture pause/resume, recent local message reads, local message search/details, actionable inbox reads, follow-up create/list/complete, message priority updates, encrypted reminder scheduling, user-confirmed WhatsApp draft/share/click-to-chat preparation, plus all-data or conversation-scoped local deletion. Active notification replies are intentionally rejected here and must use the dedicated notification reply executor.
+- Local WhatsApp message output is content-kind aware. Media placeholders are rendered as attachments whose contents were not inspected, hidden notifications are rendered as unavailable, and system notifications are filtered before canonical storage.
 - `VoiceCommandToolProposalMapper` bridges today's deterministic voice parser into the same proposal path used by future FunctionGemma output.
 - `FunctionGemmaVoiceProposalHandler` maps validated FunctionGemma proposal results back into existing voice UI states. Read-latest, local message search/details, actionable inbox reads, active-notification replies, message-preparation drafts, follow-up actions, reminders, priority updates, pause/resume capture, and local deletion are wired; unsupported or stale proposals become safe failures.
 - Model-proposed local mutations still require a Compose confirmation card before `WhatsAppLocalToolExecutor` runs.
 - The confirmation UI exposes a Gallery-style function-call details panel before execution: tool name, safety label, Kotlin local boundary text, and sorted bounded arguments. This makes the model proposal visible without giving the model an execution path.
-- `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency, with both message bodies and the user command truncated before model submission.
+- `GemmaPromptBuilder` creates bounded prompts with only selected local WhatsApp context, sorted by recency, with content kind, message bodies, and the user command truncated before model submission.
 - `GemmaModelManager` centralizes FunctionGemma lifecycle state, duplicate-initialization protection, streaming partial text emission, stop-response cancellation, idle background release, and low-memory cleanup.
 - `GemmaEngine` defines the runtime contract. `LiteRtGemmaEngine` now contains the isolated Android LiteRT-LM engine/conversation wrapper, while `UnavailableGemmaEngine` remains available for explicit blocked states when no model path/runtime is configured.
 - `FunctionGemmaModelCatalog` mirrors the Gallery MobileActions allowlist entry for `mobile_actions_q8_ekv1024.litertlm`: CPU backend, `topK=64`, `topP=0.95`, `temperature=0.0`, and `maxTokens=1024`.
@@ -46,6 +47,7 @@ FunctionGemma is still treated as a proposal engine from the product perspective
 - E.164 phone numbers for click-to-chat
 - whether a tool requires manual confirmation
 - bounded prompt context size before any model call
+- content-kind truthfulness before any read/summarize output; media notification placeholders are not image/video/audio bytes
 - model lifecycle readiness before prompt submission
 - installed model resolution before LiteRT initialization
 - active notification liveness before a model-proposed reply reaches confirmation

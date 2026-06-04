@@ -11,6 +11,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 ### 1. Notification Ingestion & Actionable Inbox
 - **MessagingStyle Parsing**: Extracts chat history lists and sender authors dynamically from bundled notification structures.
 - **Group Separation**: Differentiates group conversation headers from the individual message authors.
+- **Content Classification**: Tags captured notifications as text, media placeholders, missed calls, hidden content, system notifications, or unknown content before local reads and storage.
 - **Event Deduplication**: Uses deterministic parser candidates that are transformed into keyed HMAC `dedupeToken` values before Room storage.
 - **Privacy Constraints**: Captured alerts are parsed in memory, and stored locally *only* under explicit storage consent toggles.
 
@@ -34,6 +35,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 
 - **Clean MVVM Architecture**: Separates data structures (Room SQLite database), notification handlers, LiteRT engines, and Jetpack Compose views.
 - **Encryption at Rest**: Encrypts sensitive message texts and drafted responses inside Room SQLite utilizing **AES-GCM 256-bit encryption** keys protected by the **Android Keystore**.
+- **Truthful Media Handling**: WhatsApp photo/video/audio/document notifications are treated as placeholders only. The app never claims to inspect media contents unless actual media bytes become a future explicit feature.
 - **Scoped Network Access**: `android.permission.INTERNET` is declared only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification data, prompts, tool calls, and replies stay local.
 - **Local Reminder Notifications**: `android.permission.POST_NOTIFICATIONS` is declared only for user-confirmed local reminder alerts on Android 13+.
 - **LiteRT-LM Native Tool Boundary**: Registers a deliberately small native `ToolSet` with automatic LiteRT tool callbacks enabled. Tool callbacks only capture typed proposals/results; Kotlin still owns permission checks, safety routing, and all user-confirmed execution.

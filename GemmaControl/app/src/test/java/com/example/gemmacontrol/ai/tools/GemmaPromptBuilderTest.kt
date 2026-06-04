@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ai.tools
 
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -88,5 +89,28 @@ class GemmaPromptBuilderTest {
 
         assertEquals("Mom", context.senderName)
         assertEquals("[content unavailable]", context.body)
+    }
+
+    @Test
+    fun promptContextCarriesContentKindForMediaWithoutInventingContents() {
+        val context = GemmaMessageContext.fromDecryptedMessage(
+            messageEventId = "message-photo",
+            notificationKey = "notification-key-photo",
+            conversationName = "Mom",
+            senderName = "Mom",
+            decryptedText = "Photo",
+            postedAt = 1_000L,
+            contentKind = WhatsAppContentKind.PHOTO
+        )
+
+        val prompt = builder.buildForUserCommand(
+            userCommand = "Show latest WhatsApp messages",
+            messages = listOf(context)
+        )
+
+        assertEquals(WhatsAppContentKind.PHOTO, context.contentKind)
+        assertEquals("Photo attachment (contents not inspected)", context.body)
+        assertTrue(prompt.contains("content_kind=PHOTO"))
+        assertTrue(prompt.contains("body=Photo attachment (contents not inspected)"))
     }
 }

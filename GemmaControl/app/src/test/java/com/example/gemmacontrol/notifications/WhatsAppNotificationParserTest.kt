@@ -69,6 +69,54 @@ class WhatsAppNotificationParserTest {
     }
 
     @Test
+    fun classifyMessageContent_handlesTextMediaHiddenAndSystemNotifications() {
+        assertEquals(
+            WhatsAppContentKind.TEXT,
+            WhatsAppNotificationParser.classifyMessageContent("Dinner at 7")
+        )
+        assertEquals(
+            WhatsAppContentKind.PHOTO,
+            WhatsAppNotificationParser.classifyMessageContent("Photo")
+        )
+        assertEquals(
+            WhatsAppContentKind.VIDEO,
+            WhatsAppNotificationParser.classifyMessageContent("Video")
+        )
+        assertEquals(
+            WhatsAppContentKind.STICKER,
+            WhatsAppNotificationParser.classifyMessageContent("Sticker")
+        )
+        assertEquals(
+            WhatsAppContentKind.AUDIO,
+            WhatsAppNotificationParser.classifyMessageContent("Voice message")
+        )
+        assertEquals(
+            WhatsAppContentKind.DOCUMENT,
+            WhatsAppNotificationParser.classifyMessageContent("Document")
+        )
+        assertEquals(
+            WhatsAppContentKind.MISSED_CALL,
+            WhatsAppNotificationParser.classifyMessageContent("Missed voice call")
+        )
+        assertEquals(
+            WhatsAppContentKind.HIDDEN,
+            WhatsAppNotificationParser.classifyMessageContent("Content hidden")
+        )
+        assertEquals(
+            WhatsAppContentKind.HIDDEN,
+            WhatsAppNotificationParser.classifyMessageContent(null)
+        )
+        assertEquals(
+            WhatsAppContentKind.SYSTEM,
+            WhatsAppNotificationParser.classifyMessageContent("Checking for new messages")
+        )
+        assertEquals(
+            WhatsAppContentKind.UNKNOWN,
+            WhatsAppNotificationParser.classifyMessageContent("Unsupported message")
+        )
+    }
+
+    @Test
     fun testInMemoryStateTransitions() = runTest {
         val viewModel = MainScreenViewModel()
 

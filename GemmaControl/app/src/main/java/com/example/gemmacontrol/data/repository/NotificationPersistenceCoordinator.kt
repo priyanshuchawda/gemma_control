@@ -4,6 +4,8 @@ import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
+import com.example.gemmacontrol.notifications.latestContentKind
 import kotlinx.coroutines.flow.first
 
 class NotificationPersistenceCoordinator(
@@ -32,7 +34,16 @@ class NotificationPersistenceCoordinator(
         // Storage toggle must be ON for database writes
         if (!storageEnabled) return
 
-        if (event.parseSource == NotificationParseSource.UNAVAILABLE || event.isContentUnavailable) {
+        val latestContentKind = event.latestContentKind
+        if (latestContentKind == WhatsAppContentKind.SYSTEM) {
+            return
+        }
+
+        if (event.parseSource == NotificationParseSource.UNAVAILABLE) {
+            return
+        }
+
+        if (event.isContentUnavailable && latestContentKind != WhatsAppContentKind.HIDDEN) {
             return
         }
 

@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.gemmacontrol.notifications.NotificationParseSource
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
 
 @Entity(
     tableName = "message_events",
@@ -36,7 +37,8 @@ data class MessageEventEntity(
     val dedupeToken: String, // HMAC token, not plaintext SHA-256
     val isContentUnavailable: Boolean,
     val createdAt: Long,
-    val priority: InboxPriority = InboxPriority.NORMAL
+    val priority: InboxPriority = InboxPriority.NORMAL,
+    val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -70,6 +72,7 @@ data class MessageEventEntity(
         if (isContentUnavailable != other.isContentUnavailable) return false
         if (createdAt != other.createdAt) return false
         if (priority != other.priority) return false
+        if (contentKind != other.contentKind) return false
 
         return true
     }
@@ -89,6 +92,7 @@ data class MessageEventEntity(
         result = 31 * result + isContentUnavailable.hashCode()
         result = 31 * result + createdAt.hashCode()
         result = 31 * result + priority.hashCode()
+        result = 31 * result + contentKind.hashCode()
         return result
     }
 }

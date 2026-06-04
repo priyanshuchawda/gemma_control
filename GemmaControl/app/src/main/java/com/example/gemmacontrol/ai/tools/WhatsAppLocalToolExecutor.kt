@@ -1,6 +1,8 @@
 package com.example.gemmacontrol.ai.tools
 
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
+import com.example.gemmacontrol.notifications.localReadSummaryText
 
 interface LocalWhatsAppDataRepository {
     suspend fun deleteAllData()
@@ -45,7 +47,8 @@ data class LocalWhatsAppMessage(
     val senderName: String?,
     val text: String?,
     val postedAt: Long,
-    val priority: String
+    val priority: String,
+    val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
 )
 
 data class LocalActionableInboxItem(
@@ -58,7 +61,8 @@ data class LocalActionableInboxItem(
     val priority: String,
     val status: String,
     val dueAt: String?,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
 )
 
 sealed interface ToolExecutionResult {
@@ -311,7 +315,7 @@ class WhatsAppLocalToolExecutor(
 
     private fun formatMessages(messages: List<LocalWhatsAppMessage>): String {
         return messages.joinToString(separator = "\n") { message ->
-            val text = message.text?.takeIf { it.isNotBlank() } ?: "[No message text]"
+            val text = message.contentKind.localReadSummaryText(message.text)
             "- [${message.id}] ${message.conversationName}: $text"
         }
     }
@@ -319,7 +323,7 @@ class WhatsAppLocalToolExecutor(
     private fun formatActionableInbox(items: List<LocalActionableInboxItem>): String {
         return items.joinToString(separator = "\n") { item ->
             val due = item.dueAt?.let { " due $it" }.orEmpty()
-            val text = item.text?.takeIf { it.isNotBlank() } ?: "[No message text]"
+            val text = item.contentKind.localReadSummaryText(item.text)
             "- [${item.type}] ${item.title} (${item.conversationName}) [${item.priority}/${item.status}]$due: $text"
         }
     }

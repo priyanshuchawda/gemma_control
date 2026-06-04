@@ -26,7 +26,7 @@ import com.example.gemmacontrol.data.local.entity.ReminderEntity
         FollowUpEntity::class,
         ReminderEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -277,6 +277,12 @@ abstract class GemmaControlDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE message_events ADD COLUMN contentKind TEXT NOT NULL DEFAULT 'TEXT'")
+            }
+        }
+
         fun getDatabase(context: Context): GemmaControlDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -284,7 +290,7 @@ abstract class GemmaControlDatabase : RoomDatabase() {
                     GemmaControlDatabase::class.java,
                     "gemma_control_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
                 INSTANCE = instance
                 instance
