@@ -21,9 +21,9 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
                                    ↓
                          [ LiteRT-LM Engine ]
                          (LiteRtGemmaEngine)
-                         (automaticToolCalling = false)
+                         (native ToolSet callbacks)
                                    ↓
-                        [ Proposes JSON Tool ]
+                        [ Typed Tool Proposal ]
                                    ↓
                          [ Tool Safety Router ]
                                    ↓
@@ -53,11 +53,11 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 ### B. Ingestion Module (`com.example.gemmacontrol.notifications`)
 - **`WhatsAppNotificationListener`**: Extends `NotificationListenerService`. BINDs to Android's system pipeline.
 - **`WhatsAppNotificationParser`**: Extracts unread history from `Notification.MessagingStyle` structures, isolates group conversation headers from message sender display names, and constructs a deduplication hash (`dedupe_hash`) to avoid duplicate row creation on repost events.
-- **WhatsApp Package Constraint**: The service parses alert payloads belonging to `"com.whatsapp"` or `"com.whatsapp.w4b"`. Since WhatsApp is currently not detected on the device profile checked through ADB, physical notification intercepts require installing and activating WhatsApp on the handset.
+- **WhatsApp Package Constraint**: The service parses alert payloads belonging to `"com.whatsapp"` or `"com.whatsapp.w4b"`. The current physical handset has `com.whatsapp` installed; WhatsApp Business is not present in the latest checked profile.
 
 ### C. Storage and Persistence Module (`com.example.gemmacontrol.data`)
 - **Entities (`data/local/entity`)**: Room-backed definitions for `ConversationEntity`, `MessageEventEntity`, and `ActiveNotificationReferenceEntity` mapped to SQLite tables. `MessageEventEntity` references `ConversationEntity` via a cascade foreign key constraint.
-- **Room Database (`data/local/GemmaControlDatabase.kt`)**: Room SQLite database upgraded to Version 2. Standardizes schema validation and bundles explicit `MIGRATION_1_2` logic to dynamically encrypt legacy databases.
+- **Room Database (`data/local/GemmaControlDatabase.kt`)**: Room SQLite database is currently Version 4. It bundles `MIGRATION_1_2` for encrypted metadata migration, `MIGRATION_2_3` for follow-ups and message priority, and `MIGRATION_3_4` for encrypted reminder rows.
 - **Keystore Cryptography (`data/crypto`)**:
   - `SensitiveTextCipher` boundary and `AndroidKeystoreSensitiveTextCipher` production implementation. Dynamically encrypts all human-readable metadata columns (titles, names, body text) at rest using AES-GCM with secure random 12-byte IV parameters per record.
   - `DedupeTokenGenerator` boundary and `AndroidKeystoreHmacDedupeTokenGenerator` production implementation. Generates secure, keyed HMAC-SHA256 tokens linked to hardware-protected Keystore HMAC keys, preventing offline guessing dictionary exploits.
@@ -67,8 +67,8 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **NotificationPersistenceCoordinator (`data/repository`)**: Main ingestion controller that checks storage permissions, intercepts `REMOVED` events to mark active references, enforces `storageEnabledAt` post-consent gating, and discards `EXTRAS_FALLBACK` summary rollups from Room persistence completely (keeping them strictly volatile-only in the debug feed).
 
 ### D. Model Routing Module (`com.example.gemmacontrol.ai`)
-- **`ai/tools/WhatsAppToolRegistry.kt`**: Typed Kotlin mirror of the documented 16-tool FunctionGemma contract. Each tool is assigned a safety level: read-only, local write, confirmation-required, or strict manual confirmation.
-- **`ai/tools/WhatsAppTools.kt`**: Gallery-style LiteRT-LM `ToolSet` adapter using `@Tool` / `@ToolParam` annotations for high-level WhatsApp actions. It is intentionally thin and delegates to a JVM-testable handler.
+- **`ai/tools/WhatsAppTools.kt`**: Active Gallery-style LiteRT-LM `ToolSet` adapter using `@Tool` / `@ToolParam` annotations. It currently exposes three high-level, side-effect-free callbacks and delegates to a JVM-testable handler.
+- **`ai/tools/WhatsAppToolRegistry.kt`**: Typed Kotlin mirror of the documented 16-tool app-level action contract. Each tool is assigned a safety level: read-only, local write, confirmation-required, or strict manual confirmation.
 - **`ai/tools/WhatsAppToolActionHandler.kt`**: Dependency-free action boundary for model tool callbacks. It validates reply text, normalizes sender names, captures typed `WhatsAppToolAction` values, and returns model-safe result maps.
 - **`ai/tools/ToolSchemaExporter.kt`**: Converts the same typed registry to LiteRT/OpenAPI-style tool JSON so schema-based runtime adapters can register tools without duplicating definitions.
 - **`ai/tools/ToolCallParser.kt`**: Strict JSON parser for model-proposed tool calls. It accepts the direct `{ "name", "parameters" }` shape and the Gallery-style `{ "functionCall": { "name", "args" } }` envelope, rejects unknown tools/parameters, and validates high-risk values such as reply text and E.164 phone numbers before UI presentation.
@@ -78,7 +78,7 @@ WhatsApp capture, local Room SQLite updates, voice handling, tool routing, and m
 - **`ai/tools/GemmaPromptBuilder.kt`**: Builds bounded, recency-sorted prompt context from selected local WhatsApp messages. It truncates message bodies and the user command, and avoids whole-inbox dumps before model calls.
 - **`ui/main/FunctionGemmaVoiceProposalHandler.kt`**: Converts validated FunctionGemma proposal results into existing voice UI states. It accepts read-latest proposals, local search/details/actionable-inbox reads, live active-notification reply proposals, and confirmed local actions for message drafts, follow-ups, reminders, priority, capture toggles, and local deletion; it rejects expired notification keys and fails safely for invalid model proposals.
 - **`ai/runtime/GemmaModelManager.kt`**: Owns the FunctionGemma lifecycle boundary: initialize once per config, reinitialize on model changes, block generation before readiness, emit streaming partial text, cancel in-flight responses, release idle background resources, and handle low-memory cleanup.
-- **`ai/runtime/LiteRtGemmaEngine.kt`**: Isolated LiteRT-LM engine/conversation adapter following Gallery's engine initialize, createConversation, sendMessageAsync, and close pattern. It is backend-aware and keeps LiteRT automatic tool calling disabled.
+- **`ai/runtime/LiteRtGemmaEngine.kt`**: Isolated LiteRT-LM engine/conversation adapter following Gallery's engine initialize, createConversation, sendMessageAsync, and close pattern. It is backend-aware and uses automatic tool callbacks for the small native `WhatsAppTools` surface.
 - **`ai/runtime/GemmaEngine.kt`**: Defines the runtime interface and explicit unavailable adapter for builds or flows where no verified model path/runtime is configured.
 - **`ai/model/FunctionGemmaModelCatalog.kt`**: Local MobileActions model definition aligned with Gallery's allowlist (`mobile_actions_q8_ekv1024.litertlm`, CPU backend, `temperature=0.0`, `topK=64`, `topP=0.95`, `maxTokens=1024`) plus an installed-model resolver that checks the app-private model path and LiteRT cache directory before initialization.
 - **`ai/model/ModelDownloadWorker.kt`**: WorkManager-backed model download worker with HTTPS-only request validation, Gallery-style `.gallerytmp` partial files, resume support through HTTP range requests, SHA-256 verification, and progress data for future UI wiring.

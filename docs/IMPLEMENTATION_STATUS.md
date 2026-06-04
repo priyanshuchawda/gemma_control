@@ -20,9 +20,9 @@ This document records the truthful current state of completed modules, verified 
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, and confirmed local tool actions exist |
-| FunctionGemma / LiteRT-LM Runtime | **PARTIAL LOCAL IMPLEMENTATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, and installed MobileActions model resolver exist; physical runtime validation remains deferred |
+| FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, and native LiteRT `ToolSet` callback path exist. Broader latency/quality benchmarking remains open. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
-| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Typed 16-tool registry, Gallery-style annotated ToolSet adapter, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
+| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
 | Home Dashboard Flow | **IMPLEMENTED LOCALLY** — Home shows capture readiness, recent/local message context, actionable-item count, model readiness, and one hero voice action |
 | Voice Action Sheets | **IMPLEMENTED LOCALLY** — Voice confirmations use bottom sheets and expose FunctionGemma tool-call details before user-confirmed execution |
@@ -36,7 +36,7 @@ This document records the truthful current state of completed modules, verified 
 - `GemmaControlDatabase.kt` — Room database setup with custom `RoomTypeConverters`
 - `entity/` — `ConversationEntity.kt`, `MessageEventEntity.kt`, `ActiveNotificationReferenceEntity.kt` mapped to local DB tables with cascade constraints
 - `dao/` — Room DAOs containing CRUD operations and Flow-based queries for conversations, message events, and live references
-- `crypto/` — `MessageBodyCipher.kt` interface, `AndroidKeystoreMessageBodyCipher.kt` production implementation backed by AES-GCM, and `EncryptedPayload.kt`
+- `crypto/` — `SensitiveTextCipher.kt` interface, `AndroidKeystoreSensitiveTextCipher.kt` production implementation backed by AES-GCM, keyed dedupe token generation, and `EncryptedPayload.kt`
 - `preferences/` — `CapturePreferencesRepository.kt` backed by DataStore Preferences managing opt-in storage consents and voice input mode
 - `repository/` — `StoredInboxRepository.kt` for dynamically encrypting/decrypting rows and `NotificationPersistenceCoordinator.kt` implementing canonical dual-notification filtering
 - `ui/` — `StoredInboxScreen.kt` Material 3 Compose screen and `StoredInboxViewModel.kt` managing state flows and confirm dialogs
@@ -46,11 +46,11 @@ This document records the truthful current state of completed modules, verified 
 - `AppShell.kt` / `AppDestination.kt` — Material 3 bottom navigation for Home, Voice, Inbox, and Settings after setup completion
 - `HomeDashboardScreen.kt` / `HomeDashboardViewModel.kt` / `HomeDashboardState.kt` — Production home dashboard with readiness summaries and one hero voice action
 - `MainScreen.kt` — Fully scrollable Compose UI with event cards, color-coded badges, permission status card, lock icon leading to Stored Inbox
-- `VoiceActionSheets.kt` / `ToolCallDetailsUiState.kt` — Bottom-sheet confirmation and visible FunctionGemma function-call metadata before local action execution
+- `VoiceAssistantActionPanel.kt` / `ToolCallDetailsUiState.kt` — Bottom-sheet confirmation and visible FunctionGemma function-call metadata before local action execution
 - `ActionableInboxSection.kt` / `StoredInboxActionableUiState.kt` — Actionable follow-up and priority-message section for Stored Inbox
 - `MainScreenViewModel.kt` — Exposes `StateFlow<MainScreenUiState>` bridging the listener's `capturedNotifications` flow
-- `ai/tools/WhatsAppToolRegistry.kt` — Kotlin mirror of the documented 16-tool FunctionGemma proposal contract
-- `ai/tools/WhatsAppTools.kt` — LiteRT-LM annotated `ToolSet` adapter for high-level WhatsApp actions
+- `ai/tools/WhatsAppTools.kt` — LiteRT-LM annotated `ToolSet` adapter for three high-level WhatsApp callbacks
+- `ai/tools/WhatsAppToolRegistry.kt` — Kotlin mirror of the documented 16-action app-level proposal contract
 - `ai/tools/WhatsAppToolActionHandler.kt` — JVM-testable action callback boundary used by the annotated adapter
 - `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for schema-based runtime adapters
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
@@ -79,7 +79,11 @@ This document records the truthful current state of completed modules, verified 
 - `FunctionGemmaVoiceProposalHandler.kt` — JVM-testable bridge from validated FunctionGemma proposal results to voice UI states, including read-latest, active notification replies, and confirmed local capture/delete actions
 - `VoiceHoldToSpeakInteraction.kt` — Testable hold-to-speak release/cancel decisions and Gallery-style stop delay constants
 
-### Production Hardening Commits on PR #29
+### Production Hardening Context
+
+The implementation has since been split and merged through later issue branches up to PR #100. Historical PR #29 remains useful context only; it is not the current integration boundary.
+
+### Historical Production Hardening Commits on PR #29
 
 | Commit | Slice |
 | :--- | :--- |
@@ -107,7 +111,7 @@ This document records the truthful current state of completed modules, verified 
 - `MainScreenViewModelTest.kt` — 1 unit test (initial loading state)
 - `NotificationPersistenceCoordinatorTest.kt` — 5 unit tests (settings defaults, consent control skipping, dual-notification canonicalization, dedupe update check)
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
-- **All tests pass** (`.\gradlew test` and `.\gradlew connectedDebugAndroidTest`)
+- Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 
 ---
 
@@ -128,8 +132,9 @@ This document records the truthful current state of completed modules, verified 
 | Dual-notification behavior | **Verified fact** | Each WhatsApp message yields two notifications: one MessagingStyle (DIRECT/GROUP), one summary EXTRAS_FALLBACK (UNKNOWN) |
 | Room persistence write & read | **Verified fact** | Instrumented test validation |
 | Keystore AES-GCM encryption | **Verified fact** | Instrumented test validation |
-| LiteRT-LM inference latency | **Unverified** | Requires physical model/device validation |
-| WorkManager model download | **Unverified on device** | Local compile/unit coverage only; requires physical network download validation |
+| LiteRT-LM inference availability | **Smoke verified** | Installed model opened and handled a no-data read path on the physical device |
+| LiteRT-LM latency/quality benchmark | **Unverified** | Requires structured benchmark from roadmap issue #120 |
+| WorkManager model download | **Unverified on device** | Current model is installed app-private; physical network download validation remains separate |
 
 ---
 
@@ -137,8 +142,8 @@ This document records the truthful current state of completed modules, verified 
 
 **Current local slice: P2 physical validation preparation only.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
-- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G is still required for microphone behavior, TTS, notification listener binding, `RemoteInput` reply execution, WhatsApp draft intents, model download, and FunctionGemma `.litertlm` inference latency/quality.
-- **Next AI Runtime Slice**: No further model execution should be claimed complete until a verified model artifact is installed and physical runtime behavior is tested. The required runtime mode remains manual tool execution (`automaticToolCalling = false`), so model output stays a typed proposal until Kotlin validates it and the user confirms high-risk actions.
+- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for microphone reliability, TTS edge cases, `RemoteInput` reply execution, WhatsApp draft intents, WorkManager model download, and FunctionGemma `.litertlm` latency/quality.
+- **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.
 - **Artifact Policy**: Do not commit raw logs, APK/AAB outputs, model binaries, private screenshots, credentials, or unverified model checksums. Local Gradle output should stay in ignored build directories or temporary paths only.
 
 

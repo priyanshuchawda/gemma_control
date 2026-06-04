@@ -1,8 +1,13 @@
-# Tool Registry Reference: FunctionGemma 16-Tool Schema
+# Tool Registry Reference: FunctionGemma App-Level Tool Schema
 
 This document establishes the official specifications, parameters, safety constraints, and English schemas for the sixteen local tools registered inside the assistant's offline routing module.
 
-All tool calling runs with **LiteRT-LM Automatic Tool Calling Disabled** (`automaticToolCalling = false`). The model is restricted to proposing tool calls, which the Kotlin controller validates and resolves against live system states.
+Current implementation uses two tool layers:
+
+- **Native LiteRT-LM layer**: `WhatsAppTools` exposes three side-effect-free Gallery-style callbacks with `automaticToolCalling = true`.
+- **App-level safety layer**: `WhatsAppToolRegistry` defines the sixteen local actions below. These are validated by `ToolCallParser`, routed by `ToolSafetyRouter`, displayed in confirmation UI when needed, and executed only through Kotlin boundaries.
+
+The model must never be treated as the final executor. Kotlin validates and resolves every high-risk action against live system state and explicit user confirmation.
 
 ---
 

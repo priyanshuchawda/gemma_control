@@ -213,7 +213,7 @@ Current code follows the safer pattern:
 
 ### Tool calling mode
 
-LiteRT-LM supports automatic and manual tool execution. For this app, automatic execution is not acceptable for sensitive actions.
+LiteRT-LM supports automatic and manual tool execution. Current code enables automatic callbacks for the small native `WhatsAppTools` surface, but automatic execution is not acceptable for sensitive actions.
 
 Required rule:
 
@@ -222,7 +222,7 @@ The model may request a tool.
 Kotlin decides whether and how to execute it.
 ```
 
-For WhatsApp sends, data deletion, capture toggles, reminders, and app opening, Kotlin must validate parameters and obtain user confirmation where required.
+For WhatsApp sends, data deletion, capture toggles, reminders, and app opening, Kotlin must validate parameters and obtain user confirmation where required. Native callbacks may gather proposals or read-only context, not bypass the safety router.
 
 ### Backend notes
 

@@ -2,7 +2,7 @@
 
 GemmaControl is an English-only, private, on-device Android productivity agent for WhatsApp notification workflows. The app captures new WhatsApp notifications after user permission, organises them into a local actionable inbox, lets FunctionGemma propose approved tool calls, saves local follow-ups, priority flags, encrypted local reminders, and supports safe user-confirmed WhatsApp replies.
 
-Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl keeps WhatsApp capture, storage, voice handling, and model inference local on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and a customized **FunctionGemma 270M** model.
+Built entirely as a native application for **Android 16 (API Level 36)**, GemmaControl keeps WhatsApp capture, storage, voice handling, and model inference local on a **Xiaomi Redmi 13 5G** handset, utilizing Google's on-device **LiteRT-LM SDK** and the FunctionGemma MobileActions 270M model.
 
 ---
 
@@ -36,7 +36,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 - **Encryption at Rest**: Encrypts sensitive message texts and drafted responses inside Room SQLite utilizing **AES-GCM 256-bit encryption** keys protected by the **Android Keystore**.
 - **Scoped Network Access**: `android.permission.INTERNET` is declared only for explicit FunctionGemma `.litertlm` model binary downloads. WhatsApp notification data, prompts, tool calls, and replies stay local.
 - **Local Reminder Notifications**: `android.permission.POST_NOTIFICATIONS` is declared only for user-confirmed local reminder alerts on Android 13+.
-- **LiteRT-LM Manual Configuration**: Disables automatic tool calling (`automaticToolCalling = false`) in `ConversationConfig`. The AI acts purely as a proposal engine; Kotlin logic enforces all safety checks.
+- **LiteRT-LM Native Tool Boundary**: Registers a deliberately small native `ToolSet` with automatic LiteRT tool callbacks enabled. Tool callbacks only capture typed proposals/results; Kotlin still owns permission checks, safety routing, and all user-confirmed execution.
 
 ---
 
@@ -45,6 +45,9 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 ```text
 ├── docs/                     # Comprehensive technical documentation
 │   ├── ARCHITECTURE.md       # On-device data flow, boundaries, and OS limits
+│   ├── GEMMA_MODEL_REFERENCE.md # Gemma model/runtime selection reference
+│   ├── GEMMA_ASSISTANT_USAGE_PLAN.md # App-specific model usage roadmap
+│   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
 │   ├── TOOL_REGISTRY.md      # Parameter type schemas for the 16 registry tools
 │   ├── NOTIFICATION_PARSING.md # MessagingStyle parsers and deduplication hashes
