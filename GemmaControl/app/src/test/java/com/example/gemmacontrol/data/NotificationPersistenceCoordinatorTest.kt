@@ -372,6 +372,34 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testRepositoryCanonicalPersistenceUsesInjectedNowProvider() = runTest {
+        val fixedNow = 123_456_789L
+        val repositoryWithFixedClock = StoredInboxRepository(
+            conversationDao,
+            messageEventDao,
+            activeNotificationReferenceDao,
+            sensitiveTextCipher,
+            dedupeTokenGenerator,
+            nowProvider = { fixedNow }
+        )
+
+        val event = createDummyEvent(
+            key = "key_fixed_clock",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Aunt May",
+            text = "Dinner at 7"
+        )
+
+        val result = repositoryWithFixedClock.persistCanonicalEvent(event)
+
+        assertTrue(result is StoredInboxRepository.PersistCanonicalResult.Stored)
+        assertEquals(fixedNow, conversationDao.list.single().createdAt)
+        assertEquals(fixedNow, conversationDao.list.single().updatedAt)
+        assertEquals(fixedNow, messageEventDao.list.single().createdAt)
+        assertEquals(fixedNow, activeNotificationReferenceDao.list.single().lastSeenActiveAt)
+    }
+
+    @Test
     fun testIngestionPolicy_fallbackOnlyEventDoesNotPersist() = runTest {
         preferencesRepository.setStorageEnabled(true)
 
