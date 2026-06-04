@@ -13,7 +13,7 @@ fun voiceAssistantActionPresentation(state: VoiceAssistantState): VoiceActionPre
         is VoiceAssistantState.SpeakingMessages -> VoiceActionPresentation.Inline
 
         is VoiceAssistantState.CommandReady -> {
-            if (state.command is VoiceCommand.ReadLatestMessages) {
+            if (state.command is VoiceReadCommand) {
                 VoiceActionPresentation.BottomSheet
             } else {
                 VoiceActionPresentation.None

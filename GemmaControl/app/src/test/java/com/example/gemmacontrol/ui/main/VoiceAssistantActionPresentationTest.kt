@@ -21,6 +21,12 @@ class VoiceAssistantActionPresentationTest {
         assertEquals(
             VoiceActionPresentation.BottomSheet,
             voiceAssistantActionPresentation(
+                VoiceAssistantState.CommandReady(VoiceCommand.ReadMessagesFromConversation("Mom"))
+            )
+        )
+        assertEquals(
+            VoiceActionPresentation.BottomSheet,
+            voiceAssistantActionPresentation(
                 VoiceAssistantState.ConfirmationRequired(
                     PendingVoiceReply(
                         notificationKey = "key",

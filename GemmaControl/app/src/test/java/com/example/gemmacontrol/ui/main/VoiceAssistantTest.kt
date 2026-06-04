@@ -34,6 +34,18 @@ class VoiceAssistantTest {
     }
 
     @Test
+    fun testParserRecognisesAdaptiveReadCommands() {
+        assertEquals(VoiceCommand.ContinueReadingMessages, VoiceCommandParser.parse("continue"))
+        assertEquals(VoiceCommand.ContinueReadingMessages, VoiceCommandParser.parse("read more"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize WhatsApp"))
+        assertEquals(VoiceCommand.ReadImportantMessages, VoiceCommandParser.parse("read only important WhatsApp messages"))
+
+        val chatCommand = VoiceCommandParser.parse("read messages from Mom")
+        assertTrue(chatCommand is VoiceCommand.ReadMessagesFromConversation)
+        assertEquals("Mom", (chatCommand as VoiceCommand.ReadMessagesFromConversation).conversationName)
+    }
+
+    @Test
     fun testParserRecognisesReplyCommands() {
         val cmd1 = VoiceCommandParser.parse("reply to the latest message: I am in a meeting")
         assertTrue(cmd1 is VoiceCommand.ReplyToLatestActiveMessage)
