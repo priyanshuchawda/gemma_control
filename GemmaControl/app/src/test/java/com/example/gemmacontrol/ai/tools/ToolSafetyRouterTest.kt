@@ -117,6 +117,32 @@ class ToolSafetyRouterTest {
         )
     }
 
+    @Test
+    fun rejectsActiveReplyWhenNotificationListenerCapabilityIsMissing() {
+        val proposal = parseValid(
+            """
+            {
+              "name": "send_reply_to_active_whatsapp_notification",
+              "parameters": {
+                "notification_key": "active-key",
+                "message_text": "I am in a meeting"
+              }
+            }
+            """.trimIndent()
+        )
+        val capabilityBlockedRouter = ToolSafetyRouter(
+            capabilityState = AssistantCapabilityState.assumeReady().copy(notificationListenerEnabled = false)
+        )
+
+        val decision = capabilityBlockedRouter.route(proposal)
+
+        assertTrue(decision is ToolExecutionDecision.Reject)
+        assertEquals(
+            "Enable Notification Listener Access so GemmaControl can read WhatsApp notifications and active reply actions.",
+            (decision as ToolExecutionDecision.Reject).reason
+        )
+    }
+
     private fun parseValid(rawJson: String): ToolProposal {
         val result = parser.parse(rawJson)
         assertTrue(result is ToolCallParseResult.Valid)
