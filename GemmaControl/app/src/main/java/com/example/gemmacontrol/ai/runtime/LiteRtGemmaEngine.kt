@@ -26,11 +26,12 @@ class LiteRtGemmaEngine(
     private val fallbackCacheDirectoryPath: String? = null
 ) : GemmaEngine {
     private var engine: Engine? = null
-    private var conversation: Conversation? = null
+    private var engineOptions: LiteRtGemmaEngineOptions? = null
+    private var activeConversation: Conversation? = null
     private val nativeToolActions = mutableListOf<WhatsAppToolAction>()
 
     override val isReady: Boolean
-        get() = engine?.isInitialized() == true && conversation?.isAlive == true
+        get() = engine?.isInitialized() == true && engineOptions != null
 
     @OptIn(ExperimentalApi::class)
     override suspend fun initialize(config: GemmaEngineConfig): GemmaEngineResult = withContext(Dispatchers.IO) {
@@ -53,33 +54,10 @@ class LiteRtGemmaEngine(
                 )
             )
             newEngine.initialize()
-
-            val newConversation = newEngine.createConversation(
-                ConversationConfig(
-                    systemInstruction = null,
-                    initialMessages = emptyList(),
-                    tools = listOf(
-                        tool(
-                            WhatsAppTools(
-                                onFunctionCalled = { action ->
-                                    synchronized(nativeToolActions) {
-                                        nativeToolActions += action
-                                    }
-                                }
-                            )
-                        )
-                    ),
-                    samplerConfig = SamplerConfig(
-                        topK = options.topK,
-                        topP = options.topP.toDouble(),
-                        temperature = options.temperature.toDouble()
-                    ),
-                    automaticToolCalling = options.automaticToolCalling
-                )
-            )
+            newEngine.createWhatsAppConversation(options).close()
 
             engine = newEngine
-            conversation = newConversation
+            engineOptions = options
             GemmaEngineResult.Ready
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize FunctionGemma", e)
@@ -93,11 +71,24 @@ class LiteRtGemmaEngine(
         registry: WhatsAppToolRegistry,
         onPartialText: (String) -> Unit
     ): GemmaEngineResult = withContext(Dispatchers.IO) {
-        val activeConversation = conversation
-            ?: return@withContext GemmaEngineResult.Blocked("FunctionGemma conversation is not initialized.")
+        val activeEngine = engine
+            ?: return@withContext GemmaEngineResult.Blocked("FunctionGemma engine is not initialized.")
+        val options = engineOptions
+            ?: return@withContext GemmaEngineResult.Blocked("FunctionGemma engine is not initialized.")
+        if (!activeEngine.isInitialized()) {
+            return@withContext GemmaEngineResult.Blocked("FunctionGemma engine is not initialized.")
+        }
         if (prompt.isBlank()) {
             return@withContext GemmaEngineResult.Failure("FunctionGemma prompt cannot be blank.")
         }
+
+        val proposalConversation = try {
+            activeEngine.createWhatsAppConversation(options)
+        } catch (e: Exception) {
+            Log.e(TAG, "FunctionGemma conversation creation failed", e)
+            return@withContext GemmaEngineResult.Failure("LiteRT-LM failed while generating a FunctionGemma proposal.")
+        }
+        activeConversation = proposalConversation
 
         val rawText = StringBuilder()
         val result = CompletableDeferred<GemmaEngineResult>()
@@ -105,7 +96,7 @@ class LiteRtGemmaEngine(
             nativeToolActions.clear()
         }
         try {
-            activeConversation.sendMessageAsync(
+            proposalConversation.sendMessageAsync(
                 Contents.of(prompt),
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
@@ -140,24 +131,25 @@ class LiteRtGemmaEngine(
             )
         } catch (e: Exception) {
             Log.e(TAG, "FunctionGemma sendMessageAsync failed", e)
+            closeActiveConversation(proposalConversation)
             return@withContext GemmaEngineResult.Failure("LiteRT-LM failed while generating a FunctionGemma proposal.")
         }
 
-        result.await()
+        try {
+            result.await()
+        } finally {
+            closeActiveConversation(proposalConversation)
+        }
     }
 
     override fun cancelGeneration(): Boolean {
-        val activeConversation = conversation ?: return false
+        val activeConversation = activeConversation ?: return false
         activeConversation.cancelProcess()
         return true
     }
 
     override fun close() {
-        try {
-            conversation?.close()
-        } finally {
-            conversation = null
-        }
+        closeActiveConversation()
         synchronized(nativeToolActions) {
             nativeToolActions.clear()
         }
@@ -165,7 +157,45 @@ class LiteRtGemmaEngine(
             engine?.close()
         } finally {
             engine = null
+            engineOptions = null
         }
+    }
+
+    private fun closeActiveConversation(conversationToClose: Conversation? = activeConversation) {
+        try {
+            conversationToClose?.close()
+        } finally {
+            if (activeConversation === conversationToClose) {
+                activeConversation = null
+            }
+        }
+    }
+
+    @OptIn(ExperimentalApi::class)
+    private fun Engine.createWhatsAppConversation(options: LiteRtGemmaEngineOptions): Conversation {
+        return createConversation(
+            ConversationConfig(
+                systemInstruction = null,
+                initialMessages = emptyList(),
+                tools = listOf(
+                    tool(
+                        WhatsAppTools(
+                            onFunctionCalled = { action ->
+                                synchronized(nativeToolActions) {
+                                    nativeToolActions += action
+                                }
+                            }
+                        )
+                    )
+                ),
+                samplerConfig = SamplerConfig(
+                    topK = options.topK,
+                    topP = options.topP.toDouble(),
+                    temperature = options.temperature.toDouble()
+                ),
+                automaticToolCalling = options.automaticToolCalling
+            )
+        )
     }
 
     private fun String.toLiteRtBackend(): Backend {
