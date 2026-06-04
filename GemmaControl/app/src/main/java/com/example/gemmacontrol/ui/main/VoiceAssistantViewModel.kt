@@ -95,16 +95,6 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         }
     )
 
-    init {
-        initializeFunctionGemmaIfInstalled()
-    }
-
-    private fun initializeFunctionGemmaIfInstalled() {
-        viewModelScope.launch {
-            ensureFunctionGemmaReady()
-        }
-    }
-
     private suspend fun ensureFunctionGemmaReady(): Boolean {
         if (gemmaModelManager.isReady) {
             return true
