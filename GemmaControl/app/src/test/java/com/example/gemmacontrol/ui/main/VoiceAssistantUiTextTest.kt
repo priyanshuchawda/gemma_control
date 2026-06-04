@@ -9,7 +9,7 @@ class VoiceAssistantUiTextTest {
 
     @Test
     fun statusTitleNamesPrimaryVoiceStates() {
-        assertEquals("Speak commands for WhatsApp notifications", voiceAssistantStatusTitle(VoiceAssistantState.Idle))
+        assertEquals("Command WhatsApp notifications", voiceAssistantStatusTitle(VoiceAssistantState.Idle))
         assertEquals("Listening... Speak now", voiceAssistantStatusTitle(VoiceAssistantState.Listening))
         assertEquals("Generating reply", voiceAssistantStatusTitle(VoiceAssistantState.Streaming("Drafting...")))
         assertEquals("Review Dictated Reply", voiceAssistantStatusTitle(VoiceAssistantState.ConfirmationRequired(
@@ -44,7 +44,7 @@ class VoiceAssistantUiTextTest {
     @Test
     fun idleSubtitleDescribesSelectedVoiceInputMode() {
         assertEquals(
-            "Tap microphone below to start speaking.",
+            "Speak or type a command below.",
             voiceAssistantSubtitle(
                 VoiceAssistantState.Idle,
                 isOffline = true,
@@ -52,7 +52,7 @@ class VoiceAssistantUiTextTest {
             )
         )
         assertEquals(
-            "Hold microphone to speak. Release to process, slide off to cancel.",
+            "Hold microphone to speak, or type a command below.",
             voiceAssistantSubtitle(
                 VoiceAssistantState.Idle,
                 isOffline = true,

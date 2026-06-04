@@ -370,7 +370,7 @@ private fun VoiceAssistantHomeCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                text = "Speak commands for your recent WhatsApp notifications.",
+                text = "Speak or type commands for your recent WhatsApp notifications.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
             )
@@ -389,7 +389,7 @@ private fun VoiceAssistantHomeCard(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Tap to speak", color = Color.White)
+                Text("Open Assistant", color = Color.White)
             }
         }
     }

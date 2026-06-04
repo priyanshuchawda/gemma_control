@@ -4,7 +4,7 @@ import com.example.gemmacontrol.data.preferences.VoiceInputMode
 
 internal fun voiceAssistantStatusTitle(state: VoiceAssistantState): String {
     return when (state) {
-        VoiceAssistantState.Idle -> "Speak commands for WhatsApp notifications"
+        VoiceAssistantState.Idle -> "Command WhatsApp notifications"
         VoiceAssistantState.RequestingMicrophonePermission -> "Requesting microphone access..."
         VoiceAssistantState.Listening -> "Listening... Speak now"
         is VoiceAssistantState.TranscriptReady -> "Transcribing..."
@@ -27,8 +27,8 @@ internal fun voiceAssistantSubtitle(
 ): String {
     return when (state) {
         VoiceAssistantState.Idle -> when (voiceInputMode) {
-            VoiceInputMode.TapToggle -> "Tap microphone below to start speaking."
-            VoiceInputMode.HoldToSpeak -> "Hold microphone to speak. Release to process, slide off to cancel."
+            VoiceInputMode.TapToggle -> "Speak or type a command below."
+            VoiceInputMode.HoldToSpeak -> "Hold microphone to speak, or type a command below."
         }
         VoiceAssistantState.Listening -> {
             val privacyNote = if (isOffline) {

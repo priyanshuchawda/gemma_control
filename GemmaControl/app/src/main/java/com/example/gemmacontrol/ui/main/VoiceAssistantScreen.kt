@@ -69,6 +69,7 @@ private fun voiceAssistantScreenActions(
     onHoldStart = viewModel::startListening,
     onHoldRelease = viewModel::stopListeningAfterHold,
     onHoldCancel = viewModel::cancelListening,
+    onTypedCommandSubmit = viewModel::submitTypedCommand,
     onCancel = viewModel::resetToIdle,
     onReadAloud = viewModel::executeReadAloud,
     onConfirmSend = viewModel::confirmSend,

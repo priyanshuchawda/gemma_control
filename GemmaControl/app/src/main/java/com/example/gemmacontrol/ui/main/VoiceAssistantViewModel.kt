@@ -197,6 +197,22 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun submitTypedCommand(commandText: String) {
+        val transcript = commandText.trim()
+        if (transcript.isEmpty()) {
+            return
+        }
+        pendingStopListeningJob?.cancel()
+        _partialTranscript.value = ""
+        _amplitude.value = 0
+        try {
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling SpeechRecognizer before typed command", e)
+        }
+        processTranscript(transcript)
+    }
+
     private fun requestFunctionGemmaProposal(transcript: String, fallbackReason: String) {
         viewModelScope.launch {
             if (!ensureFunctionGemmaReady()) {
