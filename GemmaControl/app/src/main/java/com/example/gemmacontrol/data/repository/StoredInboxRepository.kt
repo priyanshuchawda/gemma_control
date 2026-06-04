@@ -1,9 +1,9 @@
 package com.example.gemmacontrol.data.repository
 
+import androidx.room.withTransaction
 import com.example.gemmacontrol.data.crypto.EncryptedPayload
 import com.example.gemmacontrol.data.crypto.SensitiveTextCipher
 import com.example.gemmacontrol.data.crypto.DedupeTokenGenerator
-import androidx.room.withTransaction
 import com.example.gemmacontrol.ai.tools.LocalActionableInboxItem
 import com.example.gemmacontrol.ai.tools.LocalFollowUp
 import com.example.gemmacontrol.ai.tools.LocalWhatsAppDataRepository
@@ -14,7 +14,6 @@ import com.example.gemmacontrol.data.local.dao.ConversationDao
 import com.example.gemmacontrol.data.local.dao.FollowUpDao
 import com.example.gemmacontrol.data.local.dao.MessageEventDao
 import com.example.gemmacontrol.data.local.dao.ReminderDao
-import com.example.gemmacontrol.data.local.entity.ActiveNotificationReferenceEntity
 import com.example.gemmacontrol.data.local.entity.ConversationEntity
 import com.example.gemmacontrol.data.local.entity.FollowUpEntity
 import com.example.gemmacontrol.data.local.entity.InboxPriority
@@ -22,7 +21,6 @@ import com.example.gemmacontrol.data.local.entity.MessageEventEntity
 import com.example.gemmacontrol.data.local.entity.ReminderEntity
 import com.example.gemmacontrol.data.reminder.ReminderScheduler
 import com.example.gemmacontrol.data.reminder.ReminderTimeParser
-import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
 import java.util.Locale
@@ -49,15 +47,14 @@ class StoredInboxRepository(
         data object SecureStorageUnavailable : PersistCanonicalResult
     }
 
-    private data class CryptoOutputs(
-        val conversationOpaqueId: String,
-        val encryptedDisplayName: ByteArray,
-        val displayNameIv: ByteArray,
-        val encryptedSenderName: ByteArray?,
-        val senderNameIv: ByteArray?,
-        val encryptedMessageText: ByteArray?,
-        val messageTextIv: ByteArray?,
-        val dedupeToken: String
+    private val eventPersistence = StoredInboxEventPersistence(
+        conversationDao = conversationDao,
+        messageEventDao = messageEventDao,
+        activeNotificationReferenceDao = activeNotificationReferenceDao,
+        sensitiveTextCipher = sensitiveTextCipher,
+        dedupeTokenGenerator = dedupeTokenGenerator,
+        db = db,
+        nowProvider = nowProvider
     )
 
     private data class ActionableInboxFilters(
@@ -87,120 +84,7 @@ class StoredInboxRepository(
     )
 
     suspend fun persistCanonicalEvent(event: ParsedWhatsAppNotificationEvent): PersistCanonicalResult {
-        val now = System.currentTimeMillis()
-        val latestMessage = event.messages.lastOrNull()
-
-        // 1. Wrap all cryptographic computations in a fail-closed try-catch block.
-        // If Keystore encryption or HMAC token generation throws an exception, no DB write occurs.
-        val cryptoOutputs = try {
-            val identityMaterial = "${event.conversationTitle ?: "WhatsApp Chat"}-${event.conversationType.name}"
-            val conversationOpaqueId = dedupeTokenGenerator.generate(identityMaterial)
-
-            val conversationTitleToStore = event.conversationTitle ?: "WhatsApp Chat"
-            val encryptedTitlePayload = sensitiveTextCipher.encrypt(conversationTitleToStore)
-
-            val senderNameToStore = latestMessage?.senderName ?: ""
-            val encryptedSenderPayload = if (senderNameToStore.isNotEmpty()) {
-                sensitiveTextCipher.encrypt(senderNameToStore)
-            } else {
-                null
-            }
-
-            val textToEncrypt = latestMessage?.messageText ?: ""
-            val encryptedMessagePayload = if (textToEncrypt.isNotEmpty()) {
-                sensitiveTextCipher.encrypt(textToEncrypt)
-            } else {
-                null
-            }
-
-            val dedupeTokenToStore = dedupeTokenGenerator.generate(event.dedupeCandidate ?: UUID.randomUUID().toString())
-
-            CryptoOutputs(
-                conversationOpaqueId = conversationOpaqueId,
-                encryptedDisplayName = encryptedTitlePayload.ciphertext,
-                displayNameIv = encryptedTitlePayload.iv,
-                encryptedSenderName = encryptedSenderPayload?.ciphertext,
-                senderNameIv = encryptedSenderPayload?.iv,
-                encryptedMessageText = encryptedMessagePayload?.ciphertext,
-                messageTextIv = encryptedMessagePayload?.iv,
-                dedupeToken = dedupeTokenToStore
-            )
-        } catch (e: Exception) {
-            // Fail closed: return SecureStorageUnavailable, leaving the database untouched.
-            return PersistCanonicalResult.SecureStorageUnavailable
-        }
-
-        // 2. Perform DB operations inside a Room transaction block (if db is provided) to guarantee all-or-nothing atomicity.
-        val executeDbOps = suspend {
-            val existingConversation = conversationDao.getById(cryptoOutputs.conversationOpaqueId)
-            if (existingConversation == null) {
-                val conversation = ConversationEntity(
-                    id = cryptoOutputs.conversationOpaqueId,
-                    encryptedDisplayName = cryptoOutputs.encryptedDisplayName,
-                    displayNameIv = cryptoOutputs.displayNameIv,
-                    conversationType = event.conversationType,
-                    encryptedVerifiedPhoneNumberE164 = null,
-                    verifiedPhoneNumberIv = null,
-                    createdAt = now,
-                    updatedAt = now
-                )
-                conversationDao.insert(conversation)
-            } else {
-                val updated = existingConversation.copy(
-                    encryptedDisplayName = cryptoOutputs.encryptedDisplayName,
-                    displayNameIv = cryptoOutputs.displayNameIv,
-                    conversationType = if (event.conversationType != ConversationType.UNKNOWN) event.conversationType else existingConversation.conversationType,
-                    updatedAt = now
-                )
-                conversationDao.update(updated)
-            }
-
-            val messageId = UUID.randomUUID().toString()
-            val messageEntity = MessageEventEntity(
-                id = messageId,
-                conversationId = cryptoOutputs.conversationOpaqueId,
-                encryptedSenderName = cryptoOutputs.encryptedSenderName,
-                senderNameIv = cryptoOutputs.senderNameIv,
-                encryptedMessageText = cryptoOutputs.encryptedMessageText,
-                messageTextIv = cryptoOutputs.messageTextIv,
-                postedAt = latestMessage?.timestamp ?: event.notificationPostedAt ?: now,
-                notificationKey = event.notificationKey,
-                sourcePackage = event.packageName,
-                parseSource = event.parseSource,
-                dedupeToken = cryptoOutputs.dedupeToken,
-                isContentUnavailable = event.isContentUnavailable,
-                createdAt = now
-            )
-
-            val insertResult = messageEventDao.insert(messageEntity)
-            val (actualMessageId, isDuplicate) = if (insertResult == -1L) {
-                val existing = messageEventDao.getByDedupeToken(cryptoOutputs.dedupeToken)
-                (existing?.id ?: messageId) to true
-            } else {
-                messageId to false
-            }
-
-            val reference = ActiveNotificationReferenceEntity(
-                notificationKey = event.notificationKey,
-                latestMessageEventId = actualMessageId,
-                hadReplyActionWhenSeen = event.hasReplyActionAtCaptureTime,
-                lastSeenActiveAt = now,
-                removedAt = null
-            )
-            activeNotificationReferenceDao.insertOrUpdate(reference)
-
-            if (isDuplicate) {
-                PersistCanonicalResult.DuplicateReferenced
-            } else {
-                PersistCanonicalResult.Stored(actualMessageId)
-            }
-        }
-
-        return if (db != null) {
-            db.withTransaction { executeDbOps() }
-        } else {
-            executeDbOps()
-        }
+        return eventPersistence.persist(event)
     }
 
     suspend fun markNotificationRemoved(notificationKey: String) {
