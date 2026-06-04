@@ -32,11 +32,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gemmacontrol.ServiceLocator
+import com.example.gemmacontrol.ai.benchmark.AndroidRuntimeBenchmarkSnapshotProvider
+import com.example.gemmacontrol.ai.benchmark.ModelRuntimeBenchmarkReport
+import com.example.gemmacontrol.ai.benchmark.ModelRuntimeBenchmarkRunner
 import com.example.gemmacontrol.ai.model.FunctionGemmaModelCatalog
+import com.example.gemmacontrol.ai.model.FunctionGemmaModelResolver
 import com.example.gemmacontrol.ai.model.ModelDownloadManager
+import com.example.gemmacontrol.ai.model.ModelDownloadFiles
 import com.example.gemmacontrol.ai.model.ModelDownloadRequest
 import com.example.gemmacontrol.ai.model.ModelDownloadUiStateMapper
-import com.example.gemmacontrol.ai.model.ModelDownloadFiles
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import java.io.File
 import kotlinx.coroutines.launch
@@ -53,6 +57,9 @@ fun SettingsScreen(
         ServiceLocator.getPreferencesRepository(context.applicationContext)
     }
     val modelDownloadManager = remember { ModelDownloadManager() }
+    val gemmaModelManager = remember(context.applicationContext) {
+        ServiceLocator.getGemmaModelManager(context.applicationContext)
+    }
     val mobileActionsModel = FunctionGemmaModelCatalog.MobileActions
     val modelWorkInfoFlow = remember(context.applicationContext, mobileActionsModel.fileName) {
         modelDownloadManager.observe(context.applicationContext, mobileActionsModel.fileName)
@@ -68,6 +75,8 @@ fun SettingsScreen(
         )
     }
     val isModelInstalled = remember { mutableStateOf(expectedModelFile.isFile && expectedModelFile.length() > 0L) }
+    val benchmarkReport = remember { mutableStateOf<ModelRuntimeBenchmarkReport?>(null) }
+    val benchmarkRunning = remember { mutableStateOf(false) }
     LaunchedEffect(modelDownloadState.status) {
         isModelInstalled.value = expectedModelFile.isFile && expectedModelFile.length() > 0L
     }
@@ -256,6 +265,33 @@ fun SettingsScreen(
                         modelDownloadManager.cancel(context.applicationContext, mobileActionsModel.fileName)
                     }
                 )
+            )
+
+            SectionHeader("Runtime Benchmark")
+
+            ModelRuntimeBenchmarkCard(
+                report = benchmarkReport.value,
+                running = benchmarkRunning.value,
+                onRunBenchmark = {
+                    if (benchmarkRunning.value) return@ModelRuntimeBenchmarkCard
+                    benchmarkRunning.value = true
+                    coroutineScope.launch {
+                        try {
+                            val snapshotProvider = AndroidRuntimeBenchmarkSnapshotProvider(context.applicationContext)
+                            val runner = ModelRuntimeBenchmarkRunner(
+                                modelResolver = FunctionGemmaModelResolver(
+                                    filesDir = context.applicationContext.filesDir,
+                                    cacheDir = context.applicationContext.cacheDir
+                                ),
+                                modelManager = gemmaModelManager,
+                                snapshotProvider = { snapshotProvider.capture() }
+                            )
+                            benchmarkReport.value = runner.run()
+                        } finally {
+                            benchmarkRunning.value = false
+                        }
+                    }
+                }
             )
 
             SectionHeader("Xiaomi / HyperOS Background Settings")

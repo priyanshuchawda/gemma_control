@@ -431,7 +431,7 @@ Current decision:
 
 | Issue | Module | Purpose |
 | :--- | :--- | :--- |
-| #120 | `DeviceBenchmarkReporter` | Capture model/device benchmark metrics. |
+| #120 | `ModelRuntimeBenchmarkRunner`, `AndroidRuntimeBenchmarkSnapshotProvider`, `ModelRuntimeBenchmarkCard` | Capture model/device benchmark metrics without downloading another model. |
 | #123 | `AssistantCapabilityMatrix` | Map tools to permissions and setup state. |
 | #121 | `NotificationListenerHealthMonitor` | Surface listener enabled/live/recent-event state. |
 | #102 | `WhatsAppNotificationClassifier` | Classify text/media/hidden/system/group/reply facts. |

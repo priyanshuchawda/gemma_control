@@ -20,7 +20,7 @@ This document records the truthful current state of completed modules, verified 
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, and confirmed local tool actions exist |
-| FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, and native LiteRT `ToolSet` callback path exist. Broader latency/quality benchmarking remains open. |
+| FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, native LiteRT `ToolSet` callback path, and Settings runtime benchmark dashboard exist. Physical latency/quality numbers still need capture. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -67,13 +67,15 @@ This document records the truthful current state of completed modules, verified 
 - `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
 - `ai/runtime/AndroidGemmaEngineFactory.kt` — Android-only engine factory boundary that keeps LiteRT engine construction lazy until initialization
 - `ai/runtime/GemmaModelManager.kt` — Centralized FunctionGemma lifecycle manager with lazy engine creation, duplicate-init protection, streaming state, cancellation, idle background release, and low-memory release
+- `ai/benchmark/ModelRuntimeBenchmarkRunner.kt` — Privacy-safe benchmark runner that measures cold initialize, warm initialize reuse, and synthetic command-routing latency with no model download path
+- `ai/benchmark/AndroidRuntimeBenchmarkSnapshotProvider.kt` — Android snapshot collector for device label, available memory, app PSS, battery, thermal status, and key permission readiness
 - `ai/model/FunctionGemmaModelCatalog.kt` — Gallery-aligned MobileActions model definition and installed-model resolver for `filesDir/models/mobile_actions_q8_ekv1024.litertlm`
 - `ai/model/ModelDownloadContract.kt` — Typed WorkManager input/progress key contract and HTTPS/SHA-256 request validation
 - `ai/model/ModelDownloadProgress.kt` — Testable model download progress math and Gallery-style temporary file naming
 - `ai/model/ModelDownloadWorker.kt` — Background `.litertlm` model download worker with range resume, progress updates, SHA-256 validation, and atomic temp-to-final rename
 - `ai/model/ModelDownloadManager.kt` — Unique WorkManager enqueue/cancel boundary for model downloads
 - `ai/model/ModelDownloadUiState.kt` — WorkManager progress/output mapper for Settings download status
-- `FunctionGemmaModelCard.kt` / `SettingsScreen.kt` — Production-shaped FunctionGemma MobileActions model card with status-first UI, WorkManager progress/cancel support, and collapsed manual URL/SHA input
+- `FunctionGemmaModelCard.kt` / `ModelRuntimeBenchmarkCard.kt` / `SettingsScreen.kt` — Production-shaped FunctionGemma MobileActions model card with status-first UI, WorkManager progress/cancel support, collapsed manual URL/SHA input, and a no-download runtime benchmark card
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
 - `FunctionGemmaVoiceProposalHandler.kt` — JVM-testable bridge from validated FunctionGemma proposal results to voice UI states, including read-latest, active notification replies, and confirmed local capture/delete actions
@@ -133,16 +135,17 @@ The implementation has since been split and merged through later issue branches 
 | Room persistence write & read | **Verified fact** | Instrumented test validation |
 | Keystore AES-GCM encryption | **Verified fact** | Instrumented test validation |
 | LiteRT-LM inference availability | **Smoke verified** | Installed model opened and handled a no-data read path on the physical device |
-| LiteRT-LM latency/quality benchmark | **Unverified** | Requires structured benchmark from roadmap issue #120 |
+| LiteRT-LM benchmark dashboard | **Implemented locally** | Settings card and runner covered by JVM tests; physical capture remains pending |
+| LiteRT-LM latency/quality benchmark numbers | **Unverified** | Requires running the dashboard on the physical handset |
 | WorkManager model download | **Unverified on device** | Current model is installed app-private; physical network download validation remains separate |
 
 ---
 
 ## 4. Next Technical Slice
 
-**Current local slice: P2 physical validation preparation only.**
+**Current local slice: P0 runtime benchmark capture preparation complete locally.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
-- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for microphone reliability, TTS edge cases, `RemoteInput` reply execution, WhatsApp draft intents, WorkManager model download, and FunctionGemma `.litertlm` latency/quality.
+- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for microphone reliability, TTS edge cases, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
 - **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.
 - **Artifact Policy**: Do not commit raw logs, APK/AAB outputs, model binaries, private screenshots, credentials, or unverified model checksums. Local Gradle output should stay in ignored build directories or temporary paths only.
 

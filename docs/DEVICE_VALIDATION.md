@@ -87,9 +87,10 @@ Physical handset used for GemmaControl development and physical validation. Curr
 
 - FunctionGemma MobileActions model installed app-private — **PASS**
 - LiteRT-LM runtime open/no-data read smoke test — **PASS**
+- Settings runtime benchmark dashboard — **IMPLEMENTED LOCALLY; NEEDS PHYSICAL CAPTURE**
 - Structured routing quality benchmark — **NOT MEASURED**
-- Load/inference latency dashboard — **NOT MEASURED**
-- RAM and thermal profiling — **NOT MEASURED**
+- Load/inference latency numbers — **NOT MEASURED**
+- RAM and thermal profiling numbers — **NOT MEASURED**
 
 ---
 
