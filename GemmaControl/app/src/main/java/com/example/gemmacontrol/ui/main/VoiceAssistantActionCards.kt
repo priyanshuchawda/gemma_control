@@ -86,8 +86,9 @@ private fun ReadLatestCommandCard(
     command: VoiceCommand,
     actions: VoiceAssistantScreenActions,
 ) {
-    if (command is VoiceCommand.ReadLatestMessages) {
+    if (command is VoiceReadCommand) {
         ReadLatestConfirmationCard(
+            promptText = readCommandConfirmationText(command),
             onCancel = actions.onCancel,
             onReadAloud = actions.onReadAloud
         )
@@ -96,6 +97,7 @@ private fun ReadLatestCommandCard(
 
 @Composable
 private fun ReadLatestConfirmationCard(
+    promptText: String,
     onCancel: () -> Unit,
     onReadAloud: () -> Unit,
 ) {
@@ -118,7 +120,7 @@ private fun ReadLatestConfirmationCard(
                 modifier = Modifier.padding(top = 2.dp)
             )
             Text(
-                "Read your latest captured WhatsApp messages aloud?",
+                promptText,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -130,5 +132,16 @@ private fun ReadLatestConfirmationCard(
                 onPrimaryClick = onReadAloud
             )
         }
+    }
+}
+
+private fun readCommandConfirmationText(command: VoiceReadCommand): String {
+    return when (command) {
+        VoiceCommand.ReadLatestMessages -> "Read your latest captured WhatsApp messages aloud?"
+        VoiceCommand.ContinueReadingMessages -> "Continue reading captured WhatsApp messages aloud?"
+        VoiceCommand.SummarizeWhatsAppMessages -> "Summarize captured WhatsApp messages aloud?"
+        VoiceCommand.ReadImportantMessages -> "Read important captured WhatsApp messages aloud?"
+        is VoiceCommand.ReadMessagesFromConversation ->
+            "Read captured WhatsApp messages from ${command.conversationName} aloud?"
     }
 }

@@ -38,6 +38,35 @@ private val readPhrases = listOf(
     "read"
 )
 
+private val continueReadPhrases = listOf(
+    "continue",
+    "read more",
+    "keep reading",
+    "next messages",
+    "read next messages",
+    "more messages"
+)
+
+private val summarizeReadPhrases = listOf(
+    "summarize whatsapp",
+    "summarize my whatsapp",
+    "summarize whatsapp messages",
+    "summarize my whatsapp messages",
+    "summarize messages",
+    "summarize notifications"
+)
+
+private val importantReadPhrases = listOf(
+    "only important",
+    "read important",
+    "read important messages",
+    "read important whatsapp messages",
+    "read only important",
+    "read only important whatsapp messages",
+    "show important whatsapp messages",
+    "tell me important whatsapp messages"
+)
+
 private val readIntentVerbs = listOf("read", "show", "tell")
 private val readIntentRecencyWords = listOf("latest", "recent", "current")
 private val readIntentTargetWords = listOf("message", "messages", "notification", "notifications")
@@ -79,8 +108,36 @@ private val replyPrefixes = listOf(
     "tell them"
 )
 
+sealed interface VoiceReadAloudRequest {
+    data object Latest : VoiceReadAloudRequest
+    data object Continue : VoiceReadAloudRequest
+    data object Summarize : VoiceReadAloudRequest
+    data object ImportantOnly : VoiceReadAloudRequest
+    data class Conversation(val conversationName: String) : VoiceReadAloudRequest
+}
+
 sealed interface VoiceCommand {
-    data object ReadLatestMessages : VoiceCommand
+    data object ReadLatestMessages : VoiceReadCommand {
+        override val readRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.Latest
+    }
+
+    data object ContinueReadingMessages : VoiceReadCommand {
+        override val readRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.Continue
+    }
+
+    data object SummarizeWhatsAppMessages : VoiceReadCommand {
+        override val readRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.Summarize
+    }
+
+    data object ReadImportantMessages : VoiceReadCommand {
+        override val readRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.ImportantOnly
+    }
+
+    data class ReadMessagesFromConversation(
+        val conversationName: String
+    ) : VoiceReadCommand {
+        override val readRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.Conversation(conversationName)
+    }
 
     data class ReplyToLatestActiveMessage(
         val replyText: String
@@ -89,6 +146,10 @@ sealed interface VoiceCommand {
     data class Unsupported(
         val reason: String
     ) : VoiceCommand
+}
+
+sealed interface VoiceReadCommand : VoiceCommand {
+    val readRequest: VoiceReadAloudRequest
 }
 
 data class PendingVoiceReply(
@@ -128,6 +189,10 @@ object VoiceCommandParser {
 
         return unsupportedVoiceMessage(lower)
             ?: unsupportedNewConversation(lower)
+            ?: continueReadingMessagesCommand(lower)
+            ?: summarizeMessagesCommand(lower)
+            ?: importantMessagesCommand(lower)
+            ?: readMessagesFromConversationCommand(trimmed)
             ?: readLatestMessagesCommand(lower)
             ?: replyToLatestMessageCommand(trimmed, lower)
             ?: defaultUnsupportedCommand()
@@ -156,6 +221,46 @@ object VoiceCommandParser {
         } else {
             null
         }
+    }
+
+    private fun continueReadingMessagesCommand(lower: String): VoiceCommand.ContinueReadingMessages? {
+        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
+        return if (normalized in continueReadPhrases) {
+            VoiceCommand.ContinueReadingMessages
+        } else {
+            null
+        }
+    }
+
+    private fun summarizeMessagesCommand(lower: String): VoiceCommand.SummarizeWhatsAppMessages? {
+        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
+        return if (normalized in summarizeReadPhrases || normalized.startsWith("summarize whatsapp ")) {
+            VoiceCommand.SummarizeWhatsAppMessages
+        } else {
+            null
+        }
+    }
+
+    private fun importantMessagesCommand(lower: String): VoiceCommand.ReadImportantMessages? {
+        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
+        return if (normalized in importantReadPhrases || (normalized.contains("important") && normalized.contains("whatsapp"))) {
+            VoiceCommand.ReadImportantMessages
+        } else {
+            null
+        }
+    }
+
+    private fun readMessagesFromConversationCommand(trimmed: String): VoiceCommand.ReadMessagesFromConversation? {
+        val match = Regex(
+            pattern = """^(?:read|show|tell)(?:\s+me)?\s+(?:whatsapp\s+)?(?:messages?|notifications?)\s+from\s+(.+?)[?.]?$""",
+            option = RegexOption.IGNORE_CASE
+        ).find(trimmed.trim()) ?: return null
+        val conversationName = match.groupValues[1].trim()
+            .removePrefix(":")
+            .trim()
+        return conversationName
+            .takeIf { it.isNotBlank() }
+            ?.let { VoiceCommand.ReadMessagesFromConversation(it) }
     }
 
     private fun String.isRecentWhatsAppReadIntent(): Boolean {

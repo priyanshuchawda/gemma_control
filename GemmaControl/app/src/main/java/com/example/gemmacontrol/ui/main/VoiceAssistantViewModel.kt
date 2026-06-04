@@ -19,7 +19,6 @@ import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
 import com.example.gemmacontrol.notifications.ReplySendResult
-import com.example.gemmacontrol.notifications.spokenSummaryText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,6 +53,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         draftLauncher = AndroidWhatsAppDraftLauncher(application)
     )
     private val gemmaPromptBuilder = GemmaPromptBuilder()
+    private val readAloudBuilder = VoiceReadAloudBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
     private val textToSpeechController = VoiceTextToSpeechController(
         application = application,
@@ -82,6 +82,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private var pendingStopListeningJob: Job? = null
     private var forceSystemRecognition = false
     private var isCurrentRecognizerOnDevice: Boolean? = null
+    private var lastReadRequest: VoiceReadAloudRequest = VoiceReadAloudRequest.Latest
+    private var readCursorOffset: Int = 0
 
     private val recognitionCallbacks = VoiceRecognitionCallbacks(
         onReadyForSpeech = { _state.value = VoiceAssistantState.Listening },
@@ -174,9 +176,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         val command = VoiceCommandParser.parse(transcript)
 
         when (command) {
-            is VoiceCommand.ReadLatestMessages -> {
+            is VoiceReadCommand -> {
                 _state.value = VoiceAssistantState.CommandReady(command)
-                // ReadLatestMessages does not immediately speak; wait for user confirmation
+                // Read commands do not immediately speak; wait for user confirmation.
             }
             is VoiceCommand.ReplyToLatestActiveMessage -> {
                 _state.value = VoiceAssistantState.CommandReady(command)
@@ -330,34 +332,26 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
     fun executeReadAloud() {
         viewModelScope.launch {
-            val messages = repository.getAllDecryptedMessages()
-                .sortedByDescending { it.postedAt }
-                .take(3)
+            val command = (_state.value as? VoiceAssistantState.CommandReady)
+                ?.command as? VoiceReadCommand
+                ?: VoiceCommand.ReadLatestMessages
+            val requestedRead = command.readRequest
+            val isContinuation = requestedRead == VoiceReadAloudRequest.Continue
+            val builderRequest = if (isContinuation) lastReadRequest else requestedRead
+            val offset = if (isContinuation) readCursorOffset else 0
+            val plan = readAloudBuilder.build(
+                messages = repository.getAllDecryptedMessages(),
+                request = builderRequest,
+                continueOffset = offset,
+                forceDirect = isContinuation
+            )
 
-            if (messages.isEmpty()) {
-                textToSpeechController.speak("There are no captured messages to read.")
-                _state.value = VoiceAssistantState.SpeakingMessages(0)
-            } else {
-                val count = messages.size
-                _state.value = VoiceAssistantState.SpeakingMessages(count)
-                
-                val intro = "You have $count recent WhatsApp message${if (count == 1) "" else "s"}."
-                val spokenContent = StringBuilder(intro)
-                
-                messages.forEachIndexed { index, msg ->
-                    val ordinal = when (index) {
-                        0 -> "First message"
-                        1 -> "Second message"
-                        2 -> "Third message"
-                        else -> "Next message"
-                    }
-                    val sender = msg.senderName ?: "Someone"
-                    val text = msg.contentKind.spokenSummaryText(msg.decryptedText)
-                    spokenContent.append(" $ordinal: From $sender. $text.")
-                }
-                
-                textToSpeechController.speak(spokenContent.toString())
+            if (!isContinuation) {
+                lastReadRequest = requestedRead.continuationBase()
             }
+            readCursorOffset = plan.nextOffset
+            _state.value = VoiceAssistantState.SpeakingMessages(plan.spokenMessageCount)
+            textToSpeechController.speak(plan.spokenText)
         }
     }
 
@@ -425,6 +419,14 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         destroySpeechRecognizer()
         gemmaModelManager.release()
         textToSpeechController.shutdown()
+    }
+}
+
+private fun VoiceReadAloudRequest.continuationBase(): VoiceReadAloudRequest {
+    return when (this) {
+        VoiceReadAloudRequest.Continue,
+        VoiceReadAloudRequest.Summarize -> VoiceReadAloudRequest.Latest
+        else -> this
     }
 }
 
