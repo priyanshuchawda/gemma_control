@@ -29,9 +29,15 @@ sealed interface ToolExecutionDecision {
     data class Reject(val reason: String) : ToolExecutionDecision
 }
 
-class ToolSafetyRouter {
+class ToolSafetyRouter(
+    private val capabilityState: AssistantCapabilityState = AssistantCapabilityState.assumeReady(),
+    private val capabilityMatrix: AssistantCapabilityMatrix = AssistantCapabilityMatrix.default()
+) {
 
     fun route(proposal: ToolProposal): ToolExecutionDecision {
+        capabilityMatrix.firstSetupResponse(proposal.name, capabilityState)?.let { setupResponse ->
+            return ToolExecutionDecision.Reject(setupResponse)
+        }
         rejectMalformedHighRiskProposal(proposal)?.let { return it }
 
         return when (proposal.definition.safetyLevel) {

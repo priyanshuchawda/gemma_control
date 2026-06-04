@@ -9,6 +9,8 @@ Current implementation uses two tool layers:
 
 The model must never be treated as the final executor. Kotlin validates and resolves every high-risk action against live system state and explicit user confirmation.
 
+Capability and permission requirements for these tools are defined in `docs/CAPABILITY_MATRIX.md` and mirrored by `AssistantCapabilityMatrix.kt`. ADB is explicitly development-only and is not a production tool capability.
+
 ---
 
 ## 1. Schema Specifications & Parameters

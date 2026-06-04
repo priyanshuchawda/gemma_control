@@ -23,6 +23,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, native LiteRT `ToolSet` callback path, and Settings runtime benchmark dashboard exist. Physical latency/quality numbers still need capture. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
+| Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
 | Home Dashboard Flow | **IMPLEMENTED LOCALLY** — Home shows capture readiness, recent/local message context, actionable-item count, model readiness, and one hero voice action |
 | Voice Action Sheets | **IMPLEMENTED LOCALLY** — Voice confirmations use bottom sheets and expose FunctionGemma tool-call details before user-confirmed execution |
@@ -54,6 +55,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/WhatsAppToolActionHandler.kt` — JVM-testable action callback boundary used by the annotated adapter
 - `ai/tools/ToolSchemaExporter.kt` — Exports registry entries as LiteRT/OpenAPI-style JSON tool schemas for schema-based runtime adapters
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
+- `ai/tools/AssistantCapabilityMatrix.kt` — Typed permission/capability matrix for Android capability sources, ADB exclusion, and per-tool setup guidance
 - `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions
 - `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed tool decisions for capture pause/resume, recent local message reads, local message search/details, actionable inbox reads, follow-ups, priority flags, reminders, WhatsApp draft intent preparation, and scoped local data deletion
 - `ai/tools/WhatsAppDraftLauncher.kt` — Testable boundary for user-confirmed WhatsApp share and click-to-chat draft intents
@@ -107,6 +109,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/DEVICE_VALIDATION.md` — Physical Xiaomi Redmi 13 5G validation details
 - `docs/PHASE2A_ENCRYPTED_INBOX_TEST_LOG.md` — Detailed automated and physical verification matrix
 - `docs/PRODUCT_SCOPE.md` — Feature scope and tool registry reference
+- `docs/CAPABILITY_MATRIX.md` — Permission/capability matrix and full 16-tool capability mapping
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — 4 unit tests (package allowlist, SHA-256 determinism, POSTED→UPDATED→REMOVED lifecycle, 100-entry cap)
