@@ -22,6 +22,7 @@ internal fun VoiceAssistantActionPanel(
         VoiceAssistantInlineActionContent(
             state = state,
             presentation = presentation,
+            onCommandSelected = actions.onTypedCommandSubmit,
             onStopSpeaking = actions.onStopSpeaking,
             onStopResponse = actions.onStopResponse
         )
@@ -40,12 +41,13 @@ internal fun VoiceAssistantActionPanel(
 private fun VoiceAssistantInlineActionContent(
     state: VoiceAssistantState,
     presentation: VoiceActionPresentation,
+    onCommandSelected: (String) -> Unit,
     onStopSpeaking: () -> Unit,
     onStopResponse: () -> Unit,
 ) {
     when {
         presentation == VoiceActionPresentation.Inline && state == VoiceAssistantState.Idle -> {
-            VoiceCommandExamplesCard()
+            VoiceCommandExamplesCard(onCommandSelected = onCommandSelected)
         }
         presentation == VoiceActionPresentation.Inline && state is VoiceAssistantState.Streaming -> {
             StreamingResponseCard(
