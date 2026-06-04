@@ -16,6 +16,7 @@ internal data class VoiceAssistantScreenActions(
     val onHoldStart: () -> Unit,
     val onHoldRelease: () -> Unit,
     val onHoldCancel: () -> Unit,
+    val onTypedCommandSubmit: (String) -> Unit,
     val onCancel: () -> Unit,
     val onReadAloud: () -> Unit,
     val onConfirmSend: (PendingVoiceReply) -> Unit,

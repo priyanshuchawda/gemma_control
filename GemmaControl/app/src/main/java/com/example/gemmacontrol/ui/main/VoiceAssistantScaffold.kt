@@ -77,6 +77,11 @@ private fun VoiceAssistantBody(
             screenState = screenState,
             actions = actions
         )
+        VoiceTypedCommandInput(
+            state = screenState.state,
+            onSubmit = actions.onTypedCommandSubmit,
+            modifier = Modifier.fillMaxWidth()
+        )
         VoiceAssistantActionPanel(
             state = screenState.state,
             actions = actions,
