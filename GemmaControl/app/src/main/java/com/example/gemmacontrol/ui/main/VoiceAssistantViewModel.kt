@@ -229,10 +229,16 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
             val conversationTitleByNotificationKey = decryptedMessages
                 .associate { it.notificationKey to it.conversationId }
+            val latestActiveNotificationKey = decryptedMessages
+                .filter { it.notificationKey in activeKeys }
+                .maxByOrNull { it.postedAt }
+                ?.notificationKey
+                ?: activeKeys.firstOrNull()
             _state.value = functionGemmaProposalHandler.resolve(
                 result = result,
                 context = FunctionGemmaVoiceProposalContext(
                     activeNotificationKeys = activeKeys,
+                    latestActiveNotificationKey = latestActiveNotificationKey,
                     conversationTitleByNotificationKey = conversationTitleByNotificationKey
                 )
             )

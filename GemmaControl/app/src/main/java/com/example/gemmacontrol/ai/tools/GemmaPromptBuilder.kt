@@ -81,7 +81,7 @@ class GemmaPromptBuilder(
 
             User command: ${userCommand.oneLine().truncate(maxUserCommandChars)}
 
-            Return only one JSON object with a supported tool name and parameters. If no safe tool applies, return no tool proposal.
+            Call one native WhatsApp tool when a supported safe action applies. If no safe tool applies, respond briefly without claiming that any tool ran.
         """.trimIndent()
     }
 

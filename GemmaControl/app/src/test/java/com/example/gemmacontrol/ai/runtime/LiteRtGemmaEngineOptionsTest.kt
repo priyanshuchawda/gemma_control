@@ -1,7 +1,7 @@
 package com.example.gemmacontrol.ai.runtime
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -18,7 +18,7 @@ class LiteRtGemmaEngineOptionsTest {
         assertEquals(DEFAULT_TOP_K, options.topK)
         assertEquals(DEFAULT_TOP_P, options.topP)
         assertEquals(DEFAULT_TEMPERATURE, options.temperature)
-        assertFalse(options.automaticToolCalling)
+        assertTrue(options.automaticToolCalling)
         assertNull(options.cacheDirectoryPath)
     }
 

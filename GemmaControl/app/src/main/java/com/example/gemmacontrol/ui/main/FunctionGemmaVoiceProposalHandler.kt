@@ -6,6 +6,7 @@ import com.example.gemmacontrol.ai.tools.WhatsAppToolName
 
 data class FunctionGemmaVoiceProposalContext(
     val activeNotificationKeys: Set<String>,
+    val latestActiveNotificationKey: String? = null,
     val conversationTitleByNotificationKey: Map<String, String> = emptyMap()
 )
 
@@ -87,9 +88,20 @@ class FunctionGemmaVoiceProposalHandler(
     ): VoiceAssistantState {
         return when (result) {
             is GemmaEngineResult.ProposalText -> resolveProposal(result, context)
+            is GemmaEngineResult.NativeToolAction -> resolveNativeToolAction(result, context)
             is GemmaEngineResult.Blocked -> VoiceAssistantState.Failure(result.reason)
             is GemmaEngineResult.Failure -> VoiceAssistantState.Failure(result.safeReason)
             GemmaEngineResult.Ready -> VoiceAssistantState.Failure("FunctionGemma did not return a tool proposal.")
+        }
+    }
+
+    private fun resolveNativeToolAction(
+        result: GemmaEngineResult.NativeToolAction,
+        context: FunctionGemmaVoiceProposalContext
+    ): VoiceAssistantState {
+        return when (val mapped = mapper.mapNativeToolAction(result.action)) {
+            is VoiceToolProposalResult.Invalid -> VoiceAssistantState.Failure(mapped.reason)
+            is VoiceToolProposalResult.Valid -> mapped.toVoiceState(context)
         }
     }
 
@@ -189,7 +201,7 @@ class FunctionGemmaVoiceProposalHandler(
     private fun ToolProposal.toActiveReplyState(
         context: FunctionGemmaVoiceProposalContext
     ): VoiceAssistantState {
-        val notificationKey = string("notification_key").orEmpty()
+        val notificationKey = resolveNotificationKey(context)
         val replyText = string("message_text").orEmpty()
         if (notificationKey !in context.activeNotificationKeys) {
             return VoiceAssistantState.Failure("The proposed WhatsApp notification is no longer active.")
@@ -206,6 +218,19 @@ class FunctionGemmaVoiceProposalHandler(
                     ?: "Latest Conversation"
             )
         )
+    }
+
+    private fun ToolProposal.resolveNotificationKey(
+        context: FunctionGemmaVoiceProposalContext
+    ): String {
+        val proposedKey = string("notification_key").orEmpty()
+        return if (proposedKey == VoiceCommandToolProposalMapper.LatestActiveNotificationKey) {
+            context.latestActiveNotificationKey
+                ?.takeIf { it in context.activeNotificationKeys }
+                ?: context.activeNotificationKeys.firstOrNull().orEmpty()
+        } else {
+            proposedKey
+        }
     }
 
     private fun unsupportedProposalState(proposal: ToolProposal): VoiceAssistantState.Failure {

@@ -19,6 +19,7 @@ private val newConversationPhrases = listOf(
 
 private val readPhrases = listOf(
     "read my latest messages",
+    "show my latest whatsapp messages",
     "read latest messages",
     "read my notifications",
     "read current messages",

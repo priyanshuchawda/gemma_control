@@ -53,7 +53,7 @@ class WhatsAppToolRegistryTest {
             dayOfWeek = "Thursday"
         )
 
-        assertTrue(prompt.contains("automatic tool calling is disabled"))
+        assertTrue(prompt.contains("Use the native LiteRT-LM WhatsApp tools"))
         assertTrue(prompt.contains("send_reply_to_active_whatsapp_notification"))
         assertTrue(prompt.contains("Never claim that a reply was sent"))
         assertTrue(prompt.contains("Current date and time: 2026-05-28T20:30:00"))

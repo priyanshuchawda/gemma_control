@@ -61,6 +61,11 @@ class GemmaModelManager(
                 _state.value = GemmaModelState.Failed("FunctionGemma initialization returned an invalid proposal result.")
                 return@withLock GemmaEngineResult.Failure("FunctionGemma initialization returned an invalid proposal result.")
             }
+            is GemmaEngineResult.NativeToolAction -> {
+                closeCurrentEngine()
+                _state.value = GemmaModelState.Failed("FunctionGemma initialization returned an invalid tool action.")
+                return@withLock GemmaEngineResult.Failure("FunctionGemma initialization returned an invalid tool action.")
+            }
         }
         result
     }
@@ -81,6 +86,7 @@ class GemmaModelManager(
         }
         when (result) {
             is GemmaEngineResult.ProposalText,
+            is GemmaEngineResult.NativeToolAction,
             GemmaEngineResult.Ready -> {
                 activeConfig?.let { _state.value = GemmaModelState.Ready(it) }
             }

@@ -1,7 +1,9 @@
 package com.example.gemmacontrol.ai.runtime
 
 import com.example.gemmacontrol.ai.tools.ToolCallParser
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
+import com.example.gemmacontrol.ai.tools.WhatsAppTools
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
@@ -12,6 +14,7 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.tool
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,6 +24,7 @@ class LiteRtGemmaEngine(
 ) : GemmaEngine {
     private var engine: Engine? = null
     private var conversation: Conversation? = null
+    private val nativeToolActions = mutableListOf<WhatsAppToolAction>()
 
     override val isReady: Boolean
         get() = engine?.isInitialized() == true && conversation?.isAlive == true
@@ -51,7 +55,17 @@ class LiteRtGemmaEngine(
                 ConversationConfig(
                     systemInstruction = null,
                     initialMessages = emptyList(),
-                    tools = emptyList(),
+                    tools = listOf(
+                        tool(
+                            WhatsAppTools(
+                                onFunctionCalled = { action ->
+                                    synchronized(nativeToolActions) {
+                                        nativeToolActions += action
+                                    }
+                                }
+                            )
+                        )
+                    ),
                     samplerConfig = SamplerConfig(
                         topK = options.topK,
                         topP = options.topP.toDouble(),
@@ -83,6 +97,9 @@ class LiteRtGemmaEngine(
 
         val rawText = StringBuilder()
         val result = CompletableDeferred<GemmaEngineResult>()
+        synchronized(nativeToolActions) {
+            nativeToolActions.clear()
+        }
         try {
             activeConversation.sendMessageAsync(
                 Contents.of(prompt),
@@ -93,6 +110,13 @@ class LiteRtGemmaEngine(
                     }
 
                     override fun onDone() {
+                        val nativeAction = synchronized(nativeToolActions) {
+                            nativeToolActions.lastOrNull()
+                        }
+                        if (nativeAction != null) {
+                            result.complete(GemmaEngineResult.NativeToolAction(nativeAction))
+                            return
+                        }
                         val finalText = rawText.toString().trim()
                         result.complete(
                             GemmaEngineResult.ProposalText(
@@ -127,6 +151,9 @@ class LiteRtGemmaEngine(
             conversation?.close()
         } finally {
             conversation = null
+        }
+        synchronized(nativeToolActions) {
+            nativeToolActions.clear()
         }
         try {
             engine?.close()

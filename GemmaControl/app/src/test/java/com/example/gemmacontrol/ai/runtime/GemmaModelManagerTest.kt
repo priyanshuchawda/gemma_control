@@ -1,6 +1,7 @@
 package com.example.gemmacontrol.ai.runtime
 
 import com.example.gemmacontrol.ai.tools.ToolCallParseResult
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 import java.util.ArrayDeque
 import kotlinx.coroutines.test.runTest
@@ -117,6 +118,25 @@ class GemmaModelManagerTest {
                 GemmaModelState.Streaming("Thinking done")
             ),
             observedStates
+        )
+        assertEquals(GemmaModelState.Ready(config), manager.state.value)
+    }
+
+    @Test
+    fun generateToolProposalRestoresReadyStateAfterNativeToolAction() = runTest {
+        val engine = FakeGemmaEngine(
+            proposalResult = GemmaEngineResult.NativeToolAction(
+                WhatsAppToolAction.ReadLatestNotifications(limit = 3)
+            )
+        )
+        val manager = GemmaModelManager(engineFactory = { engine })
+        manager.initialize(config)
+
+        val result = manager.generateToolProposal("show recent WhatsApp messages", registry)
+
+        assertEquals(
+            GemmaEngineResult.NativeToolAction(WhatsAppToolAction.ReadLatestNotifications(limit = 3)),
+            result
         )
         assertEquals(GemmaModelState.Ready(config), manager.state.value)
     }
