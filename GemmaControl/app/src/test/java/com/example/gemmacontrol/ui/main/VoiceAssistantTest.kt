@@ -25,6 +25,12 @@ class VoiceAssistantTest {
 
         val cmd6 = VoiceCommandParser.parse("show my latest WhatsApp messages")
         assertEquals(VoiceCommand.ReadLatestMessages, cmd6)
+
+        val cmd7 = VoiceCommandParser.parse("show me latest WhatsApp message")
+        assertEquals(VoiceCommand.ReadLatestMessages, cmd7)
+
+        val cmd8 = VoiceCommandParser.parse("tell me my recent WhatsApp notifications")
+        assertEquals(VoiceCommand.ReadLatestMessages, cmd8)
     }
 
     @Test

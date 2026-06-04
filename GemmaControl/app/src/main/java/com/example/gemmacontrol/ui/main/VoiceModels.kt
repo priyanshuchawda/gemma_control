@@ -20,6 +20,11 @@ private val newConversationPhrases = listOf(
 private val readPhrases = listOf(
     "read my latest messages",
     "show my latest whatsapp messages",
+    "show me my latest whatsapp messages",
+    "show me latest whatsapp messages",
+    "show my latest whatsapp message",
+    "show me my latest whatsapp message",
+    "show me latest whatsapp message",
     "read latest messages",
     "read my notifications",
     "read current messages",
@@ -32,6 +37,10 @@ private val readPhrases = listOf(
     "read recent",
     "read"
 )
+
+private val readIntentVerbs = listOf("read", "show", "tell")
+private val readIntentRecencyWords = listOf("latest", "recent", "current")
+private val readIntentTargetWords = listOf("message", "messages", "notification", "notifications")
 
 private val replyPrefixes = listOf(
     "reply to the latest message:",
@@ -142,11 +151,23 @@ object VoiceCommandParser {
 
     private fun readLatestMessagesCommand(lower: String): VoiceCommand.ReadLatestMessages? {
         val normalizedRead = lower.removeSuffix(".").removeSuffix("?").trim()
-        return if (normalizedRead in readPhrases) {
+        return if (normalizedRead in readPhrases || normalizedRead.isRecentWhatsAppReadIntent()) {
             VoiceCommand.ReadLatestMessages
         } else {
             null
         }
+    }
+
+    private fun String.isRecentWhatsAppReadIntent(): Boolean {
+        val hasReadVerb = readIntentVerbs.any { containsWord(it) }
+        val hasRecency = readIntentRecencyWords.any { containsWord(it) }
+        val hasWhatsApp = contains("whatsapp")
+        val hasTarget = readIntentTargetWords.any { containsWord(it) }
+        return hasReadVerb && hasRecency && hasWhatsApp && hasTarget
+    }
+
+    private fun String.containsWord(word: String): Boolean {
+        return Regex("""\b${Regex.escape(word)}\b""").containsMatchIn(this)
     }
 
     private fun replyToLatestMessageCommand(
