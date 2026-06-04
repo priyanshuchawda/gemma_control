@@ -2,6 +2,7 @@ package com.example.gemmacontrol.ui.main
 
 import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
 import com.example.gemmacontrol.ai.tools.ToolCallParser
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -68,6 +69,59 @@ class FunctionGemmaVoiceProposalHandlerTest {
         )
 
         assertEquals(VoiceAssistantState.CommandReady(VoiceCommand.ReadLatestMessages), state)
+    }
+
+    @Test
+    fun mapsNativeReadLatestToolActionToCommandReady() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.ReadLatestNotifications(limit = 3)
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(VoiceAssistantState.CommandReady(VoiceCommand.ReadLatestMessages), state)
+    }
+
+    @Test
+    fun mapsNativeLatestReplyToolActionToConfirmationForLatestActiveNotification() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.ReplyToLatestNotification("I am in a meeting")
+            ),
+            context = FunctionGemmaVoiceProposalContext(
+                activeNotificationKeys = setOf("active-key-1"),
+                conversationTitleByNotificationKey = mapOf("active-key-1" to "Mom")
+            )
+        )
+
+        assertTrue(state is VoiceAssistantState.ConfirmationRequired)
+        val draft = (state as VoiceAssistantState.ConfirmationRequired).draft
+        assertEquals("active-key-1", draft.notificationKey)
+        assertEquals("I am in a meeting", draft.replyText)
+        assertEquals("Mom", draft.conversationTitle)
+    }
+
+    @Test
+    fun nativeLatestReplyUsesPreferredLatestActiveNotificationKey() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.ReplyToLatestNotification("I am in a meeting")
+            ),
+            context = FunctionGemmaVoiceProposalContext(
+                activeNotificationKeys = setOf("older-key", "newer-key"),
+                latestActiveNotificationKey = "newer-key",
+                conversationTitleByNotificationKey = mapOf(
+                    "older-key" to "Dad",
+                    "newer-key" to "Mom"
+                )
+            )
+        )
+
+        assertTrue(state is VoiceAssistantState.ConfirmationRequired)
+        val draft = (state as VoiceAssistantState.ConfirmationRequired).draft
+        assertEquals("newer-key", draft.notificationKey)
+        assertEquals("Mom", draft.conversationTitle)
     }
 
     @Test

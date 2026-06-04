@@ -1,6 +1,7 @@
 package com.example.gemmacontrol.ai.runtime
 
 import com.example.gemmacontrol.ai.tools.ToolCallParseResult
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 
 enum class GemmaBackend {
@@ -23,6 +24,9 @@ sealed interface GemmaEngineResult {
     data class ProposalText(
         val rawText: String,
         val parseResult: ToolCallParseResult
+    ) : GemmaEngineResult
+    data class NativeToolAction(
+        val action: WhatsAppToolAction
     ) : GemmaEngineResult
     data class Blocked(val reason: String) : GemmaEngineResult
     data class Failure(val safeReason: String) : GemmaEngineResult

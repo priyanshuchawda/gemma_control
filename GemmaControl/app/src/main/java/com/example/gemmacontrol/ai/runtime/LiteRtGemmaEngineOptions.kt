@@ -19,7 +19,7 @@ internal fun GemmaEngineConfig.toLiteRtGemmaEngineOptions(): LiteRtGemmaEngineOp
         topK = topK,
         topP = topP,
         temperature = temperature,
-        automaticToolCalling = false,
+        automaticToolCalling = true,
         cacheDirectoryPath = cacheDirectoryPath
     )
 }

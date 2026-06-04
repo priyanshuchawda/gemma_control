@@ -5,6 +5,7 @@ import com.example.gemmacontrol.ai.tools.ToolCallParseResult
 import com.example.gemmacontrol.ai.tools.ToolCallParser
 import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
 import com.example.gemmacontrol.ai.tools.ToolProposal
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.ToolSafetyRouter
 import com.example.gemmacontrol.ai.tools.WhatsAppToolName
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
@@ -25,12 +26,43 @@ class VoiceCommandToolProposalMapper(
     private val parser: ToolCallParser = ToolCallParser(registry),
     private val safetyRouter: ToolSafetyRouter = ToolSafetyRouter()
 ) {
+    fun mapNativeToolAction(action: WhatsAppToolAction): VoiceToolProposalResult {
+        return when (action) {
+            is WhatsAppToolAction.ReadLatestNotifications -> mapReadLatestMessages(action.limit)
+            is WhatsAppToolAction.GetNotificationFrom -> mapRecentMessagesFromSender(
+                senderName = action.senderName,
+                limit = action.limit
+            )
+            is WhatsAppToolAction.ReplyToLatestNotification -> mapActiveNotificationReply(
+                notificationKey = LatestActiveNotificationKey,
+                replyText = action.replyText
+            )
+        }
+    }
+
     fun mapReadLatestMessages(limit: Int): VoiceToolProposalResult {
         val definition = registry.require(WhatsAppToolName.ListRecentWhatsAppMessages.value)
         return mapToolProposal(
             ToolProposal(
                 name = definition.name,
                 arguments = mapOf("limit" to ToolArgument.IntegerValue(limit)),
+                definition = definition
+            )
+        )
+    }
+
+    private fun mapRecentMessagesFromSender(
+        senderName: String,
+        limit: Int
+    ): VoiceToolProposalResult {
+        val definition = registry.require(WhatsAppToolName.ListRecentWhatsAppMessages.value)
+        return mapToolProposal(
+            ToolProposal(
+                name = definition.name,
+                arguments = mapOf(
+                    "conversation_name" to ToolArgument.StringValue(senderName),
+                    "limit" to ToolArgument.IntegerValue(limit)
+                ),
                 definition = definition
             )
         )
@@ -67,5 +99,9 @@ class VoiceCommandToolProposalMapper(
             is ToolExecutionDecision.RequireUserConfirmation -> VoiceToolProposalResult.Valid(proposal, decision)
             is ToolExecutionDecision.Reject -> VoiceToolProposalResult.Invalid(decision.reason)
         }
+    }
+
+    companion object {
+        const val LatestActiveNotificationKey = "__latest_active_notification__"
     }
 }

@@ -37,6 +37,8 @@ class GemmaPromptBuilderTest {
         assertTrue(prompt.contains("message-7"))
         assertTrue(prompt.contains("message-6"))
         assertFalse(prompt.contains("message-5"))
+        assertTrue(prompt.contains("Call one native WhatsApp tool"))
+        assertFalse(prompt.contains("Return only one JSON object"))
     }
 
     @Test

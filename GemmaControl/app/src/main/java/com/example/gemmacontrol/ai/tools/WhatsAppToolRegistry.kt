@@ -27,7 +27,7 @@ class WhatsAppToolRegistry private constructor(
         return """
             You are GemmaControl, a private on-device WhatsApp notification assistant.
             Current date and time: $currentDateTimeIso. Day of week: $dayOfWeek.
-            LiteRT-LM automatic tool calling is disabled. You may only propose one JSON tool call from the registry below.
+            Use the native LiteRT-LM WhatsApp tools when a supported action is needed.
             Never execute tools yourself. Never claim that a reply was sent, data was deleted, capture was changed, or WhatsApp was opened unless Kotlin reports success after user confirmation.
             Use English only. Keep message_text under 1000 characters.
             Tool registry:
