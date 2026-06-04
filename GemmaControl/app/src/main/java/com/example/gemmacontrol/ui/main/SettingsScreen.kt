@@ -1,6 +1,7 @@
 package com.example.gemmacontrol.ui.main
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -42,6 +43,7 @@ import com.example.gemmacontrol.ai.model.ModelDownloadFiles
 import com.example.gemmacontrol.ai.model.ModelDownloadRequest
 import com.example.gemmacontrol.ai.model.ModelDownloadUiStateMapper
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import com.example.gemmacontrol.notifications.WhatsAppNotificationListener
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -83,16 +85,22 @@ fun SettingsScreen(
     val voiceInputMode = preferencesRepository.voiceInputModeFlow.collectAsStateWithLifecycle(
         initialValue = VoiceInputMode.TapToggle
     ).value
+    val capturedNotifications = WhatsAppNotificationListener.capturedNotifications
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+        .value
     val coroutineScope = rememberCoroutineScope()
     val reminderNotificationsGranted = remember {
         mutableStateOf(
-            Build.VERSION.SDK_INT < 33 ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
+            hasPostNotificationsPermission(context)
         )
     }
+    val microphoneGranted = remember {
+        mutableStateOf(hasMicrophonePermission(context))
+    }
+    val notificationListenerEnabled = remember {
+        mutableStateOf(isGemmaNotificationListenerEnabled(context))
+    }
+    val diagnosticsNowMillis = remember { mutableStateOf(System.currentTimeMillis()) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -115,6 +123,43 @@ fun SettingsScreen(
                 "com.miui.powerkeeper.ui.HardwareStartManagerActivity"
             )
         }
+    }
+
+    val openAutostartSettings: () -> Unit = {
+        try {
+            context.startActivity(miuiAutostartIntent)
+        } catch (e: Exception) {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            context.startActivity(intent)
+        }
+    }
+
+    val openBatterySettings: () -> Unit = {
+        try {
+            context.startActivity(miuiBatterySaverIntent)
+        } catch (e1: Exception) {
+            try {
+                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            } catch (e2: Exception) {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+            }
+        }
+    }
+
+    val refreshXiaomiDiagnostics: () -> Unit = {
+        notificationListenerEnabled.value = isGemmaNotificationListenerEnabled(context)
+        reminderNotificationsGranted.value = hasPostNotificationsPermission(context)
+        microphoneGranted.value = hasMicrophonePermission(context)
+        diagnosticsNowMillis.value = System.currentTimeMillis()
+    }
+
+    LaunchedEffect(Unit) {
+        refreshXiaomiDiagnostics()
     }
 
     Scaffold(
@@ -296,6 +341,22 @@ fun SettingsScreen(
 
             SectionHeader("Xiaomi / HyperOS Background Settings")
 
+            XiaomiReliabilityDiagnosticsCard(
+                state = buildXiaomiReliabilityDiagnosticState(
+                    notificationListenerEnabled = notificationListenerEnabled.value,
+                    postNotificationsGranted = reminderNotificationsGranted.value,
+                    microphoneGranted = microphoneGranted.value,
+                    latestEventObservedAt = capturedNotifications.firstOrNull()?.observedAt,
+                    nowMillis = diagnosticsNowMillis.value
+                ),
+                onRefresh = refreshXiaomiDiagnostics,
+                onOpenNotificationAccess = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                },
+                onOpenAutostart = openAutostartSettings,
+                onOpenBattery = openBatterySettings
+            )
+
             // 3. Autostart
             PermissionLinkCard(
                 state = PermissionLinkCardState(
@@ -304,16 +365,7 @@ fun SettingsScreen(
                     description = "Allow GemmaControl to start in background on boot. Required on Xiaomi / HyperOS / MIUI devices for reliable capture.",
                     buttonLabel = "Open Autostart Settings →"
                 ),
-                onAction = {
-                    try {
-                        context.startActivity(miuiAutostartIntent)
-                    } catch (e: Exception) {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:${context.packageName}")
-                        }
-                        context.startActivity(intent)
-                    }
-                }
+                onAction = openAutostartSettings
             )
 
             // 4. Battery unrestricted – try MIUI-specific then standard fallback
@@ -324,21 +376,7 @@ fun SettingsScreen(
                     description = "Set GemmaControl to 'No restrictions' in battery settings so it is not killed in the background by HyperOS.",
                     buttonLabel = "Open Battery Settings →"
                 ),
-                onAction = {
-                    try {
-                        // Try MIUI-specific battery power saving page first
-                        context.startActivity(miuiBatterySaverIntent)
-                    } catch (e1: Exception) {
-                        try {
-                            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                        } catch (e2: Exception) {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }
-                    }
-                }
+                onAction = openBatterySettings
             )
 
             SectionHeader("Other System Settings")
@@ -380,4 +418,30 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+private fun isGemmaNotificationListenerEnabled(context: android.content.Context): Boolean {
+    val enabledListeners = Settings.Secure.getString(
+        context.contentResolver,
+        "enabled_notification_listeners"
+    ) ?: return false
+    return enabledListeners
+        .split(":")
+        .mapNotNull(ComponentName::unflattenFromString)
+        .any { it.packageName == context.packageName }
+}
+
+private fun hasPostNotificationsPermission(context: android.content.Context): Boolean {
+    return Build.VERSION.SDK_INT < 33 ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+}
+
+private fun hasMicrophonePermission(context: android.content.Context): Boolean {
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
 }
