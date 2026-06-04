@@ -24,6 +24,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
+| Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
 | Home Dashboard Flow | **IMPLEMENTED LOCALLY** — Home shows capture readiness, recent/local message context, actionable-item count, model readiness, and one hero voice action |
 | Voice Action Sheets | **IMPLEMENTED LOCALLY** — Voice confirmations use bottom sheets and expose FunctionGemma tool-call details before user-confirmed execution |
@@ -110,6 +111,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/PHASE2A_ENCRYPTED_INBOX_TEST_LOG.md` — Detailed automated and physical verification matrix
 - `docs/PRODUCT_SCOPE.md` — Feature scope and tool registry reference
 - `docs/CAPABILITY_MATRIX.md` — Permission/capability matrix and full 16-tool capability mapping
+- `docs/XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md` — Xiaomi/HyperOS reboot, idle, swipe-away, battery saver, and listener-toggle physical test checklist
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — 4 unit tests (package allowlist, SHA-256 determinism, POSTED→UPDATED→REMOVED lifecycle, 100-entry cap)

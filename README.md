@@ -46,6 +46,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 ├── docs/                     # Comprehensive technical documentation
 │   ├── ARCHITECTURE.md       # On-device data flow, boundaries, and OS limits
 │   ├── CAPABILITY_MATRIX.md  # Android permissions, capability sources, and tool mapping
+│   ├── XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md # Physical reliability checklist for HyperOS capture
 │   ├── GEMMA_MODEL_REFERENCE.md # Gemma model/runtime selection reference
 │   ├── GEMMA_ASSISTANT_USAGE_PLAN.md # App-specific model usage roadmap
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot

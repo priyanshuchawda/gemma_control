@@ -82,6 +82,7 @@ Physical handset used for GemmaControl development and physical validation. Curr
 - WhatsApp share draft and click-to-chat draft intents — **IMPLEMENTED LOCALLY; NEEDS FRESH PHYSICAL INTENT VALIDATION**
 - User confirmation sheet before high-risk execution — **IMPLEMENTED LOCALLY**
 - Active notification liveness lookup by key — **IMPLEMENTED LOCALLY; NEEDS FRESH PHYSICAL EXPIRY TESTING**
+- Xiaomi reliability diagnostic card — **IMPLEMENTED LOCALLY; NEEDS REBOOT/IDLE/SWIPE-AWAY PHYSICAL TESTING**
 
 ### Milestone 4: Model Runtime Validation
 
