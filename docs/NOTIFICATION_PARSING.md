@@ -19,6 +19,8 @@ Design reference for the `WhatsApp Notification Listener` and `WhatsApp Notifica
               ↓
 [ WhatsAppNotificationParser.parse() ]
               ↓  (MessagingStyle or Extras fallback)
+[ Classify content kind: text/media/call/system/hidden/unknown ]
+              ↓
 [ Deterministic volatile dedupeCandidate hash generated ]
               ↓
 [ Prepend to in-memory MutableStateFlow (cap: 100) ]
@@ -82,9 +84,24 @@ val text  = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 | `MessagingStyle` && title == sender name (or title is blank) | `DIRECT` |
 | `MessagingStyle` && ambiguous title | `UNKNOWN` |
 | Extras fallback | `UNKNOWN` |
-| No content at all | `UNKNOWN` + `isContentUnavailable = true` |
+| No content at all | `UNKNOWN`; content kind becomes `HIDDEN` with `isContentUnavailable = true` |
 
-> **Physical validation**: `DIRECT` classification was confirmed on-device for a controlled direct-chat test. `GROUP` classification has **not yet** been confirmed — the group test notification arrived via the fallback path and was classified `UNKNOWN`.
+> **Physical validation**: `DIRECT` and `GROUP` classification were confirmed on-device in controlled chat tests on the Xiaomi Redmi 13 5G.
+
+### D. Content Classification Logic
+
+Every parsed message preview carries a non-sensitive `WhatsAppContentKind`:
+
+| Kind | Meaning |
+| :--- | :--- |
+| `TEXT` | Ordinary nonblank message text exposed by the notification |
+| `PHOTO`, `VIDEO`, `STICKER`, `AUDIO`, `DOCUMENT` | WhatsApp media placeholder text only; the app does not have media bytes or media contents |
+| `MISSED_CALL` | Missed WhatsApp call placeholder |
+| `SYSTEM` | WhatsApp maintenance/status notification such as "Checking for new messages" |
+| `HIDDEN` | Blank, redacted, or explicitly hidden notification content |
+| `UNKNOWN` | Unsupported placeholder text that should not be treated as ordinary message body text |
+
+The local read/TTS/prompt paths use this kind directly. For example, a `PHOTO` notification is described as a photo attachment with contents not inspected; the assistant must not claim what the image contains.
 
 ---
 
@@ -94,7 +111,8 @@ When WhatsApp reposts or refreshes a notification card with the same unread stac
 1. The parser generates a deterministic SHA-256 `dedupeCandidate` string in memory for volatile logging and lifecycle tracking.
 2. The `StoredInboxRepository` translates this candidate into a secure database `dedupeToken` using `AndroidKeystoreHmacDedupeTokenGenerator`, which hashes the candidate using a hardware-locked Keystore HMAC key.
 3. The `MessageEventEntity` stores this `dedupeToken` inside a unique database column backed by a **UNIQUE SQLite index**.
-4. The `MessageEventDao.insert()` operation utilizes `OnConflictStrategy.IGNORE` which silently ignores insertions with duplicate tokens. This ensures that repeating notifications do not leak plaintext-derived fingerprints or create duplicate historical rows on disk.
+4. The `MessageEventEntity` also stores the non-sensitive `contentKind` enum beside the encrypted sender/text fields. Existing v4 databases migrate to schema v5 with `contentKind = TEXT` for legacy rows.
+5. The `MessageEventDao.insert()` operation utilizes `OnConflictStrategy.IGNORE` which silently ignores insertions with duplicate tokens. This ensures that repeating notifications do not leak plaintext-derived fingerprints or create duplicate historical rows on disk.
 
 ### Dual-Notification Normalization Policy
 During controlled tests on the Redmi 13 5G handset, we observed that each incoming WhatsApp message triggered two separate notifications:
@@ -105,6 +123,8 @@ To normalize this pattern and prevent duplicate inbox entries:
 - **Debug volatile feed** continues to show both raw captures to maintain visibility.
 - **Persistent Secure Inbox** implements a strict canonicalization policy inside `NotificationPersistenceCoordinator`:
   - `MESSAGING_STYLE` events are treated as primary canonical sources and persisted directly.
+  - Canonical `SYSTEM` content is filtered before storage so maintenance notifications do not pollute summaries.
+  - Canonical `HIDDEN` content can persist as metadata without message text so read/summarize output can truthfully say content is hidden.
   - `EXTRAS_FALLBACK` events are **never** persisted into the canonical Room database. They remain strictly volatile-only in the debug feed. This minimal policy prevents duplicate stored rows independently of notification-key relationships. Fallback-only persistence is deferred until a separately validated correlation/review-inbox design exists.
 
 > [!WARNING]
@@ -117,11 +137,12 @@ To normalize this pattern and prevent duplicate inbox entries:
 - **No plaintext message body text, sender names, or group names are logged to Logcat or written to disk.**
 - Logcat output is limited to: package name, key suffix (last 8 chars), parse source label, message count.
 - Encrypted data at rest: `messageText`, `senderName`, and `conversationTitle` are encrypted using Android Keystore-backed AES-GCM before writing to the database, ensuring absolute privacy at rest.
+- Media placeholders are treated as metadata only. The notification parser does not receive image, video, sticker, audio, or document bytes, so downstream AI/TTS output must not invent media contents.
 
 ---
 
 ## 6. Execution Constraints
 
-- **No AI inference inside listener callbacks.** LiteRT-LM / FunctionGemma calls are strictly deferred to user-triggered flows in Phase 4.
-- **No Room writes in Phase 1.** The `MutableStateFlow` is the sole storage mechanism.
-- All state mutations happen on the calling thread (Android system notification binder thread). The flow update is thread-safe via `update {}`.
+- **No AI inference inside listener callbacks.** LiteRT-LM / FunctionGemma calls are strictly deferred to user-triggered flows.
+- **Room writes require explicit storage consent.** The volatile `MutableStateFlow` remains available for the live capture feed even when storage is off.
+- Listener state mutations happen through a coroutine-backed flow update path and are capped to the latest 100 events.

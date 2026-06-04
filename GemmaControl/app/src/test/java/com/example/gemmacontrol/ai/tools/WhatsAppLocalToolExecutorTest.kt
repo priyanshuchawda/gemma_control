@@ -2,6 +2,7 @@ package com.example.gemmacontrol.ai.tools
 
 import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -366,6 +367,83 @@ class WhatsAppLocalToolExecutorTest {
         assertEquals(
             listOf(ListRecentMessagesCall(conversationName = "Mom", limit = 3, sinceMinutes = 15)),
             repository.listRecentMessagesCalls
+        )
+    }
+
+    @Test
+    fun listRecentWhatsAppMessagesDescribesPhotoWithoutInventingContents() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            recentMessages = listOf(
+                LocalWhatsAppMessage(
+                    id = "message-photo",
+                    conversationName = "Mom",
+                    senderName = "Mom",
+                    text = "Photo",
+                    postedAt = 1000L,
+                    priority = "NORMAL",
+                    contentKind = WhatsAppContentKind.PHOTO
+                )
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "list_recent_whatsapp_messages",
+                  "parameters": {
+                    "conversation_name": "Mom",
+                    "limit": 3
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(
+            ToolExecutionResult.Success("- [message-photo] Mom: Photo attachment (contents not inspected)"),
+            result
+        )
+    }
+
+    @Test
+    fun getMessageDetailsDescribesHiddenContentWithoutPlaceholderText() = runTest {
+        val repository = FakeLocalWhatsAppDataRepository(
+            messageDetails = LocalWhatsAppMessage(
+                id = "message-hidden",
+                conversationName = "Mom",
+                senderName = "Mom",
+                text = null,
+                postedAt = 1000L,
+                priority = "NORMAL",
+                contentKind = WhatsAppContentKind.HIDDEN
+            )
+        )
+        val executor = WhatsAppLocalToolExecutor(
+            preferencesRepository = FakeCapturePreferencesRepository(),
+            localDataRepository = repository
+        )
+
+        val result = executor.executeConfirmed(
+            route(
+                """
+                {
+                  "name": "get_whatsapp_message_details",
+                  "parameters": {
+                    "message_event_id": "message-hidden"
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(
+            ToolExecutionResult.Success("- [message-hidden] Mom: Content hidden or unavailable"),
+            result
         )
     }
 

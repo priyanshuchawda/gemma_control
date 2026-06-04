@@ -1,5 +1,7 @@
 package com.example.gemmacontrol.ai.tools
 
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
+import com.example.gemmacontrol.notifications.promptBodyText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -15,7 +17,8 @@ data class GemmaMessageContext(
     val conversationName: String,
     val senderName: String,
     val body: String,
-    val postedAt: Long
+    val postedAt: Long,
+    val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
 ) {
     companion object {
         fun fromDecryptedMessage(
@@ -24,15 +27,17 @@ data class GemmaMessageContext(
             conversationName: String,
             senderName: String?,
             decryptedText: String?,
-            postedAt: Long
+            postedAt: Long,
+            contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
         ): GemmaMessageContext {
             return GemmaMessageContext(
                 messageEventId = messageEventId,
                 notificationKey = notificationKey,
                 conversationName = conversationName.ifBlank { "WhatsApp Chat" },
                 senderName = senderName?.takeIf { it.isNotBlank() } ?: conversationName.ifBlank { "Unknown sender" },
-                body = decryptedText?.takeIf { it.isNotBlank() } ?: "[content unavailable]",
-                postedAt = postedAt
+                body = contentKind.promptBodyText(decryptedText),
+                postedAt = postedAt,
+                contentKind = contentKind
             )
         }
     }
@@ -68,6 +73,7 @@ class GemmaPromptBuilder(
                     "conversation=${message.conversationName.oneLine()}",
                     "sender=${message.senderName.oneLine()}",
                     "posted_at=${message.postedAt}",
+                    "content_kind=${message.contentKind.name}",
                     "body=${message.body.oneLine().truncate(maxBodyChars)}"
                 ).joinToString(prefix = "- ", separator = "; ")
             }

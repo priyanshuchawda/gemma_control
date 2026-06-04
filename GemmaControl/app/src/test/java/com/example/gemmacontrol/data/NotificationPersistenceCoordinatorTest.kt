@@ -22,6 +22,7 @@ import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedMessagePreview
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import com.example.gemmacontrol.notifications.WhatsAppNotificationParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -369,6 +370,76 @@ class NotificationPersistenceCoordinatorTest {
         assertEquals("Aunt May", decryptedMessages.first().conversationId) // Decrypted conversation title
         assertEquals("Aunt May", decryptedMessages.first().senderName)       // Decrypted sender name
         assertEquals("Dinner at 7", decryptedMessages.first().decryptedText)  // Decrypted message text
+    }
+
+    @Test
+    fun testCoordinatorPersistsContentKindMetadataForMediaPlaceholder() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val event = createDummyEvent(
+            key = "key_photo",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Mom",
+            text = "Photo",
+            contentKind = WhatsAppContentKind.PHOTO
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        val messageEntity = messageEventDao.list.single()
+        assertEquals(WhatsAppContentKind.PHOTO, messageEntity.contentKind)
+
+        val recentMessages = repository.listRecentMessages(
+            conversationName = null,
+            limit = 10,
+            sinceMinutes = null
+        )
+        assertEquals(1, recentMessages.size)
+        assertEquals(WhatsAppContentKind.PHOTO, recentMessages.single().contentKind)
+        assertEquals("Photo", recentMessages.single().text)
+    }
+
+    @Test
+    fun testCoordinatorPersistsHiddenCanonicalMetadataWithoutMessageText() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val event = createDummyEvent(
+            key = "key_hidden",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Mom",
+            text = "",
+            contentKind = WhatsAppContentKind.HIDDEN
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        val messageEntity = messageEventDao.list.single()
+        assertEquals(WhatsAppContentKind.HIDDEN, messageEntity.contentKind)
+        assertEquals(null, messageEntity.encryptedMessageText)
+        assertEquals(null, messageEntity.messageTextIv)
+
+        val decryptedMessages = repository.getAllDecryptedMessages()
+        assertEquals(WhatsAppContentKind.HIDDEN, decryptedMessages.single().contentKind)
+        assertEquals(null, decryptedMessages.single().decryptedText)
+    }
+
+    @Test
+    fun testCoordinatorSkipsSystemNotifications() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        val event = createDummyEvent(
+            key = "key_system",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "WhatsApp",
+            text = "Checking for new messages",
+            contentKind = WhatsAppContentKind.SYSTEM
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
     }
 
     @Test
@@ -897,7 +968,8 @@ class NotificationPersistenceCoordinatorTest {
         title: String,
         text: String,
         eventType: NotificationEventType = NotificationEventType.POSTED,
-        timestamp: Long = 1716900000000L
+        timestamp: Long = 1716900000000L,
+        contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
     ): ParsedWhatsAppNotificationEvent {
         val dedupe = WhatsAppNotificationParser.generateDedupeCandidate(
             packageName = "com.whatsapp",
@@ -916,12 +988,19 @@ class NotificationPersistenceCoordinatorTest {
             notificationPostedAt = timestamp,
             conversationTitle = title,
             conversationType = if (source == NotificationParseSource.MESSAGING_STYLE) ConversationType.DIRECT else ConversationType.UNKNOWN,
-            messages = listOf(ParsedMessagePreview(senderName = title, messageText = text, timestamp = timestamp)),
+            messages = listOf(
+                ParsedMessagePreview(
+                    senderName = title,
+                    messageText = text.takeIf { it.isNotBlank() },
+                    timestamp = timestamp,
+                    contentKind = contentKind
+                )
+            ),
             currentMessageCount = 1,
             historicMessageCount = 0,
             hasReplyActionAtCaptureTime = true,
             parseSource = source,
-            isContentUnavailable = false,
+            isContentUnavailable = contentKind == WhatsAppContentKind.HIDDEN,
             dedupeCandidate = dedupe,
             isCurrentlyActive = true
         )

@@ -17,6 +17,7 @@ This document records the truthful current state of completed modules, verified 
 | Direct-Chat Classification | **VERIFIED** — On-device UI displayed `DIRECT` for controlled direct-chat test |
 | Group Classification | **VERIFIED** — On-device UI displayed `GROUP` for controlled group-chat test |
 | Dual-notification behavior | **UNDERSTOOD** — WhatsApp posts one `MESSAGING_STYLE` + one summary `EXTRAS_FALLBACK` per message (both correct) |
+| WhatsApp Content Classification | **IMPLEMENTED LOCALLY** — Parser tags text, media placeholders, missed calls, system notifications, hidden content, and unknown placeholders before storage/read output |
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, and confirmed local tool actions exist |
@@ -40,10 +41,10 @@ This document records the truthful current state of completed modules, verified 
 - `dao/` — Room DAOs containing CRUD operations and Flow-based queries for conversations, message events, and live references
 - `crypto/` — `SensitiveTextCipher.kt` interface, `AndroidKeystoreSensitiveTextCipher.kt` production implementation backed by AES-GCM, keyed dedupe token generation, and `EncryptedPayload.kt`
 - `preferences/` — `CapturePreferencesRepository.kt` backed by DataStore Preferences managing opt-in storage consents and voice input mode
-- `repository/` — `StoredInboxRepository.kt` for dynamically encrypting/decrypting rows and `NotificationPersistenceCoordinator.kt` implementing canonical dual-notification filtering
+- `repository/` — `StoredInboxRepository.kt` for dynamically encrypting/decrypting rows and `NotificationPersistenceCoordinator.kt` implementing canonical dual-notification plus system-notification filtering
 - `ui/` — `StoredInboxScreen.kt` Material 3 Compose screen and `StoredInboxViewModel.kt` managing state flows and confirm dialogs
-- `NotificationEventModels.kt` — Enums (`NotificationEventType`, `ConversationType`, `NotificationParseSource`) and data classes (`ParsedWhatsAppNotificationEvent`, `ParsedMessagePreview`)
-- `WhatsAppNotificationParser.kt` — `MessagingStyle` parser with extras fallback, SHA-256 deduplication candidate, privacy-safe logging
+- `NotificationEventModels.kt` — Enums (`NotificationEventType`, `ConversationType`, `NotificationParseSource`, `WhatsAppContentKind`) and data classes (`ParsedWhatsAppNotificationEvent`, `ParsedMessagePreview`)
+- `WhatsAppNotificationParser.kt` — `MessagingStyle` parser with extras fallback, content-kind classification, SHA-256 deduplication candidate, privacy-safe logging
 - `WhatsAppNotificationListener.kt` — `NotificationListenerService` subclass with POSTED/UPDATED/REMOVED coroutine-driven state flow, 100-entry history cap, safe key suffix logging
 - `AppShell.kt` / `AppDestination.kt` — Material 3 bottom navigation for Home, Voice, Inbox, and Settings after setup completion
 - `HomeDashboardScreen.kt` / `HomeDashboardViewModel.kt` / `HomeDashboardState.kt` — Production home dashboard with readiness summaries and one hero voice action
@@ -58,13 +59,13 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/ToolCallParser.kt` — Strict parser/validator for FunctionGemma JSON tool proposals
 - `ai/tools/AssistantCapabilityMatrix.kt` — Typed permission/capability matrix for Android capability sources, ADB exclusion, and per-tool setup guidance
 - `ai/tools/ToolSafetyRouter.kt` — Converts parsed proposals into explicit allow/confirm/reject execution decisions
-- `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed tool decisions for capture pause/resume, recent local message reads, local message search/details, actionable inbox reads, follow-ups, priority flags, reminders, WhatsApp draft intent preparation, and scoped local data deletion
+- `ai/tools/WhatsAppLocalToolExecutor.kt` — Executes confirmed tool decisions for capture pause/resume, content-kind-aware recent local message reads, local message search/details, actionable inbox reads, follow-ups, priority flags, reminders, WhatsApp draft intent preparation, and scoped local data deletion
 - `ai/tools/WhatsAppDraftLauncher.kt` — Testable boundary for user-confirmed WhatsApp share and click-to-chat draft intents
 - `data/local/entity/FollowUpEntity.kt` — Room entity for local WhatsApp follow-up tasks linked to stored message events
 - `data/local/entity/InboxPriority.kt` — Local priority enum used by message rows and follow-up rows
 - `data/local/entity/ReminderEntity.kt` — Room entity for encrypted local reminder notes linked to stored message events
 - `data/reminder/ReminderWorker.kt` — WorkManager notification worker that loads reminders by id, checks notification permission, decrypts reminder notes locally, and posts local notifications
-- `ai/tools/GemmaPromptBuilder.kt` — Bounded prompt/context builder for future FunctionGemma calls
+- `ai/tools/GemmaPromptBuilder.kt` — Bounded prompt/context builder for future FunctionGemma calls with explicit `content_kind` facts
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
 - `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
@@ -80,7 +81,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/model/ModelDownloadUiState.kt` — WorkManager progress/output mapper for Settings download status
 - `FunctionGemmaModelCard.kt` / `ModelRuntimeBenchmarkCard.kt` / `SettingsScreen.kt` — Production-shaped FunctionGemma MobileActions model card with status-first UI, WorkManager progress/cancel support, collapsed manual URL/SHA input, and a no-download runtime benchmark card
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
-- `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, TTS, and proposal validation before reply confirmation
+- `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, truthful content-kind-aware TTS, and proposal validation before reply confirmation
 - `FunctionGemmaVoiceProposalHandler.kt` — JVM-testable bridge from validated FunctionGemma proposal results to voice UI states, including read-latest, active notification replies, and confirmed local capture/delete actions
 - `VoiceHoldToSpeakInteraction.kt` — Testable hold-to-speak release/cancel decisions and Gallery-style stop delay constants
 
@@ -114,9 +115,9 @@ The implementation has since been split and merged through later issue branches 
 - `docs/XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md` — Xiaomi/HyperOS reboot, idle, swipe-away, battery saver, and listener-toggle physical test checklist
 
 ### Test Coverage
-- `WhatsAppNotificationParserTest.kt` — 4 unit tests (package allowlist, SHA-256 determinism, POSTED→UPDATED→REMOVED lifecycle, 100-entry cap)
+- `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
 - `MainScreenViewModelTest.kt` — 1 unit test (initial loading state)
-- `NotificationPersistenceCoordinatorTest.kt` — 5 unit tests (settings defaults, consent control skipping, dual-notification canonicalization, dedupe update check)
+- `NotificationPersistenceCoordinatorTest.kt` — Unit coverage for settings defaults, consent control skipping, dual-notification canonicalization, content-kind metadata persistence, system notification filtering, dedupe, follow-ups, priorities, reminders, and fail-closed crypto behavior
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
 - Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 
@@ -137,6 +138,7 @@ The implementation has since been split and merged through later issue branches 
 | `DIRECT` classification | **Verified fact** | On-device UI observation |
 | `GROUP` classification | **Verified fact** | On-device UI observation (controlled group test) |
 | Dual-notification behavior | **Verified fact** | Each WhatsApp message yields two notifications: one MessagingStyle (DIRECT/GROUP), one summary EXTRAS_FALLBACK (UNKNOWN) |
+| Content-kind classification | **Implemented locally** | JVM tests cover text, media placeholders, missed calls, hidden content, system notifications, and unknown placeholders; physical WhatsApp media notification validation remains pending |
 | Room persistence write & read | **Verified fact** | Instrumented test validation |
 | Keystore AES-GCM encryption | **Verified fact** | Instrumented test validation |
 | LiteRT-LM inference availability | **Smoke verified** | Installed model opened and handled a no-data read path on the physical device |
@@ -148,9 +150,9 @@ The implementation has since been split and merged through later issue branches 
 
 ## 4. Next Technical Slice
 
-**Current local slice: P0 runtime benchmark capture preparation complete locally.**
+**Current local slice: P0 WhatsApp content classification complete locally.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
-- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for microphone reliability, TTS edge cases, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
+- **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for real WhatsApp media placeholders, microphone reliability, TTS edge cases, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
 - **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.
 - **Artifact Policy**: Do not commit raw logs, APK/AAB outputs, model binaries, private screenshots, credentials, or unverified model checksums. Local Gradle output should stay in ignored build directories or temporary paths only.
 

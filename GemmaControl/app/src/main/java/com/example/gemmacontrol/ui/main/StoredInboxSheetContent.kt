@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.gemmacontrol.data.repository.StoredInboxRepository.DecryptedMessage
+import com.example.gemmacontrol.notifications.localReadSummaryText
 import com.example.gemmacontrol.notifications.ReplySendResult
 
 @Composable
@@ -199,7 +200,7 @@ private fun ReplyMessagePreview(message: DecryptedMessage) {
                 )
             }
             Text(
-                text = message.decryptedText ?: "",
+                text = message.contentKind.localReadSummaryText(message.decryptedText),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,

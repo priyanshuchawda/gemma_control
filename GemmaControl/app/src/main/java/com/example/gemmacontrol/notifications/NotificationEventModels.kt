@@ -18,10 +18,24 @@ enum class ConversationType {
     UNKNOWN
 }
 
+enum class WhatsAppContentKind {
+    TEXT,
+    PHOTO,
+    VIDEO,
+    STICKER,
+    AUDIO,
+    DOCUMENT,
+    MISSED_CALL,
+    SYSTEM,
+    HIDDEN,
+    UNKNOWN
+}
+
 data class ParsedMessagePreview(
     val senderName: String?,
     val messageText: String?,
-    val timestamp: Long?
+    val timestamp: Long?,
+    val contentKind: WhatsAppContentKind = WhatsAppContentKind.TEXT
 )
 
 data class ParsedWhatsAppNotificationEvent(
@@ -41,3 +55,7 @@ data class ParsedWhatsAppNotificationEvent(
     val dedupeCandidate: String?,
     val isCurrentlyActive: Boolean
 )
+
+val ParsedWhatsAppNotificationEvent.latestContentKind: WhatsAppContentKind
+    get() = messages.lastOrNull()?.contentKind
+        ?: if (isContentUnavailable) WhatsAppContentKind.HIDDEN else WhatsAppContentKind.UNKNOWN

@@ -332,7 +332,8 @@ class RoomEncryptionInstrumentationTest {
         .addMigrations(
             GemmaControlDatabase.MIGRATION_1_2,
             GemmaControlDatabase.MIGRATION_2_3,
-            GemmaControlDatabase.MIGRATION_3_4
+            GemmaControlDatabase.MIGRATION_3_4,
+            GemmaControlDatabase.MIGRATION_4_5
         )
         .build()
 
@@ -496,7 +497,8 @@ class RoomEncryptionInstrumentationTest {
         .addMigrations(
             failingMigration,
             GemmaControlDatabase.MIGRATION_2_3,
-            GemmaControlDatabase.MIGRATION_3_4
+            GemmaControlDatabase.MIGRATION_3_4,
+            GemmaControlDatabase.MIGRATION_4_5
         )
         .build()
 

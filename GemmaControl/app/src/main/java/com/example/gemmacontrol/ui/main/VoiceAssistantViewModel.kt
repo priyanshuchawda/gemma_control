@@ -19,6 +19,7 @@ import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
 import com.example.gemmacontrol.notifications.ReplySendResult
+import com.example.gemmacontrol.notifications.spokenSummaryText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -219,7 +220,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     conversationName = message.conversationId,
                     senderName = message.senderName,
                     decryptedText = message.decryptedText,
-                    postedAt = message.postedAt
+                    postedAt = message.postedAt,
+                    contentKind = message.contentKind
                 )
             }
             val prompt = gemmaPromptBuilder.buildForUserCommand(
@@ -350,7 +352,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                         else -> "Next message"
                     }
                     val sender = msg.senderName ?: "Someone"
-                    val text = msg.decryptedText ?: "No message content"
+                    val text = msg.contentKind.spokenSummaryText(msg.decryptedText)
                     spokenContent.append(" $ordinal: From $sender. $text.")
                 }
                 

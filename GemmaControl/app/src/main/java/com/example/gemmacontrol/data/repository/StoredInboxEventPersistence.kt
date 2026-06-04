@@ -14,6 +14,7 @@ import com.example.gemmacontrol.data.local.entity.MessageEventEntity
 import com.example.gemmacontrol.notifications.ConversationType
 import com.example.gemmacontrol.notifications.ParsedMessagePreview
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.latestContentKind
 import java.util.UUID
 
 internal class StoredInboxEventPersistence(
@@ -139,7 +140,8 @@ internal class StoredInboxEventPersistence(
             parseSource = event.parseSource,
             dedupeToken = cryptoOutputs.dedupeToken,
             isContentUnavailable = event.isContentUnavailable,
-            createdAt = now
+            createdAt = now,
+            contentKind = latestMessage?.contentKind ?: event.latestContentKind
         )
 
         val insertResult = messageEventDao.insert(messageEntity)

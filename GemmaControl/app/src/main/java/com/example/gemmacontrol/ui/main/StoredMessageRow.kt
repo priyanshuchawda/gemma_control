@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.gemmacontrol.data.repository.StoredInboxRepository.DecryptedMessage
+import com.example.gemmacontrol.notifications.localReadSummaryText
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -84,7 +85,7 @@ fun StoredMessageRow(
                         Spacer(Modifier.height(2.dp))
                     }
                     Text(
-                        text = if (message.isContentUnavailable) "Content unavailable" else (message.decryptedText ?: ""),
+                        text = message.contentKind.localReadSummaryText(message.decryptedText),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 4,
