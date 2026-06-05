@@ -81,11 +81,47 @@ class ToolCallDetailsUiStateTest {
             ).safetyLabel
         )
         assertEquals(
-            "Strict manual confirmation",
+            "Delete local data: strict confirmation",
             toolCallDetailsUiState(
                 pendingAction(
                     name = WhatsAppToolName.DeleteLocalWhatsAppData,
-                    safetyLevel = ToolSafetyLevel.ConfirmationRequired,
+                    safetyLevel = ToolSafetyLevel.DeleteData,
+                    decisionFactory = { proposal ->
+                        ToolExecutionDecision.RequireUserConfirmation(
+                            proposal = proposal,
+                            requirement = ToolConfirmationRequirement(
+                                mode = ToolConfirmationMode.StrictManual,
+                                requiresActiveNotification = false
+                            )
+                        )
+                    }
+                )
+            ).safetyLabel
+        )
+        assertEquals(
+            "Opens WhatsApp after confirmation",
+            toolCallDetailsUiState(
+                pendingAction(
+                    name = WhatsAppToolName.OpenWhatsAppClickToChat,
+                    safetyLevel = ToolSafetyLevel.OpenExternalApp,
+                    decisionFactory = { proposal ->
+                        ToolExecutionDecision.RequireUserConfirmation(
+                            proposal = proposal,
+                            requirement = ToolConfirmationRequirement(
+                                mode = ToolConfirmationMode.Standard,
+                                requiresActiveNotification = false
+                            )
+                        )
+                    }
+                )
+            ).safetyLabel
+        )
+        assertEquals(
+            "Send message: strict manual confirmation",
+            toolCallDetailsUiState(
+                pendingAction(
+                    name = WhatsAppToolName.SendReplyToActiveWhatsAppNotification,
+                    safetyLevel = ToolSafetyLevel.SendMessage,
                     decisionFactory = { proposal ->
                         ToolExecutionDecision.RequireUserConfirmation(
                             proposal = proposal,

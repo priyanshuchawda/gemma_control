@@ -79,6 +79,61 @@ class ToolSafetyRouterTest {
     }
 
     @Test
+    fun externalAppOpenRequiresStandardConfirmationWithoutActiveNotification() {
+        val proposal = parseValid(
+            """
+            {
+              "name": "open_whatsapp_click_to_chat",
+              "parameters": {
+                "phone_number_e164": "+15551234567",
+                "message_text": "Hello"
+              }
+            }
+            """.trimIndent()
+        )
+
+        val decision = router.route(proposal)
+
+        assertEquals(
+            ToolExecutionDecision.RequireUserConfirmation(
+                proposal = proposal,
+                requirement = ToolConfirmationRequirement(
+                    mode = ToolConfirmationMode.Standard,
+                    requiresActiveNotification = false
+                )
+            ),
+            decision
+        )
+    }
+
+    @Test
+    fun deleteLocalDataRequiresStrictManualConfirmationWithoutActiveNotification() {
+        val proposal = parseValid(
+            """
+            {
+              "name": "delete_local_whatsapp_data",
+              "parameters": {
+                "delete_all": true
+              }
+            }
+            """.trimIndent()
+        )
+
+        val decision = router.route(proposal)
+
+        assertEquals(
+            ToolExecutionDecision.RequireUserConfirmation(
+                proposal = proposal,
+                requirement = ToolConfirmationRequirement(
+                    mode = ToolConfirmationMode.StrictManual,
+                    requiresActiveNotification = false
+                )
+            ),
+            decision
+        )
+    }
+
+    @Test
     fun deleteLocalDataRequiresExplicitTrueFlagAfterParsing() {
         val proposal = parseValid(
             """

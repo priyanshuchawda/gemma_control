@@ -269,7 +269,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
             if (activeKeys.isEmpty()) {
-                _state.value = VoiceAssistantState.Failure("No active WhatsApp notification is available for reply.")
+                _state.value = VoiceAssistantState.Failure(NoActiveReplyTargetMessage)
                 return@launch
             }
 
@@ -319,8 +319,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         } else {
             val safeReason = when (result) {
                 ReplySendResult.EmptyText -> "Reply text cannot be empty."
-                ReplySendResult.NoActiveReplyAction -> "No active WhatsApp notification is available for reply."
-                ReplySendResult.NotificationExpired -> "The WhatsApp notification has expired or was cleared."
+                ReplySendResult.NoActiveReplyAction -> NoActiveReplyTargetMessage
+                ReplySendResult.NotificationExpired -> ExpiredActiveReplyTargetMessage
                 ReplySendResult.CanceledBySystem -> "PendingIntent was canceled by the system."
                 ReplySendResult.FailedSafely -> "Failed to send reply safely."
             }

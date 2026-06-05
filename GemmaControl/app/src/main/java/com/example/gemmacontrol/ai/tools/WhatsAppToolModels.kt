@@ -4,7 +4,9 @@ enum class ToolSafetyLevel {
     ReadOnly,
     LocalWrite,
     ConfirmationRequired,
-    StrictManualConfirmation
+    OpenExternalApp,
+    SendMessage,
+    DeleteData
 }
 
 enum class ToolParameterType {

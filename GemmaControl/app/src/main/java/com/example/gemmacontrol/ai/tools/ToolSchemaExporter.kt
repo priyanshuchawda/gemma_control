@@ -60,6 +60,8 @@ class ToolSchemaExporter {
             ToolSafetyLevel.ReadOnly -> "read-only execution"
             ToolSafetyLevel.LocalWrite -> "local-write approval"
             ToolSafetyLevel.ConfirmationRequired -> "user confirmation"
-            ToolSafetyLevel.StrictManualConfirmation -> "strict manual confirmation"
+            ToolSafetyLevel.OpenExternalApp -> "external app confirmation"
+            ToolSafetyLevel.SendMessage -> "strict manual send confirmation"
+            ToolSafetyLevel.DeleteData -> "strict delete confirmation"
         }
 }

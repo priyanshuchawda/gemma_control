@@ -35,15 +35,15 @@ class WhatsAppToolRegistryTest {
     }
 
     @Test
-    fun registryMarksExternalAndPrivacyToolsAsRequiringConfirmation() {
+    fun registryMarksToolSafetyByActualPhoneRisk() {
         val registry = WhatsAppToolRegistry.default()
 
         assertEquals(ToolSafetyLevel.ReadOnly, registry.require("list_recent_whatsapp_messages").safetyLevel)
         assertEquals(ToolSafetyLevel.LocalWrite, registry.require("create_follow_up_from_message").safetyLevel)
         assertEquals(ToolSafetyLevel.ConfirmationRequired, registry.require("draft_whatsapp_reply").safetyLevel)
-        assertEquals(ToolSafetyLevel.ConfirmationRequired, registry.require("open_whatsapp_click_to_chat").safetyLevel)
-        assertEquals(ToolSafetyLevel.StrictManualConfirmation, registry.require("send_reply_to_active_whatsapp_notification").safetyLevel)
-        assertEquals(ToolSafetyLevel.ConfirmationRequired, registry.require("delete_local_whatsapp_data").safetyLevel)
+        assertEquals(ToolSafetyLevel.OpenExternalApp, registry.require("open_whatsapp_click_to_chat").safetyLevel)
+        assertEquals(ToolSafetyLevel.SendMessage, registry.require("send_reply_to_active_whatsapp_notification").safetyLevel)
+        assertEquals(ToolSafetyLevel.DeleteData, registry.require("delete_local_whatsapp_data").safetyLevel)
     }
 
     @Test

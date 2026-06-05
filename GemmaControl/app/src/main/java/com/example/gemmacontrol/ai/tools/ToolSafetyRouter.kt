@@ -56,11 +56,25 @@ class ToolSafetyRouter(
                     requiresActiveNotification = false
                 )
             )
-            ToolSafetyLevel.StrictManualConfirmation -> ToolExecutionDecision.RequireUserConfirmation(
+            ToolSafetyLevel.OpenExternalApp -> ToolExecutionDecision.RequireUserConfirmation(
+                proposal = proposal,
+                requirement = ToolConfirmationRequirement(
+                    mode = ToolConfirmationMode.Standard,
+                    requiresActiveNotification = false
+                )
+            )
+            ToolSafetyLevel.SendMessage -> ToolExecutionDecision.RequireUserConfirmation(
                 proposal = proposal,
                 requirement = ToolConfirmationRequirement(
                     mode = ToolConfirmationMode.StrictManual,
                     requiresActiveNotification = true
+                )
+            )
+            ToolSafetyLevel.DeleteData -> ToolExecutionDecision.RequireUserConfirmation(
+                proposal = proposal,
+                requirement = ToolConfirmationRequirement(
+                    mode = ToolConfirmationMode.StrictManual,
+                    requiresActiveNotification = false
                 )
             )
         }

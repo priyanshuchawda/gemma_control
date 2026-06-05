@@ -27,7 +27,7 @@ class ToolCallParserTest {
         assertEquals(WhatsAppToolName.SendReplyToActiveWhatsAppNotification, proposal.name)
         assertEquals("active-key-1", proposal.string("notification_key"))
         assertEquals("I am in a meeting", proposal.string("message_text"))
-        assertEquals(ToolSafetyLevel.StrictManualConfirmation, proposal.definition.safetyLevel)
+        assertEquals(ToolSafetyLevel.SendMessage, proposal.definition.safetyLevel)
     }
 
     @Test
