@@ -119,6 +119,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/PRODUCT_SCOPE.md` — Feature scope and tool registry reference
 - `docs/CAPABILITY_MATRIX.md` — Permission/capability matrix and full 16-tool capability mapping
 - `docs/XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md` — Xiaomi/HyperOS reboot, idle, swipe-away, battery saver, and listener-toggle physical test checklist
+- `docs/REAL_DEVICE_ASSISTANT_TEST_MATRIX.md` — Privacy-safe manual assistant/device validation matrix and PR regression checklist
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap

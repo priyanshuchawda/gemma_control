@@ -55,6 +55,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── OFFLINE_MODEL_STRATEGY_DECISION.md # No-download model architecture decision for #109
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
+│   ├── REAL_DEVICE_ASSISTANT_TEST_MATRIX.md # Manual assistant/device validation matrix
 │   ├── TOOL_REGISTRY.md      # Parameter type schemas for the 16 registry tools
 │   ├── NOTIFICATION_PARSING.md # MessagingStyle parsers and keyed dedupe tokens
 │   ├── SECURITY_AND_PRIVACY.md # Key cryptography and search memory trade-offs
