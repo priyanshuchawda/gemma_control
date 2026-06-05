@@ -40,7 +40,7 @@ class WhatsAppToolRegistry private constructor(
             listOf(
                 ToolDefinition(
                     name = WhatsAppToolName.ListRecentWhatsAppMessages,
-                    description = "Return recently captured WhatsApp notification messages from local storage.",
+                    description = "Return recently captured WhatsApp notification messages from local storage. Use for latest messages, what did I miss, summarize recent WhatsApp notifications, continue reading, or unread chat checks.",
                     safetyLevel = ToolSafetyLevel.ReadOnly,
                     parameters = listOf(
                         stringParam("conversation_name", required = false, "Optional direct sender or group name filter."),
@@ -50,7 +50,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.SearchWhatsAppMessages,
-                    description = "Search locally stored captured WhatsApp messages by keyword.",
+                    description = "Search locally stored captured WhatsApp messages by keyword, topic, sender, or time. Use for find requests such as payment, meeting, address, dinner, or other remembered message topics.",
                     safetyLevel = ToolSafetyLevel.ReadOnly,
                     parameters = listOf(
                         stringParam("query", required = true, "Keyword to search for."),
@@ -67,7 +67,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.GetActionableInbox,
-                    description = "Show unresolved or prioritized local inbox items.",
+                    description = "Show unresolved or prioritized local inbox items. Use for anything urgent, important messages, pending follow-ups, or messages needing action.",
                     safetyLevel = ToolSafetyLevel.ReadOnly,
                     parameters = listOf(
                         stringParam("status", required = false, "Optional PENDING or COMPLETED status filter."),
@@ -77,7 +77,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.CreateFollowUpFromMessage,
-                    description = "Create a local follow-up task from a stored WhatsApp message.",
+                    description = "Create a local follow-up task from a stored WhatsApp message. Use for follow up, todo, task, or remember-to-act requests tied to a captured message.",
                     safetyLevel = ToolSafetyLevel.LocalWrite,
                     parameters = listOf(
                         stringParam("message_event_id", required = true, "Stored message row id."),
@@ -103,7 +103,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.ScheduleReminderForMessage,
-                    description = "Schedule a local reminder notification for a stored message.",
+                    description = "Schedule a local reminder notification for a stored message. Use for remind me, remind me later, notify me later, or time-based callback requests.",
                     safetyLevel = ToolSafetyLevel.LocalWrite,
                     parameters = listOf(
                         stringParam("message_event_id", required = true, "Stored message row id."),
@@ -113,7 +113,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.MarkMessagePriority,
-                    description = "Pin or unpin a local inbox message by priority.",
+                    description = "Pin or unpin a local inbox message by priority. Use for urgent, important, high priority, not important, or normal priority requests.",
                     safetyLevel = ToolSafetyLevel.LocalWrite,
                     parameters = listOf(
                         stringParam("message_event_id", required = true, "Stored message row id."),
@@ -122,7 +122,7 @@ class WhatsAppToolRegistry private constructor(
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.DraftWhatsAppReply,
-                    description = "Prepare a WhatsApp reply draft for review without sending.",
+                    description = "Prepare a WhatsApp reply draft for review without sending. Use for reply to named chat, tell Mom, draft a reply, or prepare text for a known conversation.",
                     safetyLevel = ToolSafetyLevel.ConfirmationRequired,
                     parameters = listOf(
                         stringParam("message_event_id", required = false, "Optional stored message row id."),
