@@ -18,7 +18,7 @@ This matrix defines what GemmaControl can actually do on the current Xiaomi Redm
 | Contacts | `READ_CONTACTS` future permission | Future name resolution for contacts such as Mom/Dad if approved. | Not used by current V1 tools. | Future sensitive read permission. | Not requested in current V1. | Future resolver tests. |
 | Calendar | Calendar intents or permissions, future | Future event creation if approved. | Current reminders are local app reminders, not calendar events. | Future confirmation-required external write. | Not requested in current V1. | Future calendar tests. |
 | Media picker | Android photo picker or scoped media permissions, future | Future user-selected media analysis only. | No background gallery access. | Future user-selected media only. | Not requested in current V1. | Future picker contract tests. |
-| Accessibility service | Accessibility service, future evaluation only | Could read screens or perform UI actions only if explicitly approved later. | Not current production behavior. | High-risk future evaluation. | Not requested in current V1. | Future accessibility audit and policy review. |
+| Accessibility service | Accessibility service, V2 evaluation only | Could read visible screen text or perform narrow UI actions only if explicitly approved later. | Does not read WhatsApp databases, recover hidden content, or allow silent sends/destructive actions. | High-risk assistive mode; no V1 production tools. | Not requested in current V1; future setup requires explicit disclosure and manual enablement. | [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md), future policy review, and physical Xiaomi persistence tests. |
 | ADB | USB debugging / developer bridge | Install, inspect, and test during development. | Never real-user app functionality. | Development-only, excluded from tools. | Developer-only USB debugging. | Development terminal commands only. |
 
 ## Tool Capability Mapping
@@ -47,4 +47,4 @@ This matrix defines what GemmaControl can actually do on the current Xiaomi Redm
 - ADB-only abilities are excluded from every production tool requirement.
 - Missing capabilities must produce setup guidance instead of a hallucinated success message.
 - FunctionGemma can propose tools, but Kotlin validates capability state, safety level, parameters, and confirmation before execution.
-- Accessibility, contacts, calendar, media, EmbeddingGemma, and extra Gemma models remain future decisions and are not required for the current WhatsApp V1 path.
+- Accessibility, contacts, calendar, media, EmbeddingGemma, and extra Gemma models remain future decisions and are not required for the current WhatsApp V1 path. Accessibility is specifically deferred by [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md).

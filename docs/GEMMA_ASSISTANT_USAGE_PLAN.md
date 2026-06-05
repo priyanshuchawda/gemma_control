@@ -14,6 +14,8 @@ Embedding memory plan: [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA
 
 Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
 
+Accessibility decision: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md)
+
 ## Product Goal
 
 GemmaControl should make one Android phone easier to use through natural voice/text commands while keeping private data local.
@@ -381,6 +383,8 @@ Issues:
 - #119 ShieldGemma-style safety.
 - #122 Accessibility evaluation.
 
+Accessibility decision note: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md)
+
 ### Media
 
 Notification placeholders are not media bytes. If WhatsApp says "Photo", the assistant can only say a photo was received.
@@ -418,8 +422,10 @@ Risks:
 
 Current decision:
 
-- Keep #122 as evaluation only.
+- No Accessibility service in V1.
+- Keep #122 as a V2-only assistive-mode evaluation.
 - Do not mix Accessibility into the WhatsApp notification assistant v1.
+- Never use Accessibility for silent sends, destructive actions, permission toggles, or restricted-settings bypass.
 
 ## Implementation Modules
 

@@ -262,12 +262,12 @@ class AssistantCapabilityMatrix private constructor(
                 )
                 AssistantCapabilitySource.AccessibilityService -> AssistantCapability(
                     source = source,
-                    permission = "Accessibility service (future evaluation only)",
-                    works = "Could read screens or perform UI actions only if explicitly approved later.",
-                    doesNotWork = "Not part of current production behavior.",
-                    safetyLevel = "High-risk future evaluation.",
-                    userSetupNeeded = "Not requested in current V1.",
-                    testMethod = "Future accessibility audit and policy review."
+                    permission = "Accessibility service (V2 evaluation only)",
+                    works = "Could read visible screen text or perform narrow UI actions only if explicitly approved later.",
+                    doesNotWork = "Does not read WhatsApp databases, recover hidden content, or allow silent sends/destructive actions.",
+                    safetyLevel = "High-risk assistive mode; no V1 production tools.",
+                    userSetupNeeded = "Not requested in current V1; future setup requires explicit disclosure and manual enablement.",
+                    testMethod = "Accessibility decision doc, future policy review, and physical Xiaomi persistence tests."
                 )
                 AssistantCapabilitySource.AdbDevelopmentOnly -> AssistantCapability(
                     source = source,
