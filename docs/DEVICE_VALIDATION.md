@@ -2,6 +2,8 @@
 
 Physical handset used for GemmaControl development and physical validation. Current target scope is this Xiaomi Redmi 13 5G / Android 16 / API 36 profile unless another handset is explicitly added to the test matrix.
 
+Manual assistant regression cases are tracked in [REAL_DEVICE_ASSISTANT_TEST_MATRIX.md](REAL_DEVICE_ASSISTANT_TEST_MATRIX.md).
+
 ---
 
 ## 1. Verified Handset Telemetry

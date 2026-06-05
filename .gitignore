@@ -42,6 +42,7 @@ website/public/downloads/*.msi
 
 # Log files
 *.log
+.device-validation/
 
 # Local/private visual captures
 screenshots/
