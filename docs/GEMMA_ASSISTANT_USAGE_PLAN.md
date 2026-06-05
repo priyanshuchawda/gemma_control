@@ -2,9 +2,13 @@
 
 This document maps Gemma and LiteRT-LM capabilities into the GemmaControl Android assistant roadmap.
 
-Snapshot date: 2026-06-04  
-Primary device reference: [DEVICE_INFO.md](DEVICE_INFO.md)  
+Snapshot date: 2026-06-04
+
+Primary device reference: [DEVICE_INFO.md](DEVICE_INFO.md)
+
 Model reference: [GEMMA_MODEL_REFERENCE.md](GEMMA_MODEL_REFERENCE.md)
+
+Offline model decision: [OFFLINE_MODEL_STRATEGY_DECISION.md](OFFLINE_MODEL_STRATEGY_DECISION.md)
 
 ## Product Goal
 
