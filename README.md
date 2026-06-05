@@ -52,6 +52,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md # Physical reliability checklist for HyperOS capture
 │   ├── GEMMA_MODEL_REFERENCE.md # Gemma model/runtime selection reference
 │   ├── GEMMA_ASSISTANT_USAGE_PLAN.md # App-specific model usage roadmap
+│   ├── OFFLINE_MODEL_STRATEGY_DECISION.md # No-download model architecture decision for #109
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
 │   ├── TOOL_REGISTRY.md      # Parameter type schemas for the 16 registry tools
