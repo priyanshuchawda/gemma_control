@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
 import com.example.gemmacontrol.ai.tools.ToolProposal
 import java.util.Locale
@@ -154,6 +155,10 @@ sealed interface VoiceCommand {
         val replyText: String
     ) : VoiceCommand
 
+    data class LocalToolAction(
+        val action: WhatsAppToolAction
+    ) : VoiceCommand
+
     data class Unsupported(
         val reason: String
     ) : VoiceCommand
@@ -201,6 +206,10 @@ object VoiceCommandParser {
 
         return unsupportedVoiceMessage(lower)
             ?: unsupportedNewConversation(lower)
+            ?: localWriteWorkflowCommand(trimmed)
+            ?: pendingFollowUpsCommand(lower)
+            ?: actionableInboxCommand(lower)
+            ?: searchCapturedMessagesCommand(trimmed, lower)
             ?: continueReadingMessagesCommand(lower)
             ?: summarizeMessagesCommand(lower)
             ?: importantMessagesCommand(lower)
@@ -224,6 +233,158 @@ object VoiceCommandParser {
             VoiceCommand.Unsupported("Starting a new WhatsApp conversation needs FunctionGemma and a verified E.164 phone number. I can reply to an active notification.")
         } else {
             null
+        }
+    }
+
+    private fun searchCapturedMessagesCommand(
+        trimmed: String,
+        lower: String
+    ): VoiceCommand.LocalToolAction? {
+        if (!lower.startsWith("search") && !lower.startsWith("find")) {
+            return null
+        }
+
+        senderSearchRegex.find(trimmed.trim())?.let { match ->
+            val conversationName = match.groupValues[1].trim()
+            val query = match.groupValues[2].trim().trimEnd('.', '?')
+            if (conversationName.isNotBlank() && query.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.SearchMessages(
+                        query = query,
+                        conversationName = conversationName
+                    )
+                )
+            }
+        }
+
+        recentSearchRegex.find(trimmed.trim())?.let { match ->
+            val sinceMinutes = match.groupValues[1].toIntOrNull()
+            val query = match.groupValues[2].trim().trimEnd('.', '?')
+            if (sinceMinutes != null && sinceMinutes > 0 && query.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.SearchMessages(
+                        query = query,
+                        conversationName = null,
+                        sinceMinutes = sinceMinutes
+                    )
+                )
+            }
+        }
+
+        genericSearchRegex.find(trimmed.trim())?.let { match ->
+            val query = match.groupValues[1].trim().trimEnd('.', '?')
+            if (query.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.SearchMessages(
+                        query = query,
+                        conversationName = null,
+                        priority = priorityFromText(lower)
+                    )
+                )
+            }
+        }
+
+        return null
+    }
+
+    private fun pendingFollowUpsCommand(lower: String): VoiceCommand.LocalToolAction? {
+        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
+        val mentionsFollowUp = Regex("""\bfollow[- ]?ups?\b""").containsMatchIn(normalized)
+        if (!mentionsFollowUp) {
+            return null
+        }
+        val asksToList = listOf("show", "list", "read", "tell").any { normalized.startsWith(it) } ||
+            normalized.contains("pending")
+        if (!asksToList) {
+            return null
+        }
+        return VoiceCommand.LocalToolAction(
+            WhatsAppToolAction.ListPendingFollowUps(
+                limit = 10,
+                priority = priorityFromText(normalized)
+            )
+        )
+    }
+
+    private fun actionableInboxCommand(lower: String): VoiceCommand.LocalToolAction? {
+        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
+        val asksActionableInbox = normalized.contains("actionable inbox") ||
+            normalized.contains("pending important items") ||
+            normalized.contains("pending priority items")
+        if (!asksActionableInbox) {
+            return null
+        }
+        val status = when {
+            normalized.contains("completed") -> "COMPLETED"
+            normalized.contains("pending") || normalized.contains("actionable") -> "PENDING"
+            else -> null
+        }
+        return VoiceCommand.LocalToolAction(
+            WhatsAppToolAction.GetActionableInbox(
+                status = status,
+                priority = priorityFromText(normalized),
+                limit = 10
+            )
+        )
+    }
+
+    private fun localWriteWorkflowCommand(trimmed: String): VoiceCommand.LocalToolAction? {
+        val clean = trimmed.trim()
+        createFollowUpRegex.find(clean)?.let { match ->
+            val messageEventId = match.groupValues[1].trim()
+            val title = match.groupValues[2].trim().trimEnd('.', '?')
+            if (messageEventId.isNotBlank() && title.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.CreateFollowUp(
+                        messageEventId = messageEventId,
+                        followUpTitle = title,
+                        priority = priorityFromText(title.lowercase(Locale.US))
+                    )
+                )
+            }
+        }
+
+        reminderRegex.find(clean)?.let { match ->
+            val messageEventId = match.groupValues[1].trim()
+            val remindAt = match.groupValues[2].trim().trimEnd('.', '?')
+            if (messageEventId.isNotBlank() && remindAt.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.ScheduleReminder(
+                        messageEventId = messageEventId,
+                        remindAt = remindAt
+                    )
+                )
+            }
+        }
+
+        markPriorityRegex.find(clean)?.let { match ->
+            val messageEventId = match.groupValues[1].trim()
+            val priorityPhrase = match.groupValues[2].lowercase(Locale.US)
+            val priority = when {
+                priorityPhrase.contains("normal") || priorityPhrase.contains("not important") -> "NORMAL"
+                else -> "HIGH"
+            }
+            if (messageEventId.isNotBlank()) {
+                return VoiceCommand.LocalToolAction(
+                    WhatsAppToolAction.MarkMessagePriority(
+                        messageEventId = messageEventId,
+                        priority = priority
+                    )
+                )
+            }
+        }
+
+        return null
+    }
+
+    private fun priorityFromText(lower: String): String? {
+        return when {
+            lower.contains("normal priority") ||
+                lower.contains("not important") -> "NORMAL"
+            lower.contains("high priority") ||
+                lower.contains("important") ||
+                lower.contains("urgent") -> "HIGH"
+            else -> null
         }
     }
 
@@ -334,11 +495,41 @@ object VoiceCommandParser {
     }
 
     private fun defaultUnsupportedCommand(): VoiceCommand.Unsupported {
-        return VoiceCommand.Unsupported("I can currently read captured messages or reply to the latest active WhatsApp notification.")
+        return VoiceCommand.Unsupported("I can currently read or search captured messages, manage local follow-ups, or reply to the latest active WhatsApp notification.")
     }
 
     private val NamedReplyRegex = Regex(
         pattern = """^(?:reply to|tell|draft reply to)\s+(.+?)(?:\s+that|:)\s+(.+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val senderSearchRegex = Regex(
+        pattern = """^(?:search|find)(?:\s+(?:whatsapp\s+)?messages?)?\s+from\s+(.+?)\s+(?:for|about)\s+(.+?)[?.]?$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val recentSearchRegex = Regex(
+        pattern = """^(?:search|find)(?:\s+(?:whatsapp|whatsapp\s+messages|messages))?\s+last\s+(\d+)\s+minutes?\s+(?:for|about)\s+(.+?)[?.]?$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val genericSearchRegex = Regex(
+        pattern = """^(?:search|find)(?:\s+(?:whatsapp|whatsapp\s+messages|messages))?\s+(?:for|about)\s+(.+?)[?.]?$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val createFollowUpRegex = Regex(
+        pattern = """^(?:create|add|save)\s+follow[- ]?up\s+for\s+(\S+)\s*:\s*(.+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val reminderRegex = Regex(
+        pattern = """^remind\s+me\s+about\s+(\S+)\s+at\s+(.+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private val markPriorityRegex = Regex(
+        pattern = """^(?:mark|set)\s+(\S+)\s+(?:as\s+)?(important|urgent|high\s+priority|normal\s+priority|normal|not\s+important)[?.]?$""",
         option = RegexOption.IGNORE_CASE
     )
 

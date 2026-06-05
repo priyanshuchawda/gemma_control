@@ -111,6 +111,82 @@ class VoiceCommandToolProposalMapperTest {
     }
 
     @Test
+    fun mapsSearchActionWithFiltersToReadOnlyProposal() {
+        val result = mapper.mapNativeToolAction(
+            WhatsAppToolAction.SearchMessages(
+                query = "invoice",
+                conversationName = "Office",
+                sinceMinutes = 30,
+                priority = "HIGH"
+            )
+        )
+
+        assertTrue(result is VoiceToolProposalResult.Valid)
+        val proposal = (result as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.SearchWhatsAppMessages, proposal.name)
+        assertEquals("invoice", proposal.string("query"))
+        assertEquals("Office", proposal.string("conversation_name"))
+        assertEquals(30, proposal.integer("since_minutes"))
+        assertEquals("HIGH", proposal.string("priority"))
+        assertEquals(
+            ToolExecutionDecision.AllowLocalExecution(proposal, ToolExecutionScope.ReadOnlyLocalData),
+            result.decision
+        )
+    }
+
+    @Test
+    fun mapsFollowUpAndActionableNativeActionsToLocalToolProposals() {
+        val pending = mapper.mapNativeToolAction(
+            WhatsAppToolAction.ListPendingFollowUps(limit = 10, priority = "HIGH")
+        )
+        assertTrue(pending is VoiceToolProposalResult.Valid)
+        val pendingProposal = (pending as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.ListPendingFollowUps, pendingProposal.name)
+        assertEquals(10, pendingProposal.integer("limit"))
+        assertEquals("HIGH", pendingProposal.string("priority"))
+        assertEquals(
+            ToolExecutionDecision.AllowLocalExecution(pendingProposal, ToolExecutionScope.ReadOnlyLocalData),
+            pending.decision
+        )
+
+        val actionable = mapper.mapNativeToolAction(
+            WhatsAppToolAction.GetActionableInbox(status = "PENDING", priority = "HIGH", limit = 10)
+        )
+        assertTrue(actionable is VoiceToolProposalResult.Valid)
+        val actionableProposal = (actionable as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.GetActionableInbox, actionableProposal.name)
+        assertEquals("PENDING", actionableProposal.string("status"))
+        assertEquals("HIGH", actionableProposal.string("priority"))
+        assertEquals(10, actionableProposal.integer("limit"))
+    }
+
+    @Test
+    fun mapsLocalWriteWorkflowNativeActionsToConfirmationProposals() {
+        val reminder = mapper.mapNativeToolAction(
+            WhatsAppToolAction.ScheduleReminder(
+                messageEventId = "message-1",
+                remindAt = "2026-06-06T09:00:00+05:30",
+                reminderNote = "Call back"
+            )
+        )
+        assertTrue(reminder is VoiceToolProposalResult.Valid)
+        val reminderProposal = (reminder as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.ScheduleReminderForMessage, reminderProposal.name)
+        assertEquals("message-1", reminderProposal.string("message_event_id"))
+        assertEquals("2026-06-06T09:00:00+05:30", reminderProposal.string("remind_at"))
+        assertEquals("Call back", reminderProposal.string("reminder_note"))
+        assertTrue(reminder.decision is ToolExecutionDecision.AllowLocalExecution)
+
+        val normal = mapper.mapNativeToolAction(
+            WhatsAppToolAction.MarkMessagePriority(messageEventId = "message-1", priority = "NORMAL")
+        )
+        assertTrue(normal is VoiceToolProposalResult.Valid)
+        val normalProposal = (normal as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.MarkMessagePriority, normalProposal.name)
+        assertEquals("NORMAL", normalProposal.string("priority"))
+    }
+
+    @Test
     fun mapsExplicitNativeReplyAndPauseActions() {
         val reply = mapper.mapNativeToolAction(
             WhatsAppToolAction.ReplyActiveNotification(notificationKey = "active-key", messageText = "Ok")

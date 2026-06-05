@@ -56,6 +56,8 @@ class WhatsAppToolRegistry private constructor(
                     parameters = listOf(
                         stringParam("query", required = true, "Keyword to search for."),
                         stringParam("conversation_name", required = false, "Optional direct sender or group name filter."),
+                        intParam("since_minutes", required = false, "Optional recent-time filter in minutes."),
+                        stringParam("priority", required = false, "Optional HIGH or NORMAL priority filter."),
                         stringParam("from_timestamp", required = false, "Optional ISO start boundary."),
                         stringParam("to_timestamp", required = false, "Optional ISO end boundary.")
                     )

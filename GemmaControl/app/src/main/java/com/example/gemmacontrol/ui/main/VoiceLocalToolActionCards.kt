@@ -91,7 +91,7 @@ private fun ToolCallDetailsPanel(details: ToolCallDetailsUiState) {
             .fillMaxWidth()
             .semantics {
                 contentDescription =
-                    "FunctionGemma proposed ${details.toolName}. ${details.safetyLabel}."
+                    "Local tool proposal ${details.toolName}. ${details.safetyLabel}."
             }
     ) {
         Column(
@@ -123,7 +123,7 @@ private fun ToolCallDetailsHeader(toolName: String) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                "FunctionGemma call",
+                "Local tool proposal",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -62,7 +62,11 @@ class VoiceCommandToolProposalMapper(
                 replyText = action.messageText
             )
             is WhatsAppToolAction.CreateFollowUp -> mapCreateFollowUp(action)
-            is WhatsAppToolAction.MarkImportant -> mapMarkImportant(action.messageEventId)
+            is WhatsAppToolAction.ListPendingFollowUps -> mapListPendingFollowUps(action)
+            is WhatsAppToolAction.GetActionableInbox -> mapGetActionableInbox(action)
+            is WhatsAppToolAction.ScheduleReminder -> mapScheduleReminder(action)
+            is WhatsAppToolAction.MarkMessagePriority -> mapMarkMessagePriority(action.messageEventId, action.priority)
+            is WhatsAppToolAction.MarkImportant -> mapMarkMessagePriority(action.messageEventId, "HIGH")
             WhatsAppToolAction.PauseCapture -> mapNoArgumentTool(WhatsAppToolName.PauseWhatsAppCapture)
         }
     }
@@ -111,6 +115,8 @@ class VoiceCommandToolProposalMapper(
             putJsonObject("parameters") {
                 put("query", action.query)
                 action.conversationName?.takeIf { it.isNotBlank() }?.let { put("conversation_name", it) }
+                action.sinceMinutes?.let { put("since_minutes", it) }
+                action.priority?.takeIf { it.isNotBlank() }?.let { put("priority", it) }
             }
         }.toString()
         return mapJsonProposal(json)
@@ -133,17 +139,57 @@ class VoiceCommandToolProposalMapper(
             putJsonObject("parameters") {
                 put("message_event_id", action.messageEventId)
                 put("follow_up_title", action.followUpTitle)
+                action.dueAt?.takeIf { it.isNotBlank() }?.let { put("due_at", it) }
+                action.priority?.takeIf { it.isNotBlank() }?.let { put("priority", it) }
             }
         }.toString()
         return mapJsonProposal(json)
     }
 
-    private fun mapMarkImportant(messageEventId: String): VoiceToolProposalResult {
+    private fun mapListPendingFollowUps(action: WhatsAppToolAction.ListPendingFollowUps): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.ListPendingFollowUps.value)
+            putJsonObject("parameters") {
+                put("limit", action.limit)
+                action.priority?.takeIf { it.isNotBlank() }?.let { put("priority", it) }
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapGetActionableInbox(action: WhatsAppToolAction.GetActionableInbox): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.GetActionableInbox.value)
+            putJsonObject("parameters") {
+                put("limit", action.limit)
+                action.status?.takeIf { it.isNotBlank() }?.let { put("status", it) }
+                action.priority?.takeIf { it.isNotBlank() }?.let { put("priority", it) }
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapScheduleReminder(action: WhatsAppToolAction.ScheduleReminder): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.ScheduleReminderForMessage.value)
+            putJsonObject("parameters") {
+                put("message_event_id", action.messageEventId)
+                put("remind_at", action.remindAt)
+                action.reminderNote?.takeIf { it.isNotBlank() }?.let { put("reminder_note", it) }
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapMarkMessagePriority(
+        messageEventId: String,
+        priority: String
+    ): VoiceToolProposalResult {
         val json = buildJsonObject {
             put("name", WhatsAppToolName.MarkMessagePriority.value)
             putJsonObject("parameters") {
                 put("message_event_id", messageEventId)
-                put("priority", "HIGH")
+                put("priority", priority)
             }
         }.toString()
         return mapJsonProposal(json)

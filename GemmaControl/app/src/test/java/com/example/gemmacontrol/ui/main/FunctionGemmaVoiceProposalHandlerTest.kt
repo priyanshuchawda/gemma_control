@@ -332,6 +332,28 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsNativeSearchActionToLocalToolConfirmation() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.SearchMessages(
+                    query = "invoice",
+                    conversationName = "Office",
+                    sinceMinutes = 30,
+                    priority = "HIGH"
+                )
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertTrue(state is VoiceAssistantState.LocalToolConfirmationRequired)
+        val action = (state as VoiceAssistantState.LocalToolConfirmationRequired).action
+        assertEquals("Search local WhatsApp messages?", action.title)
+        assertEquals("invoice", action.proposal.string("query"))
+        assertEquals(30, action.proposal.integer("since_minutes"))
+        assertEquals("HIGH", action.proposal.string("priority"))
+    }
+
+    @Test
     fun mapsMessageDetailsProposalToLocalToolConfirmation() {
         val state = handler.resolve(
             result = proposalResult(

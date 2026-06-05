@@ -26,7 +26,12 @@ interface LocalWhatsAppDataRepository {
         limit: Int,
         sinceMinutes: Int?
     ): List<LocalWhatsAppMessage>
-    suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage>
+    suspend fun searchMessages(
+        query: String,
+        conversationName: String?,
+        sinceMinutes: Int?,
+        priority: String?
+    ): List<LocalWhatsAppMessage>
     suspend fun getMessageDetails(messageEventId: String): LocalWhatsAppMessage?
     suspend fun getActionableInbox(status: String?, priority: String?, limit: Int): List<LocalActionableInboxItem>
 }
@@ -283,7 +288,9 @@ class WhatsAppLocalToolExecutor(
         }
         val messages = localDataRepository.searchMessages(
             query = query,
-            conversationName = proposal.string("conversation_name")?.trim()?.takeIf { it.isNotBlank() }
+            conversationName = proposal.string("conversation_name")?.trim()?.takeIf { it.isNotBlank() },
+            sinceMinutes = proposal.integer("since_minutes"),
+            priority = proposal.string("priority")?.trim()?.takeIf { it.isNotBlank() }
         )
         if (messages.isEmpty()) {
             return ToolExecutionResult.Success("No matching WhatsApp messages.")

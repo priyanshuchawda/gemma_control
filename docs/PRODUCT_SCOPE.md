@@ -45,7 +45,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **No Python/Streamlit Elements**: Zero Python servers, desktop apps, or Streamlit dashboards.
 - **No Auto-Sending**: Headless automated sends are structurally blocked.
 - **No Automatic High-Risk Execution**: LiteRT-LM may call the native `WhatsAppTools` callback surface, but those callbacks do not send WhatsApp messages, delete data, or change capture state. Kotlin validates and routes any high-risk action through explicit user confirmation.
-- **Limited Speech Input in V1**: English voice commands are supported for reading recent captured messages and preparing a reply to the latest active WhatsApp notification. Sending still requires manual confirmation.
+- **Limited Speech Input in V1**: English voice commands are supported for reading recent captured messages, searching locally captured messages, listing pending follow-ups/actionable items, preparing a reply to the latest active WhatsApp notification, and creating local follow-up/reminder/priority proposals by message id. Sending and local writes still require manual confirmation.
 - **No Multilingual Examples**: Strictly English-only inputs, training sets, and user interfaces. No Hindi or Hinglish commands.
 - **No Unofficial APIs**: No Baileys, whatsapp-web.js, or AccessibilityService UI scripting.
 - **No Vector Embeddings in V1**: EmbeddingGemma integration is deferred to V2.

@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,6 +57,25 @@ class AssistantPlannerTest {
     }
 
     @Test
+    fun plan_returnsSameLocalToolActionForVoiceAndTypedInput() {
+        val input = "search WhatsApp for payment"
+        val expected = AssistantPlan.LocalToolCommand(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.SearchMessages(
+                    query = "payment",
+                    conversationName = null
+                )
+            )
+        )
+
+        val voicePlan = planner.plan(input, AssistantInputSource.Voice)
+        val typedPlan = planner.plan(input, AssistantInputSource.Typed)
+
+        assertEquals(expected, voicePlan)
+        assertEquals(voicePlan, typedPlan)
+    }
+
+    @Test
     fun plan_requestsModelProposalWithClarificationFallbackForUnsupportedInput() {
         val plan = planner.plan("can you find the dinner message from yesterday", AssistantInputSource.Typed)
 
@@ -64,7 +84,7 @@ class AssistantPlannerTest {
         assertEquals("can you find the dinner message from yesterday", request.transcript)
         assertEquals(
             VoiceAssistantState.ClarificationRequired(
-                "I can help with locally stored WhatsApp messages and active notification replies. Try: read my latest stored messages, summarize WhatsApp, read messages from a chat, or reply to the latest message."
+                "I can help with locally stored WhatsApp messages and active notification replies. Try: read my latest stored messages, search WhatsApp for payment, show pending follow ups, or reply to the latest message."
             ),
             request.fallbackState
         )

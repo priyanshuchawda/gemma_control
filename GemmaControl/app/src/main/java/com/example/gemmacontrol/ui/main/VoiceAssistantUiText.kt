@@ -42,7 +42,7 @@ internal fun voiceAssistantSubtitle(
             } else {
                 ""
             }
-            "$privacyNote$inputModeHint\n\nTry: 'Read my latest stored messages', 'Summarize WhatsApp', or 'Reply to the latest message: I am in a meeting'"
+            "$privacyNote$inputModeHint\n\nTry: 'Read my latest stored messages', 'Search WhatsApp for payment', or 'Reply to the latest message: I am in a meeting'"
         }
         is VoiceAssistantState.Failure -> state.safeReason
         is VoiceAssistantState.Streaming -> "FunctionGemma is drafting a local response."

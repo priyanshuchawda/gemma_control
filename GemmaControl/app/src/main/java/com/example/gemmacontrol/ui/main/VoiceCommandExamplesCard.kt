@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 
 internal val voiceQuickCommandExamples = listOf(
     "Read my latest stored messages",
+    "Search WhatsApp for payment",
+    "Show pending follow ups",
     "Summarize WhatsApp",
     "Read messages from Mom",
     "Reply to the latest message: I am in a meeting"

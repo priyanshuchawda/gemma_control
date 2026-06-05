@@ -198,6 +198,10 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 _state.value = VoiceAssistantState.CommandReady(plan.command)
                 prepareNamedReply(plan.command)
             }
+            is AssistantPlan.LocalToolCommand -> {
+                _state.value = VoiceAssistantState.CommandReady(plan.command)
+                prepareLocalToolAction(plan.command)
+            }
             is AssistantPlan.AskClarification -> {
                 _state.value = VoiceAssistantState.ClarificationRequired(plan.prompt)
             }
@@ -360,6 +364,15 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 _state.value = VoiceAssistantState.ClarificationRequired(resolution.prompt)
             }
         }
+    }
+
+    private fun prepareLocalToolAction(command: VoiceCommand.LocalToolAction) {
+        _state.value = functionGemmaProposalHandler.resolve(
+            result = GemmaEngineResult.NativeToolAction(action = command.action),
+            context = FunctionGemmaVoiceProposalContext(
+                activeNotificationKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            )
+        )
     }
 
     fun confirmSend(draft: PendingVoiceReply) {

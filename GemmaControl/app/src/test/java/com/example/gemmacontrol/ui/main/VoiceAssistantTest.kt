@@ -1,5 +1,6 @@
 package com.example.gemmacontrol.ui.main
 
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,6 +44,102 @@ class VoiceAssistantTest {
         val chatCommand = VoiceCommandParser.parse("read messages from Mom")
         assertTrue(chatCommand is VoiceCommand.ReadMessagesFromConversation)
         assertEquals("Mom", (chatCommand as VoiceCommand.ReadMessagesFromConversation).conversationName)
+    }
+
+    @Test
+    fun testParserRecognisesCapturedMessageSearchCommands() {
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.SearchMessages(
+                    query = "payment",
+                    conversationName = null
+                )
+            ),
+            VoiceCommandParser.parse("search WhatsApp for payment")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.SearchMessages(
+                    query = "dinner",
+                    conversationName = "Mom"
+                )
+            ),
+            VoiceCommandParser.parse("find messages from Mom about dinner")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.SearchMessages(
+                    query = "invoice",
+                    conversationName = null,
+                    sinceMinutes = 30
+                )
+            ),
+            VoiceCommandParser.parse("search last 30 minutes for invoice")
+        )
+    }
+
+    @Test
+    fun testParserRecognisesFollowUpAndActionableInboxCommands() {
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.ListPendingFollowUps(limit = 10, priority = null)
+            ),
+            VoiceCommandParser.parse("show pending follow ups")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.ListPendingFollowUps(limit = 10, priority = "HIGH")
+            ),
+            VoiceCommandParser.parse("list high priority follow ups")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.GetActionableInbox(status = "PENDING", priority = "HIGH", limit = 10)
+            ),
+            VoiceCommandParser.parse("show pending important items")
+        )
+    }
+
+    @Test
+    fun testParserRecognisesLocalWriteWorkflowCommands() {
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.MarkMessagePriority(messageEventId = "message-1", priority = "HIGH")
+            ),
+            VoiceCommandParser.parse("mark message-1 important")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.MarkMessagePriority(messageEventId = "message-1", priority = "NORMAL")
+            ),
+            VoiceCommandParser.parse("mark message-1 not important")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.CreateFollowUp(
+                    messageEventId = "message-1",
+                    followUpTitle = "Call back"
+                )
+            ),
+            VoiceCommandParser.parse("create follow up for message-1: Call back")
+        )
+
+        assertEquals(
+            VoiceCommand.LocalToolAction(
+                WhatsAppToolAction.ScheduleReminder(
+                    messageEventId = "message-1",
+                    remindAt = "2026-06-06T09:00:00+05:30",
+                    reminderNote = null
+                )
+            ),
+            VoiceCommandParser.parse("remind me about message-1 at 2026-06-06T09:00:00+05:30")
+        )
     }
 
     @Test
@@ -124,7 +221,7 @@ class VoiceAssistantTest {
     fun testParserReturnsDefaultUnsupportedForArbitraryText() {
         val cmd = VoiceCommandParser.parse("hello can you turn on the flashlight")
         assertTrue(cmd is VoiceCommand.Unsupported)
-        assertEquals("I can currently read captured messages or reply to the latest active WhatsApp notification.", (cmd as VoiceCommand.Unsupported).reason)
+        assertEquals("I can currently read or search captured messages, manage local follow-ups, or reply to the latest active WhatsApp notification.", (cmd as VoiceCommand.Unsupported).reason)
     }
 
     @Test
