@@ -20,6 +20,8 @@ FunctionGemma fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUN
 
 Media understanding boundary: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
 
+Assistant safety policy: [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md)
+
 ## #112 Roadmap Status
 
 The #112 P1 model architecture roadmap is now defined for the current device:
@@ -33,7 +35,7 @@ The #112 P1 model architecture roadmap is now defined for the current device:
 | Accessibility expansion | Decided through #122 | No Accessibility service in V1. Possible V2 assistive mode only after separate policy/safety review. |
 | Fine-tuning | Complete through #116 | Do not fine-tune now; use the synthetic dataset template only if routing benchmarks later prove prompt/context tuning is insufficient. |
 | Media understanding | Complete through #118 | Notification placeholders stay placeholder-only; future analysis requires user-selected media or a scoped URI and explicit model approval. |
-| Safety gates | P2 follow-up #119 | Keep open for deterministic-vs-ShieldGemma policy evaluation; it does not block the V1 WhatsApp notification assistant. |
+| Safety gates | Complete through #119 | Use deterministic Kotlin safety gates for V1; ShieldGemma/ShieldGemma 2 are future-only model gates for generated text or actual media analysis. |
 
 This closes the P1 architecture definition while preserving the remaining P2 research issues.
 
@@ -408,6 +410,8 @@ Accessibility decision note: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY
 
 Media decision note: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
 
+Safety decision note: [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md)
+
 ### Media
 
 Notification placeholders are not media bytes. If WhatsApp says "Photo", the assistant can only say a photo was received.
@@ -535,7 +539,7 @@ done: #109/#117 bigger model decision, no second generative model in V1
 done: #122 Accessibility decision, no Accessibility service in V1
 done: #116 FunctionGemma fine-tuning evaluation, no training/model import now
 done: #118 media understanding boundary, placeholder-only in V1
-P2:  #119 ShieldGemma-style safety gate assessment
+done: #119 ShieldGemma-style safety assessment, deterministic V1 gates
 ```
 
 FunctionGemma remains the only required model until measured evidence says otherwise.

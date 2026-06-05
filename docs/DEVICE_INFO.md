@@ -394,7 +394,7 @@ ADB must not be treated as product capability:
 
 - #116: FunctionGemma fine-tuning only if #115 proves prompt/schema improvements are not enough.
 - #118: media understanding boundary is placeholder-only for V1; actual image/file analysis needs user-selected media or scoped URI access.
-- #119: ShieldGemma-style safety gates only if deterministic safety is insufficient.
+- #119: assistant safety policy is deterministic for V1; ShieldGemma/ShieldGemma 2 remain future-only gates.
 - #122: Accessibility service only after permission/capability and safety evaluation.
 - #110: generic notification source abstraction after WhatsApp pipeline is reliable.
 
