@@ -86,7 +86,7 @@ class FunctionGemmaRoutingBenchmarkCorpusTest {
     @Test
     fun baselineRecordsCurrentToolingBeforeNativeToolExpansion() {
         assertEquals(16, registry.tools.size)
-        assertEquals(3, currentNativeLiteRtToolCallbackCount)
+        assertEquals(13, currentNativeLiteRtToolCallbackCount)
         assertEquals(0, currentOfflineModelAccuracyPercent)
         assertEquals("model execution deferred; no model download in this benchmark slice", baselineReason)
     }
@@ -105,7 +105,7 @@ class FunctionGemmaRoutingBenchmarkCorpusTest {
     }
 
     private companion object {
-        const val currentNativeLiteRtToolCallbackCount = 3
+        const val currentNativeLiteRtToolCallbackCount = 13
         const val currentOfflineModelAccuracyPercent = 0
         const val baselineReason = "model execution deferred; no model download in this benchmark slice"
 

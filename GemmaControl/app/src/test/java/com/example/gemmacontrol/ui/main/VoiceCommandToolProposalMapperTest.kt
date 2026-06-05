@@ -70,6 +70,62 @@ class VoiceCommandToolProposalMapperTest {
     }
 
     @Test
+    fun mapsExpandedReadNativeActionsToReadProposals() {
+        val summarize = mapper.mapNativeToolAction(WhatsAppToolAction.SummarizeMessages(limit = 8))
+        assertTrue(summarize is VoiceToolProposalResult.Valid)
+        val summarizeProposal = (summarize as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.ListRecentWhatsAppMessages, summarizeProposal.name)
+        assertEquals("summarize", summarizeProposal.string("read_mode"))
+        assertEquals(8, summarizeProposal.integer("limit"))
+
+        val chat = mapper.mapNativeToolAction(WhatsAppToolAction.GetChatMessages(conversationName = "Mom", limit = 6))
+        assertTrue(chat is VoiceToolProposalResult.Valid)
+        val chatProposal = (chat as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.ListRecentWhatsAppMessages, chatProposal.name)
+        assertEquals("Mom", chatProposal.string("conversation_name"))
+        assertEquals("chat", chatProposal.string("read_mode"))
+    }
+
+    @Test
+    fun mapsExpandedMutationNativeActionsToConfirmationProposals() {
+        val draft = mapper.mapNativeToolAction(
+            WhatsAppToolAction.DraftReply(conversationName = "Mom", messageText = "On my way")
+        )
+        assertTrue(draft is VoiceToolProposalResult.Valid)
+        assertEquals(WhatsAppToolName.DraftWhatsAppReply, (draft as VoiceToolProposalResult.Valid).proposal.name)
+        assertTrue(draft.decision is ToolExecutionDecision.RequireUserConfirmation)
+
+        val followUp = mapper.mapNativeToolAction(
+            WhatsAppToolAction.CreateFollowUp(messageEventId = "message-1", followUpTitle = "Call back")
+        )
+        assertTrue(followUp is VoiceToolProposalResult.Valid)
+        val followUpProposal = (followUp as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.CreateFollowUpFromMessage, followUpProposal.name)
+        assertEquals(ToolExecutionScope.LocalDataWrite, (followUp.decision as ToolExecutionDecision.AllowLocalExecution).scope)
+
+        val important = mapper.mapNativeToolAction(WhatsAppToolAction.MarkImportant(messageEventId = "message-1"))
+        assertTrue(important is VoiceToolProposalResult.Valid)
+        val importantProposal = (important as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.MarkMessagePriority, importantProposal.name)
+        assertEquals("HIGH", importantProposal.string("priority"))
+    }
+
+    @Test
+    fun mapsExplicitNativeReplyAndPauseActions() {
+        val reply = mapper.mapNativeToolAction(
+            WhatsAppToolAction.ReplyActiveNotification(notificationKey = "active-key", messageText = "Ok")
+        )
+        assertTrue(reply is VoiceToolProposalResult.Valid)
+        val replyProposal = (reply as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.SendReplyToActiveWhatsAppNotification, replyProposal.name)
+        assertEquals("active-key", replyProposal.string("notification_key"))
+
+        val pause = mapper.mapNativeToolAction(WhatsAppToolAction.PauseCapture)
+        assertTrue(pause is VoiceToolProposalResult.Valid)
+        assertEquals(WhatsAppToolName.PauseWhatsAppCapture, (pause as VoiceToolProposalResult.Valid).proposal.name)
+    }
+
+    @Test
     fun mapsActiveReplyToStrictManualConfirmationProposal() {
         val result = mapper.mapActiveNotificationReply(
             notificationKey = "active-key-1",

@@ -45,7 +45,8 @@ class WhatsAppToolRegistry private constructor(
                     parameters = listOf(
                         stringParam("conversation_name", required = false, "Optional direct sender or group name filter."),
                         intParam("limit", required = true, "Maximum number of messages to return."),
-                        intParam("since_minutes", required = false, "Optional recent-time filter in minutes.")
+                        intParam("since_minutes", required = false, "Optional recent-time filter in minutes."),
+                        stringParam("read_mode", required = false, "Optional local read mode: latest, unread, chat, summarize, or continue.")
                     )
                 ),
                 ToolDefinition(

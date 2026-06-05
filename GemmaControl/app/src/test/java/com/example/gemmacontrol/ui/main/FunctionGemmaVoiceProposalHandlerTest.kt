@@ -86,6 +86,28 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
+    fun mapsExpandedNativeReadModesToSpecificReadCommands() {
+        val summarize = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.SummarizeMessages(limit = 8)
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+        val chat = handler.resolve(
+            result = GemmaEngineResult.NativeToolAction(
+                action = WhatsAppToolAction.GetChatMessages(conversationName = "Mom", limit = 6)
+            ),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(VoiceAssistantState.CommandReady(VoiceCommand.SummarizeWhatsAppMessages), summarize)
+        assertEquals(
+            VoiceAssistantState.CommandReady(VoiceCommand.ReadMessagesFromConversation("Mom")),
+            chat
+        )
+    }
+
+    @Test
     fun mapsNativeLatestReplyToolActionToConfirmationForLatestActiveNotification() {
         val state = handler.resolve(
             result = GemmaEngineResult.NativeToolAction(

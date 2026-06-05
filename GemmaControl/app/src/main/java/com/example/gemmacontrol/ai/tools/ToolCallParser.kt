@@ -103,6 +103,12 @@ class ToolCallParser(
             }
         }
 
+        proposal.string("read_mode")?.let { readMode ->
+            if (readMode !in setOf("latest", "unread", "chat", "summarize", "continue")) {
+                return ToolCallParseResult.Invalid("Invalid read_mode: expected latest, unread, chat, summarize, or continue")
+            }
+        }
+
         proposal.string("priority")?.let { priority ->
             if (priority !in setOf("HIGH", "NORMAL", "LOW")) {
                 return ToolCallParseResult.Invalid("Invalid priority: expected HIGH, NORMAL, or LOW")

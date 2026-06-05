@@ -10,15 +10,15 @@ Gallery's Mobile Actions task uses:
 - a task/viewmodel boundary that records function calls separately from UI rendering
 - model prompts that include current date/time context
 
-Current LiteRT-LM Kotlin docs support native tool execution through annotated `ToolSet` callbacks. The app now uses that Gallery-style path with `automaticToolCalling = true`, but keeps the native tool surface deliberately small and side-effect free. Tool callbacks capture typed proposals/results only; WhatsApp sends, data deletion, capture changes, and other high-risk actions still remain Kotlin/user-confirmed actions.
+Current LiteRT-LM Kotlin docs support native tool execution through annotated `ToolSet` callbacks. The app now uses that Gallery-style path with `automaticToolCalling = true`, but keeps the native tool surface side-effect free. Tool callbacks capture typed proposals/results only; WhatsApp sends, data deletion, capture changes, and other high-risk actions still remain Kotlin/user-confirmed actions.
 
 ## GemmaControl Adaptation
 
 - The app now has a two-layer typed local tool contract in `ai/tools`:
-- `WhatsAppTools` is the active native LiteRT-LM `ToolSet`. It currently exposes three high-level callbacks: prepare reply to latest notification, read latest notifications, and get notifications from a sender.
+- `WhatsAppTools` is the active native LiteRT-LM `ToolSet`. It exposes side-effect-free callbacks for latest reads, unread-chat listing, message reads/summaries/search, named-chat reads, drafts, active notification replies, follow-up creation, priority marking, and capture pause proposals.
 - `WhatsAppToolRegistry` mirrors all 16 documented app-level WhatsApp actions used by the parser, safety router, deterministic fallback path, UI confirmations, and local executor.
 - `ToolSchemaExporter` exports each registry entry as LiteRT/OpenAPI-style JSON (`name`, `description`, `parameters`, `required`) so the same registry can feed a future `OpenApiTool`/`ToolProvider` adapter without duplicating schemas.
-- `WhatsAppToolAction` and `WhatsAppToolActionHandler` provide the Gallery-style callback boundary for high-level model actions: reply to latest notification, read latest notifications, and get notifications from a sender.
+- `WhatsAppToolAction` and `WhatsAppToolActionHandler` provide the Gallery-style callback boundary for high-level model actions. They normalize typed callback arguments, return model-safe success/error maps, and pass typed proposals into Kotlin validation.
 - `WhatsAppTools` delegates behavior to the dependency-free handler so JVM tests do not load LiteRT-LM classes directly.
 - `ToolCallParser` accepts FunctionGemma-style JSON proposals and Gallery-style `functionCall` envelopes.
 - `ToolProposal` carries typed parameters and the safety level into UI/controller code.
