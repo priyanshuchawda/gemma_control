@@ -9,6 +9,7 @@ sealed interface AssistantPlan {
     data class ReadCommand(val command: VoiceReadCommand) : AssistantPlan
     data class ReplyCommand(val command: VoiceCommand.ReplyToLatestActiveMessage) : AssistantPlan
     data class NamedReplyCommand(val command: VoiceCommand.ReplyToConversation) : AssistantPlan
+    data class LocalToolCommand(val command: VoiceCommand.LocalToolAction) : AssistantPlan
     data class RequestModelProposal(
         val transcript: String,
         val fallbackState: VoiceAssistantState
@@ -32,6 +33,7 @@ class AssistantPlanner(
             is VoiceReadCommand -> AssistantPlan.ReadCommand(command)
             is VoiceCommand.ReplyToLatestActiveMessage -> AssistantPlan.ReplyCommand(command)
             is VoiceCommand.ReplyToConversation -> AssistantPlan.NamedReplyCommand(command)
+            is VoiceCommand.LocalToolAction -> AssistantPlan.LocalToolCommand(command)
             is VoiceCommand.Unsupported -> unsupportedPlan(transcript, command)
         }
     }
@@ -53,7 +55,7 @@ class AssistantPlanner(
 
     private fun VoiceCommand.Unsupported.fallbackClarification(): String {
         return when (reason) {
-            "I can currently read captured messages or reply to the latest active WhatsApp notification." ->
+            "I can currently read or search captured messages, manage local follow-ups, or reply to the latest active WhatsApp notification." ->
                 GenericWhatsAppClarification
             else -> reason
         }
@@ -62,6 +64,6 @@ class AssistantPlanner(
     private companion object {
         const val GenericWhatsAppClarification =
             "I can help with locally stored WhatsApp messages and active notification replies. " +
-                "Try: read my latest stored messages, summarize WhatsApp, read messages from a chat, or reply to the latest message."
+                "Try: read my latest stored messages, search WhatsApp for payment, show pending follow ups, or reply to the latest message."
     }
 }

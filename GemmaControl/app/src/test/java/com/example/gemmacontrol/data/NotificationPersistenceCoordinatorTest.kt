@@ -762,11 +762,67 @@ class NotificationPersistenceCoordinatorTest {
             )
         )
 
-        val results = repository.searchMessages(query = "dinner", conversationName = "Mom")
+        val results = repository.searchMessages(
+            query = "dinner",
+            conversationName = "Mom",
+            sinceMinutes = null,
+            priority = null
+        )
 
         assertEquals(1, results.size)
         assertEquals("Mom", results.single().conversationName)
         assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
+    fun testRepository_searchMessagesFiltersBySinceMinutesAndPriority() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        val now = System.currentTimeMillis()
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_high_invoice",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Office",
+                text = "Invoice due today",
+                timestamp = now - 30_000L
+            )
+        )
+        val recentHighMessageId = messageEventDao.list.single().id
+        repository.markMessagePriority(recentHighMessageId, "HIGH")
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_recent_normal_invoice",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Office",
+                text = "Invoice draft noted",
+                timestamp = now - 30_000L
+            )
+        )
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_old_high_invoice",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Office",
+                text = "Invoice from last week",
+                timestamp = now - 3_600_000L
+            )
+        )
+        val oldHighMessageId = messageEventDao.list.last().id
+        repository.markMessagePriority(oldHighMessageId, "HIGH")
+
+        val results = repository.searchMessages(
+            query = "invoice",
+            conversationName = null,
+            sinceMinutes = 10,
+            priority = "HIGH"
+        )
+
+        assertEquals(1, results.size)
+        assertEquals(recentHighMessageId, results.single().id)
+        assertEquals("Invoice due today", results.single().text)
     }
 
     @Test

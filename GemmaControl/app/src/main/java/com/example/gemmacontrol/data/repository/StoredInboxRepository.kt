@@ -287,7 +287,12 @@ class StoredInboxRepository(
             .toList()
     }
 
-    override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {
+    override suspend fun searchMessages(
+        query: String,
+        conversationName: String?,
+        sinceMinutes: Int?,
+        priority: String?
+    ): List<LocalWhatsAppMessage> {
         val normalizedQuery = normalizeSearchText(query)
         if (normalizedQuery.isBlank()) {
             return emptyList()
@@ -295,12 +300,25 @@ class StoredInboxRepository(
         val normalizedConversation = conversationName
             ?.let { normalizeConversationName(it) }
             ?.takeIf { it.isNotBlank() }
+        val postedAfter = sinceMinutes
+            ?.takeIf { it > 0 }
+            ?.let { nowProvider() - it * MILLIS_PER_MINUTE }
+        val parsedPriority = parsePriorityOrNull(priority)
+        if (!priority.isNullOrBlank() && parsedPriority == null) {
+            return emptyList()
+        }
 
         return getAllDecryptedMessages()
             .asSequence()
             .filter { message ->
                 normalizedConversation == null ||
                     normalizeConversationName(message.conversationId) == normalizedConversation
+            }
+            .filter { message ->
+                postedAfter == null || message.postedAt >= postedAfter
+            }
+            .filter { message ->
+                parsedPriority == null || message.priority == parsedPriority.name
             }
             .filter { message ->
                 listOfNotNull(

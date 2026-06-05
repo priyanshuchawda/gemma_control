@@ -315,7 +315,9 @@ class WhatsAppLocalToolExecutorTest {
                   "name": "search_whatsapp_messages",
                   "parameters": {
                     "query": "dinner",
-                    "conversation_name": "Mom"
+                    "conversation_name": "Mom",
+                    "since_minutes": 30,
+                    "priority": "HIGH"
                   }
                 }
                 """.trimIndent()
@@ -324,7 +326,14 @@ class WhatsAppLocalToolExecutorTest {
 
         assertEquals(ToolExecutionResult.Success("- [message-1] Mom: Dinner at 7"), result)
         assertEquals(
-            listOf(SearchMessagesCall(query = "dinner", conversationName = "Mom")),
+            listOf(
+                SearchMessagesCall(
+                    query = "dinner",
+                    conversationName = "Mom",
+                    sinceMinutes = 30,
+                    priority = "HIGH"
+                )
+            ),
             repository.searchMessagesCalls
         )
     }
@@ -707,7 +716,9 @@ class WhatsAppLocalToolExecutorTest {
 
     private data class SearchMessagesCall(
         val query: String,
-        val conversationName: String?
+        val conversationName: String?,
+        val sinceMinutes: Int?,
+        val priority: String?
     )
 
     private data class ListRecentMessagesCall(
@@ -801,8 +812,13 @@ class WhatsAppLocalToolExecutorTest {
             return recentMessages
         }
 
-        override suspend fun searchMessages(query: String, conversationName: String?): List<LocalWhatsAppMessage> {
-            searchMessagesCalls += SearchMessagesCall(query, conversationName)
+        override suspend fun searchMessages(
+            query: String,
+            conversationName: String?,
+            sinceMinutes: Int?,
+            priority: String?
+        ): List<LocalWhatsAppMessage> {
+            searchMessagesCalls += SearchMessagesCall(query, conversationName, sinceMinutes, priority)
             return searchResults
         }
 

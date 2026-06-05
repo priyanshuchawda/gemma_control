@@ -24,7 +24,9 @@ sealed interface WhatsAppToolAction {
 
     data class SearchMessages(
         val query: String,
-        val conversationName: String?
+        val conversationName: String?,
+        val sinceMinutes: Int? = null,
+        val priority: String? = null
     ) : WhatsAppToolAction
 
     data class GetChatMessages(
@@ -44,7 +46,31 @@ sealed interface WhatsAppToolAction {
 
     data class CreateFollowUp(
         val messageEventId: String,
-        val followUpTitle: String
+        val followUpTitle: String,
+        val dueAt: String? = null,
+        val priority: String? = null
+    ) : WhatsAppToolAction
+
+    data class ListPendingFollowUps(
+        val limit: Int = 10,
+        val priority: String? = null
+    ) : WhatsAppToolAction
+
+    data class GetActionableInbox(
+        val status: String? = "PENDING",
+        val priority: String? = null,
+        val limit: Int = 10
+    ) : WhatsAppToolAction
+
+    data class ScheduleReminder(
+        val messageEventId: String,
+        val remindAt: String,
+        val reminderNote: String? = null
+    ) : WhatsAppToolAction
+
+    data class MarkMessagePriority(
+        val messageEventId: String,
+        val priority: String
     ) : WhatsAppToolAction
 
     data class MarkImportant(val messageEventId: String) : WhatsAppToolAction
