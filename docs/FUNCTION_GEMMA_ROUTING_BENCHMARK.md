@@ -7,7 +7,7 @@ This benchmark is intentionally offline for the current device-development phase
 | Metric | Value |
 | --- | --- |
 | App-level WhatsApp tool registry | 16 tools |
-| Native LiteRT `WhatsAppTools` callbacks | 3 callbacks |
+| Native LiteRT `WhatsAppTools` callbacks | 13 callbacks |
 | Offline model routing accuracy | 0% recorded, model execution deferred |
 | Model download requirement | None |
 | Verification owner | JVM tests plus later physical-device model run |

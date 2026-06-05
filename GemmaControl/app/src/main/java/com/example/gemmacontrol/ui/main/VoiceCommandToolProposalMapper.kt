@@ -37,6 +37,33 @@ class VoiceCommandToolProposalMapper(
                 notificationKey = LatestActiveNotificationKey,
                 replyText = action.replyText
             )
+            is WhatsAppToolAction.ListUnreadChats -> mapListRecent(
+                limit = action.limit,
+                readMode = "unread"
+            )
+            is WhatsAppToolAction.ReadMessages -> mapListRecent(
+                limit = action.limit,
+                conversationName = action.conversationName,
+                readMode = if (action.conversationName.isNullOrBlank()) "latest" else "chat"
+            )
+            is WhatsAppToolAction.SummarizeMessages -> mapListRecent(
+                limit = action.limit,
+                readMode = "summarize"
+            )
+            is WhatsAppToolAction.SearchMessages -> mapSearchMessages(action)
+            is WhatsAppToolAction.GetChatMessages -> mapListRecent(
+                limit = action.limit,
+                conversationName = action.conversationName,
+                readMode = "chat"
+            )
+            is WhatsAppToolAction.DraftReply -> mapDraftReply(action)
+            is WhatsAppToolAction.ReplyActiveNotification -> mapActiveNotificationReply(
+                notificationKey = action.notificationKey,
+                replyText = action.messageText
+            )
+            is WhatsAppToolAction.CreateFollowUp -> mapCreateFollowUp(action)
+            is WhatsAppToolAction.MarkImportant -> mapMarkImportant(action.messageEventId)
+            WhatsAppToolAction.PauseCapture -> mapNoArgumentTool(WhatsAppToolName.PauseWhatsAppCapture)
         }
     }
 
@@ -55,17 +82,79 @@ class VoiceCommandToolProposalMapper(
         senderName: String,
         limit: Int
     ): VoiceToolProposalResult {
-        val definition = registry.require(WhatsAppToolName.ListRecentWhatsAppMessages.value)
-        return mapToolProposal(
-            ToolProposal(
-                name = definition.name,
-                arguments = mapOf(
-                    "conversation_name" to ToolArgument.StringValue(senderName),
-                    "limit" to ToolArgument.IntegerValue(limit)
-                ),
-                definition = definition
-            )
+        return mapListRecent(
+            limit = limit,
+            conversationName = senderName,
+            readMode = "chat"
         )
+    }
+
+    private fun mapListRecent(
+        limit: Int,
+        conversationName: String? = null,
+        readMode: String? = null
+    ): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.ListRecentWhatsAppMessages.value)
+            putJsonObject("parameters") {
+                put("limit", limit)
+                conversationName?.takeIf { it.isNotBlank() }?.let { put("conversation_name", it) }
+                readMode?.takeIf { it.isNotBlank() }?.let { put("read_mode", it) }
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapSearchMessages(action: WhatsAppToolAction.SearchMessages): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.SearchWhatsAppMessages.value)
+            putJsonObject("parameters") {
+                put("query", action.query)
+                action.conversationName?.takeIf { it.isNotBlank() }?.let { put("conversation_name", it) }
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapDraftReply(action: WhatsAppToolAction.DraftReply): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.DraftWhatsAppReply.value)
+            putJsonObject("parameters") {
+                put("conversation_name", action.conversationName)
+                put("message_text", action.messageText)
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapCreateFollowUp(action: WhatsAppToolAction.CreateFollowUp): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.CreateFollowUpFromMessage.value)
+            putJsonObject("parameters") {
+                put("message_event_id", action.messageEventId)
+                put("follow_up_title", action.followUpTitle)
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapMarkImportant(messageEventId: String): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", WhatsAppToolName.MarkMessagePriority.value)
+            putJsonObject("parameters") {
+                put("message_event_id", messageEventId)
+                put("priority", "HIGH")
+            }
+        }.toString()
+        return mapJsonProposal(json)
+    }
+
+    private fun mapNoArgumentTool(name: WhatsAppToolName): VoiceToolProposalResult {
+        val json = buildJsonObject {
+            put("name", name.value)
+            putJsonObject("parameters") {}
+        }.toString()
+        return mapJsonProposal(json)
     }
 
     fun mapActiveNotificationReply(
@@ -80,10 +169,7 @@ class VoiceCommandToolProposalMapper(
             }
         }.toString()
 
-        return when (val result = parser.parse(json)) {
-            is ToolCallParseResult.Valid -> mapToolProposal(result.proposal)
-            is ToolCallParseResult.Invalid -> VoiceToolProposalResult.Invalid(result.reason)
-        }
+        return mapJsonProposal(json)
     }
 
     fun mapParseResult(result: ToolCallParseResult): VoiceToolProposalResult {
@@ -98,6 +184,13 @@ class VoiceCommandToolProposalMapper(
             is ToolExecutionDecision.AllowLocalExecution -> VoiceToolProposalResult.Valid(proposal, decision)
             is ToolExecutionDecision.RequireUserConfirmation -> VoiceToolProposalResult.Valid(proposal, decision)
             is ToolExecutionDecision.Reject -> VoiceToolProposalResult.Invalid(decision.reason)
+        }
+    }
+
+    private fun mapJsonProposal(json: String): VoiceToolProposalResult {
+        return when (val result = parser.parse(json)) {
+            is ToolCallParseResult.Valid -> mapToolProposal(result.proposal)
+            is ToolCallParseResult.Invalid -> VoiceToolProposalResult.Invalid(result.reason)
         }
     }
 

@@ -4,7 +4,7 @@ This document establishes the official specifications, parameters, safety constr
 
 Current implementation uses two tool layers:
 
-- **Native LiteRT-LM layer**: `WhatsAppTools` exposes three side-effect-free Gallery-style callbacks with `automaticToolCalling = true`.
+- **Native LiteRT-LM layer**: `WhatsAppTools` exposes side-effect-free Gallery-style callbacks with `automaticToolCalling = true`.
 - **App-level safety layer**: `WhatsAppToolRegistry` defines the sixteen local actions below. These are validated by `ToolCallParser`, routed by `ToolSafetyRouter`, displayed in confirmation UI when needed, and executed only through Kotlin boundaries.
 
 The model must never be treated as the final executor. Kotlin validates and resolves every high-risk action against live system state and explicit user confirmation.

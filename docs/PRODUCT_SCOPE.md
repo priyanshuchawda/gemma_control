@@ -44,7 +44,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **No Multi-App Scope (V1)**: The ingestion pipeline targets `"com.whatsapp"` or `"com.whatsapp.w4b"` exclusively in V1.
 - **No Python/Streamlit Elements**: Zero Python servers, desktop apps, or Streamlit dashboards.
 - **No Auto-Sending**: Headless automated sends are structurally blocked.
-- **No Automatic High-Risk Execution**: LiteRT-LM may call the small native `WhatsAppTools` callback surface, but those callbacks do not send WhatsApp messages, delete data, or change capture state. Kotlin validates and routes any high-risk action through explicit user confirmation.
+- **No Automatic High-Risk Execution**: LiteRT-LM may call the native `WhatsAppTools` callback surface, but those callbacks do not send WhatsApp messages, delete data, or change capture state. Kotlin validates and routes any high-risk action through explicit user confirmation.
 - **Limited Speech Input in V1**: English voice commands are supported for reading recent captured messages and preparing a reply to the latest active WhatsApp notification. Sending still requires manual confirmation.
 - **No Multilingual Examples**: Strictly English-only inputs, training sets, and user interfaces. No Hindi or Hinglish commands.
 - **No Unofficial APIs**: No Baileys, whatsapp-web.js, or AccessibilityService UI scripting.

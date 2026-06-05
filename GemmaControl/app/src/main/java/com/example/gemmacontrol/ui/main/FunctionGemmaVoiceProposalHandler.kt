@@ -120,7 +120,7 @@ class FunctionGemmaVoiceProposalHandler(
     ): VoiceAssistantState {
         return when (proposal.name) {
             WhatsAppToolName.ListRecentWhatsAppMessages -> {
-                VoiceAssistantState.CommandReady(VoiceCommand.ReadLatestMessages)
+                proposal.toReadCommandState()
             }
             WhatsAppToolName.SendReplyToActiveWhatsAppNotification -> {
                 proposal.toActiveReplyState(context)
@@ -154,6 +154,18 @@ class FunctionGemmaVoiceProposalHandler(
             decision = decision
         )
         return VoiceAssistantState.LocalToolConfirmationRequired(action)
+    }
+
+    private fun ToolProposal.toReadCommandState(): VoiceAssistantState.CommandReady {
+        val readMode = string("read_mode").orEmpty()
+        val conversationName = string("conversation_name")?.trim().orEmpty()
+        val command = when {
+            readMode == "summarize" -> VoiceCommand.SummarizeWhatsAppMessages
+            readMode == "continue" -> VoiceCommand.ContinueReadingMessages
+            conversationName.isNotBlank() -> VoiceCommand.ReadMessagesFromConversation(conversationName)
+            else -> VoiceCommand.ReadLatestMessages
+        }
+        return VoiceAssistantState.CommandReady(command)
     }
 
     private fun localToolConfirmationCopy(proposal: ToolProposal): LocalToolConfirmationCopy? {

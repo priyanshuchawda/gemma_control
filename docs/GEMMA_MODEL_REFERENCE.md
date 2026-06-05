@@ -213,7 +213,7 @@ Current code follows the safer pattern:
 
 ### Tool calling mode
 
-LiteRT-LM supports automatic and manual tool execution. Current code enables automatic callbacks for the small native `WhatsAppTools` surface, but automatic execution is not acceptable for sensitive actions.
+LiteRT-LM supports automatic and manual tool execution. Current code enables automatic callbacks for the native `WhatsAppTools` proposal surface, but automatic execution is not acceptable for sensitive actions.
 
 Required rule:
 
