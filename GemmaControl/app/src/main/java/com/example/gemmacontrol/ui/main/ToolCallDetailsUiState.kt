@@ -4,6 +4,7 @@ import com.example.gemmacontrol.ai.tools.ToolArgument
 import com.example.gemmacontrol.ai.tools.ToolConfirmationMode
 import com.example.gemmacontrol.ai.tools.ToolExecutionDecision
 import com.example.gemmacontrol.ai.tools.ToolExecutionScope
+import com.example.gemmacontrol.ai.tools.ToolSafetyLevel
 
 data class ToolCallDetailsUiState(
     val toolName: String,
@@ -21,7 +22,7 @@ data class ToolCallDetailRow(
 fun toolCallDetailsUiState(action: PendingLocalToolAction): ToolCallDetailsUiState {
     return ToolCallDetailsUiState(
         toolName = action.proposal.name.value,
-        safetyLabel = safetyLabel(action.decision),
+        safetyLabel = safetyLabel(action),
         boundaryLabel = "Kotlin validates and runs this local action after you approve it.",
         arguments = toolCallDetailRows(action.proposal.arguments)
     )
@@ -33,6 +34,15 @@ private fun toolCallDetailRows(arguments: Map<String, ToolArgument>): List<ToolC
             label = name,
             value = displayValue(value)
         )
+    }
+}
+
+private fun safetyLabel(action: PendingLocalToolAction): String {
+    return when (action.proposal.definition.safetyLevel) {
+        ToolSafetyLevel.OpenExternalApp -> "Opens WhatsApp after confirmation"
+        ToolSafetyLevel.SendMessage -> "Send message: strict manual confirmation"
+        ToolSafetyLevel.DeleteData -> "Delete local data: strict confirmation"
+        else -> safetyLabel(action.decision)
     }
 }
 

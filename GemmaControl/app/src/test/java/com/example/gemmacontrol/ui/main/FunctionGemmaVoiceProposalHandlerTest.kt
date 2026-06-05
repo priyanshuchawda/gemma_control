@@ -53,7 +53,9 @@ class FunctionGemmaVoiceProposalHandlerTest {
         )
 
         assertEquals(
-            VoiceAssistantState.Failure("The proposed WhatsApp notification is no longer active."),
+            VoiceAssistantState.Failure(
+                "That WhatsApp reply target is no longer active. Ask the sender to message again, then retry while the notification is still visible."
+            ),
             state
         )
     }

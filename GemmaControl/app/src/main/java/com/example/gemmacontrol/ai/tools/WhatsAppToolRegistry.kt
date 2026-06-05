@@ -133,13 +133,13 @@ class WhatsAppToolRegistry private constructor(
                 ToolDefinition(
                     name = WhatsAppToolName.OpenWhatsAppShareDraft,
                     description = "Open WhatsApp share flow with prepared text after user confirmation.",
-                    safetyLevel = ToolSafetyLevel.ConfirmationRequired,
+                    safetyLevel = ToolSafetyLevel.OpenExternalApp,
                     parameters = listOf(stringParam("message_text", required = true, "Draft text to share."))
                 ),
                 ToolDefinition(
                     name = WhatsAppToolName.OpenWhatsAppClickToChat,
                     description = "Open a verified E.164 WhatsApp click-to-chat draft after user confirmation.",
-                    safetyLevel = ToolSafetyLevel.ConfirmationRequired,
+                    safetyLevel = ToolSafetyLevel.OpenExternalApp,
                     parameters = listOf(
                         stringParam("phone_number_e164", required = true, "Verified E.164 phone number."),
                         stringParam("message_text", required = true, "Draft message text.")
@@ -148,7 +148,7 @@ class WhatsAppToolRegistry private constructor(
                 ToolDefinition(
                     name = WhatsAppToolName.SendReplyToActiveWhatsAppNotification,
                     description = "Send a reply through a live WhatsApp notification after strict manual confirmation.",
-                    safetyLevel = ToolSafetyLevel.StrictManualConfirmation,
+                    safetyLevel = ToolSafetyLevel.SendMessage,
                     parameters = listOf(
                         stringParam("notification_key", required = true, "Active Android notification key."),
                         stringParam("message_text", required = true, "Reply text.")
@@ -167,7 +167,7 @@ class WhatsAppToolRegistry private constructor(
                 ToolDefinition(
                     name = WhatsAppToolName.DeleteLocalWhatsAppData,
                     description = "Delete local WhatsApp data after user confirmation.",
-                    safetyLevel = ToolSafetyLevel.ConfirmationRequired,
+                    safetyLevel = ToolSafetyLevel.DeleteData,
                     parameters = listOf(
                         boolParam("delete_all", required = true, "Whether to delete all local data."),
                         stringParam("conversation_name", required = false, "Optional conversation filter.")

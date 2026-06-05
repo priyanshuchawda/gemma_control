@@ -204,7 +204,7 @@ class FunctionGemmaVoiceProposalHandler(
         val notificationKey = resolveNotificationKey(context)
         val replyText = string("message_text").orEmpty()
         if (notificationKey !in context.activeNotificationKeys) {
-            return VoiceAssistantState.Failure("The proposed WhatsApp notification is no longer active.")
+            return VoiceAssistantState.Failure(ExpiredActiveReplyTargetMessage)
         }
         if (replyText.isBlank()) {
             return VoiceAssistantState.Failure("FunctionGemma proposed an empty reply.")
@@ -239,3 +239,9 @@ class FunctionGemmaVoiceProposalHandler(
         )
     }
 }
+
+internal const val ExpiredActiveReplyTargetMessage =
+    "That WhatsApp reply target is no longer active. Ask the sender to message again, then retry while the notification is still visible."
+
+internal const val NoActiveReplyTargetMessage =
+    "No active WhatsApp reply notification is available. Ask the sender to message again, then retry while the notification is still visible."

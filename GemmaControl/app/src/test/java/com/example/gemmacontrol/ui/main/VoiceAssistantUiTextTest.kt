@@ -33,12 +33,12 @@ class VoiceAssistantUiTextTest {
     @Test
     fun failureSubtitleUsesSafeReason() {
         val subtitle = voiceAssistantSubtitle(
-            VoiceAssistantState.Failure("No active WhatsApp notification is available for reply."),
+            VoiceAssistantState.Failure(NoActiveReplyTargetMessage),
             isOffline = true,
             voiceInputMode = VoiceInputMode.TapToggle
         )
 
-        assertEquals("No active WhatsApp notification is available for reply.", subtitle)
+        assertEquals(NoActiveReplyTargetMessage, subtitle)
     }
 
     @Test

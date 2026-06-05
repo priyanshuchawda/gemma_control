@@ -23,7 +23,7 @@ class ToolSchemaExporterTest {
 
         val root = json.parseToJsonElement(schema).jsonObject
         assertEquals("send_reply_to_active_whatsapp_notification", root["name"]?.jsonPrimitive?.content)
-        assertTrue(root["description"]?.jsonPrimitive?.content.orEmpty().contains("strict manual confirmation"))
+        assertTrue(root["description"]?.jsonPrimitive?.content.orEmpty().contains("strict manual send confirmation"))
 
         val parameters = root.getValue("parameters").jsonObject
         assertEquals("object", parameters["type"]?.jsonPrimitive?.content)

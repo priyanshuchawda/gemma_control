@@ -23,7 +23,7 @@ This document records the truthful current state of completed modules, verified 
 | Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, unified voice/typed planner, adaptive TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, clarification handling, and confirmed local tool actions exist |
 | FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, native LiteRT `ToolSet` callback path, and Settings runtime benchmark dashboard exist. Physical latency/quality numbers still need capture. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
-| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
+| FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, risk-specific safety levels, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -49,7 +49,7 @@ This document records the truthful current state of completed modules, verified 
 - `AppShell.kt` / `AppDestination.kt` — Material 3 bottom navigation for Home, Voice, Inbox, and Settings after setup completion
 - `HomeDashboardScreen.kt` / `HomeDashboardViewModel.kt` / `HomeDashboardState.kt` — Production home dashboard with readiness summaries and one hero voice action
 - `MainScreen.kt` — Fully scrollable Compose UI with event cards, color-coded badges, permission status card, lock icon leading to Stored Inbox
-- `VoiceAssistantActionPanel.kt` / `ToolCallDetailsUiState.kt` — Bottom-sheet confirmation and visible FunctionGemma function-call metadata before local action execution
+- `VoiceAssistantActionPanel.kt` / `ToolCallDetailsUiState.kt` — Bottom-sheet confirmation and visible FunctionGemma function-call metadata with risk-specific safety labels before local action execution
 - `ActionableInboxSection.kt` / `StoredInboxActionableUiState.kt` — Actionable follow-up and priority-message section for Stored Inbox
 - `MainScreenViewModel.kt` — Exposes `StateFlow<MainScreenUiState>` bridging the listener's `capturedNotifications` flow
 - `ai/tools/WhatsAppTools.kt` — LiteRT-LM annotated `ToolSet` adapter for three high-level WhatsApp callbacks
@@ -155,7 +155,7 @@ The implementation has since been split and merged through later issue branches 
 
 ## 4. Next Technical Slice
 
-**Current local slice: P0 unified assistant planner complete locally.**
+**Current local slice: P0 tool safety and permission UX complete locally.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
 - **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for real WhatsApp media placeholders, adaptive TTS quality, microphone reliability, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
 - **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.
