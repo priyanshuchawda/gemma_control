@@ -20,7 +20,7 @@ This document records the truthful current state of completed modules, verified 
 | WhatsApp Content Classification | **IMPLEMENTED LOCALLY** — Parser tags text, media placeholders, missed calls, system notifications, hidden content, and unknown placeholders before storage/read output |
 | Room Persistence | **COMPLETE** — Secure local inbox backed by Room, encrypted at rest via AES-GCM backed by Android Keystore |
 | Direct Reply Execution | **IMPLEMENTED LOCALLY** — User-confirmed `RemoteInput` executor exists; needs fresh physical-device validation |
-| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, adaptive TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, and confirmed local tool actions exist |
+| Voice Assistant MVP | **IMPLEMENTED LOCALLY** — Speech recognition, unified voice/typed planner, adaptive TTS read-aloud, partial transcript, waveform, persisted tap/hold input modes, streaming response UI state, FunctionGemma proposal bridge for installed models, active-notification reply confirmation, clarification handling, and confirmed local tool actions exist |
 | FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, native LiteRT `ToolSet` callback path, and Settings runtime benchmark dashboard exist. Physical latency/quality numbers still need capture. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, bounded prompt builder, and visible confirmation-time function-call details exist |
@@ -82,6 +82,7 @@ This document records the truthful current state of completed modules, verified 
 - `FunctionGemmaModelCard.kt` / `ModelRuntimeBenchmarkCard.kt` / `SettingsScreen.kt` — Production-shaped FunctionGemma MobileActions model card with status-first UI, WorkManager progress/cancel support, collapsed manual URL/SHA input, and a no-download runtime benchmark card
 - `ServiceLocator.kt` — Provides the app-wide `GemmaModelManager` singleton
 - `VoiceAssistantViewModel.kt` — Voice command state holder with speech recognition, adaptive content-kind-aware TTS, continuation cursor, and proposal validation before reply confirmation
+- `AssistantPlanner.kt` — Shared voice/typed planning layer that routes deterministic read/reply shortcuts, FunctionGemma proposal requests, and clarification fallbacks through explicit plan types
 - `VoiceReadAloudBuilder.kt` — JVM-testable adaptive read planner for direct reads, multi-chat summaries, continue/read-more windows, chat-specific reads, important-only reads, and emoji cleanup
 - `VoiceModels.kt` — Deterministic voice parser for read latest, continue, summarize, chat-specific reads, important-only reads, and strict latest-notification reply commands
 - `FunctionGemmaVoiceProposalHandler.kt` — JVM-testable bridge from validated FunctionGemma proposal results to voice UI states, including read-latest, active notification replies, and confirmed local capture/delete actions
@@ -154,7 +155,7 @@ The implementation has since been split and merged through later issue branches 
 
 ## 4. Next Technical Slice
 
-**Current local slice: P0 adaptive WhatsApp read-aloud complete locally.**
+**Current local slice: P0 unified assistant planner complete locally.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
 - **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for real WhatsApp media placeholders, adaptive TTS quality, microphone reliability, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
 - **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.

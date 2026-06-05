@@ -23,6 +23,7 @@ fun voiceAssistantActionPresentation(state: VoiceAssistantState): VoiceActionPre
         is VoiceAssistantState.ConfirmationRequired,
         is VoiceAssistantState.LocalToolConfirmationRequired,
         is VoiceAssistantState.LocalToolSucceeded,
+        is VoiceAssistantState.ClarificationRequired,
         is VoiceAssistantState.Failure,
         VoiceAssistantState.LanguagePackMissingError,
         VoiceAssistantState.ConfirmSystemRecognitionConsent -> VoiceActionPresentation.BottomSheet
