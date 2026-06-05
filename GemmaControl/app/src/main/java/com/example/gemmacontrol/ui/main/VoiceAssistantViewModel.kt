@@ -14,6 +14,7 @@ import com.example.gemmacontrol.ai.tools.GemmaMessageContext
 import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
 import com.example.gemmacontrol.ai.tools.PhoneContextSnapshotBuilder
 import com.example.gemmacontrol.ai.tools.ToolExecutionResult
+import com.example.gemmacontrol.ai.tools.WhatsAppToolAction
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 import com.example.gemmacontrol.ai.tools.WhatsAppLocalToolExecutor
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
@@ -191,7 +192,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             }
             is AssistantPlan.ReplyCommand -> {
                 _state.value = VoiceAssistantState.CommandReady(plan.command)
-                prepareVoiceReply(plan.command.replyText)
+                prepareVoiceReply(plan.command)
+            }
+            is AssistantPlan.NamedReplyCommand -> {
+                _state.value = VoiceAssistantState.CommandReady(plan.command)
+                prepareNamedReply(plan.command)
             }
             is AssistantPlan.AskClarification -> {
                 _state.value = VoiceAssistantState.ClarificationRequired(plan.prompt)
@@ -274,47 +279,85 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    private fun prepareVoiceReply(replyText: String) {
+    private fun prepareVoiceReply(command: VoiceCommand.ReplyToLatestActiveMessage) {
         viewModelScope.launch {
             val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
-            if (activeKeys.isEmpty()) {
-                _state.value = VoiceAssistantState.Failure(NoActiveReplyTargetMessage)
-                return@launch
-            }
-
             val decryptedMessages = repository.getAllDecryptedMessages()
-            val latestActiveMessage = decryptedMessages
-                .filter { it.notificationKey in activeKeys }
-                .maxByOrNull { it.postedAt }
+            val targets = activeReplyTargets(activeKeys, decryptedMessages)
 
-            if (latestActiveMessage == null) {
-                // Fallback to active key directly if DB message is missing
-                val fallbackKey = activeKeys.first()
-                val proposal = toolProposalMapper.mapActiveNotificationReply(fallbackKey, replyText)
+            applyReplyResolution(
+                VoiceReplyTargetResolver.resolveLatest(
+                    replyText = command.replyText,
+                    explicitLatest = command.explicitLatest,
+                    targets = targets
+                )
+            )
+        }
+    }
+
+    private fun prepareNamedReply(command: VoiceCommand.ReplyToConversation) {
+        viewModelScope.launch {
+            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            val decryptedMessages = repository.getAllDecryptedMessages()
+            val targets = activeReplyTargets(activeKeys, decryptedMessages)
+
+            applyReplyResolution(
+                VoiceReplyTargetResolver.resolveNamed(
+                    conversationName = command.conversationName,
+                    replyText = command.replyText,
+                    targets = targets
+                )
+            )
+        }
+    }
+
+    private fun activeReplyTargets(
+        activeKeys: Set<String>,
+        decryptedMessages: List<com.example.gemmacontrol.data.repository.StoredInboxRepository.DecryptedMessage>
+    ): List<ActiveReplyTarget> {
+        val latestMessageByKey = decryptedMessages
+            .filter { it.notificationKey in activeKeys }
+            .groupBy { it.notificationKey }
+            .mapValues { (_, messages) -> messages.maxBy { it.postedAt } }
+
+        return activeKeys.map { notificationKey ->
+            val message = latestMessageByKey[notificationKey]
+            ActiveReplyTarget(
+                notificationKey = notificationKey,
+                conversationTitle = message?.conversationId ?: "Latest Conversation",
+                postedAt = message?.postedAt ?: Long.MIN_VALUE
+            )
+        }
+    }
+
+    private fun applyReplyResolution(resolution: VoiceReplyTargetResolution) {
+        when (resolution) {
+            is VoiceReplyTargetResolution.Active -> {
+                val proposal = toolProposalMapper.mapActiveNotificationReply(
+                    notificationKey = resolution.draft.notificationKey,
+                    replyText = resolution.draft.replyText
+                )
                 if (proposal is VoiceToolProposalResult.Invalid) {
                     _state.value = VoiceAssistantState.Failure(proposal.reason)
-                    return@launch
+                    return
                 }
-                _state.value = VoiceAssistantState.ConfirmationRequired(
-                    PendingVoiceReply(
-                        notificationKey = fallbackKey,
-                        replyText = replyText,
-                        conversationTitle = "Latest Conversation"
+                _state.value = VoiceAssistantState.ConfirmationRequired(resolution.draft)
+            }
+            is VoiceReplyTargetResolution.Draft -> {
+                _state.value = functionGemmaProposalHandler.resolve(
+                    result = GemmaEngineResult.NativeToolAction(
+                        action = WhatsAppToolAction.DraftReply(
+                            conversationName = resolution.conversationName,
+                            messageText = resolution.replyText
+                        )
+                    ),
+                    context = FunctionGemmaVoiceProposalContext(
+                        activeNotificationKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
                     )
                 )
-            } else {
-                val proposal = toolProposalMapper.mapActiveNotificationReply(latestActiveMessage.notificationKey, replyText)
-                if (proposal is VoiceToolProposalResult.Invalid) {
-                    _state.value = VoiceAssistantState.Failure(proposal.reason)
-                    return@launch
-                }
-                _state.value = VoiceAssistantState.ConfirmationRequired(
-                    PendingVoiceReply(
-                        notificationKey = latestActiveMessage.notificationKey,
-                        replyText = replyText,
-                        conversationTitle = latestActiveMessage.conversationId
-                    )
-                )
+            }
+            is VoiceReplyTargetResolution.Clarification -> {
+                _state.value = VoiceAssistantState.ClarificationRequired(resolution.prompt)
             }
         }
     }

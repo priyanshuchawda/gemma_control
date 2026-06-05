@@ -145,6 +145,12 @@ sealed interface VoiceCommand {
     }
 
     data class ReplyToLatestActiveMessage(
+        val replyText: String,
+        val explicitLatest: Boolean = false
+    ) : VoiceCommand
+
+    data class ReplyToConversation(
+        val conversationName: String,
         val replyText: String
     ) : VoiceCommand
 
@@ -200,6 +206,7 @@ object VoiceCommandParser {
             ?: importantMessagesCommand(lower)
             ?: readMessagesFromConversationCommand(trimmed)
             ?: readLatestMessagesCommand(lower)
+            ?: replyToNamedConversationCommand(trimmed)
             ?: replyToLatestMessageCommand(trimmed, lower)
             ?: defaultUnsupportedCommand()
     }
@@ -299,11 +306,51 @@ object VoiceCommandParser {
             cleaned.length > MaxVoiceReplyCharacters -> VoiceCommand.Unsupported(
                 "Reply text is too long (maximum $MaxVoiceReplyCharacters characters)."
             )
-            else -> VoiceCommand.ReplyToLatestActiveMessage(cleaned)
+            else -> VoiceCommand.ReplyToLatestActiveMessage(
+                replyText = cleaned,
+                explicitLatest = prefix.contains("latest")
+            )
+        }
+    }
+
+    private fun replyToNamedConversationCommand(trimmed: String): VoiceCommand? {
+        val match = NamedReplyRegex.find(trimmed.trim()) ?: return null
+        val conversationName = match.groupValues[1].trim()
+        val replyText = match.groupValues[2].trim()
+        if (conversationName.isLatestReplyTarget()) {
+            return null
+        }
+        return when {
+            conversationName.isEmpty() -> VoiceCommand.Unsupported("Reply target chat cannot be empty.")
+            replyText.isEmpty() -> VoiceCommand.Unsupported("Reply text cannot be empty.")
+            replyText.length > MaxVoiceReplyCharacters -> VoiceCommand.Unsupported(
+                "Reply text is too long (maximum $MaxVoiceReplyCharacters characters)."
+            )
+            else -> VoiceCommand.ReplyToConversation(
+                conversationName = conversationName,
+                replyText = replyText
+            )
         }
     }
 
     private fun defaultUnsupportedCommand(): VoiceCommand.Unsupported {
         return VoiceCommand.Unsupported("I can currently read captured messages or reply to the latest active WhatsApp notification.")
+    }
+
+    private val NamedReplyRegex = Regex(
+        pattern = """^(?:reply to|tell|draft reply to)\s+(.+?)(?:\s+that|:)\s+(.+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+
+    private fun String.isLatestReplyTarget(): Boolean {
+        val normalized = lowercase(Locale.US).trim()
+        return normalized == "it" ||
+            normalized == "them" ||
+            normalized == "latest" ||
+            normalized == "the latest" ||
+            normalized == "latest message" ||
+            normalized == "the latest message" ||
+            normalized == "latest one" ||
+            normalized == "the latest one"
     }
 }
