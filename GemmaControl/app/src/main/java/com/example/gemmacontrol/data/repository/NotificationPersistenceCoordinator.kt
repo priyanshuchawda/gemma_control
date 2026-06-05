@@ -4,6 +4,7 @@ import com.example.gemmacontrol.data.preferences.CapturePreferencesRepository
 import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.RecentOutgoingReplyEchoSuppressor
 import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import com.example.gemmacontrol.notifications.latestContentKind
 import kotlinx.coroutines.flow.first
@@ -44,6 +45,10 @@ class NotificationPersistenceCoordinator(
         }
 
         if (event.isContentUnavailable && latestContentKind != WhatsAppContentKind.HIDDEN) {
+            return
+        }
+
+        if (RecentOutgoingReplyEchoSuppressor.shouldSuppress(event)) {
             return
         }
 

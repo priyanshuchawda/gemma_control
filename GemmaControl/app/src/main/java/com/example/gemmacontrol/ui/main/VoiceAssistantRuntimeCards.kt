@@ -76,7 +76,7 @@ internal fun SpeakingMessagesCard(onStopSpeaking: () -> Unit) {
         ) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
             Text(
-                "Reading latest messages aloud...",
+                "Reading stored messages aloud...",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onTertiaryContainer
             )

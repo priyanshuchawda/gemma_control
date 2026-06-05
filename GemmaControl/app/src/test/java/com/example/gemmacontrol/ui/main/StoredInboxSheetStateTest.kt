@@ -11,9 +11,27 @@ class StoredInboxSheetStateTest {
         val message = decryptedMessage()
 
         assertEquals("Enable Local Storage?", storedInboxSheetTitle(StoredInboxSheet.EnableStorage))
-        assertEquals("Delete All Messages?", storedInboxSheetTitle(StoredInboxSheet.DeleteAll))
+        assertEquals("Delete all stored messages?", storedInboxSheetTitle(StoredInboxSheet.DeleteAll))
+        assertEquals(
+            "Delete stored messages from Mom?",
+            storedInboxSheetTitle(StoredInboxSheet.DeleteConversation("Mom"))
+        )
         assertEquals("Reply to Mom", storedInboxSheetTitle(StoredInboxSheet.ComposeReply(message)))
         assertEquals("Confirm Send?", storedInboxSheetTitle(StoredInboxSheet.ConfirmReply(message)))
+    }
+
+    @Test
+    fun buildStoredInboxCleanupState_exposesVisibleDeleteActionsWhenMessagesExist() {
+        val state = buildStoredInboxCleanupState(
+            messages = listOf(
+                decryptedMessage().copy(conversationId = "Mom"),
+                decryptedMessage().copy(id = "message-2", conversationId = "Work")
+            )
+        )
+
+        assertEquals(true, state.hasMessages)
+        assertEquals("Delete all stored messages", state.deleteAllLabel)
+        assertEquals(listOf("Mom", "Work"), state.conversationNames)
     }
 
     private fun decryptedMessage(): StoredInboxRepository.DecryptedMessage {
