@@ -22,6 +22,8 @@ Gemma 4 E2B or Gemma 3n E2B
  -> optional later summarizer / multimodal reasoner only after benchmarks
 ```
 
+Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
+
 Do not treat one generative model as if it can "access the phone". The app must build truthful Android context, the model can propose a tool, and Kotlin must validate and execute.
 
 ## Model Fit Table
@@ -31,8 +33,8 @@ Do not treat one generative model as if it can "access the phone". The app must 
 | FunctionGemma | Gemma 3 270M variant specialized for function calling | Route user voice/text commands to typed local tools | Required first model |
 | EmbeddingGemma | 300M/308M text embedding model | Semantic search, retrieval, clustering, classification over captured messages | Evaluate after #120/#113 |
 | LiteRT-LM | Android/JVM runtime for `.litertlm` LLMs with tools and multimodality support | Load FunctionGemma, create conversations, stream output, expose tool calls | Current runtime |
-| Gemma 4 E2B | Small effective-parameter Gemma 4 model | Later summarization/reasoning/audio/image if benchmarks pass | Evaluation only |
-| Gemma 3n E2B | Device-optimized multimodal model | Later summarization/audio/image if Gemma 4 path is not practical | Evaluation only |
+| Gemma 4 E2B | Small effective-parameter Gemma 4 model | Later summarization/reasoning/audio/image if benchmarks pass | Deferred by #117 |
+| Gemma 3n E2B | Device-optimized multimodal model | Later summarization/audio/image if Gemma 4 path is not practical | Deferred by #117 |
 | PaliGemma | Vision-language model | Image understanding when actual image bytes are available | Not for WhatsApp notification placeholders |
 | ShieldGemma 2 | Image safety classifier | Future image/media safety gate | Not needed for v1 |
 | FunctionGemma fine-tune | Custom routing model trained on app-specific examples | Improve routing if prompts/tool descriptions are insufficient | Later only |
@@ -257,6 +259,8 @@ Gemma 4 is the newer general Gemma generation family. Official docs describe it 
 
 The official memory estimates for Gemma 4 E2B are still far heavier than FunctionGemma, even with quantization. On the connected Xiaomi/Redmi device, a second generative model can create load-time, memory, cache, and thermal problems.
 
+The #117 decision keeps Gemma 4 out of V1 summarization. See [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md).
+
 Use only after:
 
 - #120 benchmark exists.
@@ -298,11 +302,12 @@ Gemma 3n E2B may be useful later for:
 
 ### Current decision
 
-Evaluation only. It should not be added before:
+Deferred by #117. It should not be added before:
 
 - FunctionGemma routing is benchmarked.
 - EmbeddingGemma retrieval is evaluated.
 - Device memory/thermal data supports another model.
+- The user explicitly approves model download/import.
 
 ## PaliGemma
 
@@ -392,7 +397,7 @@ New modules to add in future issues:
 | `EmbeddingGemmaModelCatalog` | future #113 follow-up | Defines allowed embedding model artifacts after approval. |
 | `MessageEmbeddingStore` | future #113 follow-up | Stores sensitive local embeddings per message/summary. |
 | `SemanticContextSelector` | #113/#114 | Mixes recency and embedding relevance into compact prompt context. |
-| `ModelDecisionReport` | #109/#117 | Records whether a bigger model is justified. |
+| `LocalSummarizationModelDecision` | #117 | Records that V1 does not add a second generative summarizer and defines the benchmark gate for revisiting it. |
 
 ## Source Links
 

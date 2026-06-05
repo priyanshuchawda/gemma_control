@@ -49,7 +49,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **No Multilingual Examples**: Strictly English-only inputs, training sets, and user interfaces. No Hindi or Hinglish commands.
 - **No Unofficial APIs**: No Baileys, whatsapp-web.js, or AccessibilityService UI scripting.
 - **No Vector Embeddings in V1**: EmbeddingGemma integration is deferred to V2.
-- **No High-Level Summarizers in V1**: Gemma 4 integration is deferred to V3.
+- **No Second Generative Summarizer in V1**: Gemma 4 and Gemma 3n summarization are deferred by [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md) until benchmark evidence and explicit model approval exist.
 
 ---
 

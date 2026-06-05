@@ -54,6 +54,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── GEMMA_ASSISTANT_USAGE_PLAN.md # App-specific model usage roadmap
 │   ├── OFFLINE_MODEL_STRATEGY_DECISION.md # No-download model architecture decision for #109
 │   ├── EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md # No-download semantic retrieval spike for #113
+│   ├── LOCAL_SUMMARIZATION_MODEL_DECISION.md # No-download Gemma 4/Gemma 3n decision for #117
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
 │   ├── REAL_DEVICE_ASSISTANT_TEST_MATRIX.md # Manual assistant/device validation matrix

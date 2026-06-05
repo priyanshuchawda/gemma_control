@@ -12,6 +12,8 @@ Offline model decision: [OFFLINE_MODEL_STRATEGY_DECISION.md](OFFLINE_MODEL_STRAT
 
 Embedding memory plan: [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md)
 
+Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
+
 ## Product Goal
 
 GemmaControl should make one Android phone easier to use through natural voice/text commands while keeping private data local.
@@ -342,9 +344,11 @@ Issues:
 - #109 Offline model strategy.
 - #117 Gemma 4 or Gemma 3n optional summarization.
 
+Decision note: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
+
 ### When larger model is justified
 
-Only consider Gemma 4 E2B or Gemma 3n E2B if all are true:
+For V1, do not add Gemma 4 or Gemma 3n. Only reconsider Gemma 4 E2B or Gemma 3n E2B later if all are true:
 
 - #120 shows enough memory/thermal/load-time headroom.
 - #103 summaries are too weak with deterministic Kotlin summaries.
@@ -452,7 +456,7 @@ Current decision:
 | #113 | `ExactMessageEmbeddingIndex` | Exact cosine top-k retrieval scaffold for the first no-model prototype and later small local indexes. |
 | #113 | `MessageEmbeddingStore` | Future sensitive local embedding persistence after explicit model approval. |
 | #113 | `SemanticContextSelector` | Combines recency and embedding relevance. |
-| #117 | `SummarizationModelDecisionReport` | Documents whether a bigger model is justified. |
+| #117 | `LocalSummarizationModelDecision` | Documents that V1 stays rules-first and no second generative model is approved. |
 
 ## Benchmark Requirements
 
