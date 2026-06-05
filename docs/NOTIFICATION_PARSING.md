@@ -13,7 +13,7 @@ Design reference for the `WhatsApp Notification Listener` and `WhatsApp Notifica
               ↓
 [ WhatsAppNotificationListener.onNotificationPosted ]
               ↓
-[ Package allowlist check — com.whatsapp / com.whatsapp.w4b ]
+[ Generic source catalog check — only WhatsApp packages are enabled ]
               ↓
 [ Determine POSTED vs UPDATED via activeKeys set ]
               ↓
@@ -75,6 +75,10 @@ val text  = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 ```
 
 **Limitation**: the fallback path does not expose `isGroupConversation`. Events parsed this way receive `ConversationType.UNKNOWN`.
+
+### Generic Source Boundary
+
+`WhatsAppNotificationParser.isPackageSupported()` delegates to `NotificationSourceCatalog.isProductionCaptureEnabled(packageName)`. The catalog can describe WhatsApp, SMS, Gmail, Phone, Calendar, and Other sources, but only WhatsApp is enabled for production capture in V1. Details: [GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md](GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md).
 
 ### C. Conversation Classification Logic
 
@@ -144,5 +148,6 @@ To normalize this pattern and prevent duplicate inbox entries:
 ## 6. Execution Constraints
 
 - **No AI inference inside listener callbacks.** LiteRT-LM / FunctionGemma calls are strictly deferred to user-triggered flows.
+- **No broad source capture.** The generic source catalog exists for future work, but the listener still captures only enabled WhatsApp sources.
 - **Room writes require explicit storage consent.** The volatile `MutableStateFlow` remains available for the live capture feed even when storage is off.
 - Listener state mutations happen through a coroutine-backed flow update path and are capped to the latest 100 events.

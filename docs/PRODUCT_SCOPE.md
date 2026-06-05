@@ -41,7 +41,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 
 ## 3. Scope Exclusions (Strict Non-Goals for V1)
 
-- **No Multi-App Scope (V1)**: The ingestion pipeline targets `"com.whatsapp"` or `"com.whatsapp.w4b"` exclusively in V1.
+- **No Multi-App Scope (V1)**: The ingestion pipeline targets `"com.whatsapp"` or `"com.whatsapp.w4b"` exclusively in V1. [GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md](GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md) defines future SMS/Gmail/Phone/Calendar source shapes, but those sources are not production-enabled and cannot reply/send.
 - **No Python/Streamlit Elements**: Zero Python servers, desktop apps, or Streamlit dashboards.
 - **No Auto-Sending**: Headless automated sends are structurally blocked.
 - **No Automatic High-Risk Execution**: LiteRT-LM may call the native `WhatsAppTools` callback surface, but those callbacks do not send WhatsApp messages, delete data, or change capture state. Kotlin validates and routes any high-risk action through explicit user confirmation.

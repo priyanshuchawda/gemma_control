@@ -10,13 +10,13 @@ import java.util.Locale
 
 object WhatsAppNotificationParser {
 
-    val SUPPORTED_PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
+    val SUPPORTED_PACKAGES = NotificationSourceCatalog.whatsappPackageNames
 
     /**
      * Determines whether a package name belongs to a supported WhatsApp variant.
      */
     fun isPackageSupported(packageName: String?): Boolean {
-        return packageName != null && SUPPORTED_PACKAGES.contains(packageName)
+        return NotificationSourceCatalog.isProductionCaptureEnabled(packageName)
     }
 
     fun classifyMessageContent(messageText: String?): WhatsAppContentKind {

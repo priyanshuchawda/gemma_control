@@ -31,6 +31,7 @@ This document records the truthful current state of completed modules, verified 
 | Accessibility Service Decision | **DEFERRED FROM V1** — #122 documents Accessibility as V2 assistive-mode evaluation only; no service is implemented and no production tool depends on it |
 | Media Understanding Boundary | **DEFERRED FROM V1** — #118 defines placeholder-only notification behavior, future user-selected media/URI states, and a no-model policy guard; no media permission or vision model is added |
 | Assistant Safety Policy | **IMPLEMENTED LOCALLY** — #119 maps tool and media-operation safety levels to deterministic Kotlin gates; ShieldGemma/ShieldGemma 2 are future-only and no safety model is added |
+| Generic Notification Source Abstraction | **IMPLEMENTED LOCALLY** — #110 defines WhatsApp/SMS/Gmail/Phone/Calendar/Other source descriptors and common query/event projection types while keeping only WhatsApp enabled for capture/reply |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -77,6 +78,7 @@ This document records the truthful current state of completed modules, verified 
 - `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` / `docs/function_gemma_finetune_dataset_template.jsonl` — #116 no-training decision, benchmark gate, privacy rules, and synthetic dataset template for future FunctionGemma routing evaluation
 - `ai/media/MediaUnderstandingPolicy.kt` / `docs/MEDIA_UNDERSTANDING_BOUNDARY.md` — #118 no-model media boundary for notification placeholders, future user-selected files, scoped URI grants, and unsupported media states
 - `ai/safety/AssistantSafetyPolicy.kt` / `docs/ASSISTANT_SAFETY_POLICY.md` — #119 deterministic V1 safety mapping for read/local-write/confirm/open/send/delete/media-analysis/reject levels and future ShieldGemma gates
+- `notifications/NotificationSourceModels.kt` / `docs/GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md` — #110 generic source catalog, common query scope, generic event projection, and WhatsApp-only enabled source gate
 - `ai/semantic/EmbeddingGemmaSemanticMemory.kt` / `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — No-model semantic retrieval scaffold with prompt formatting, provider boundary, exact cosine top-k ranking, fake-embedder test prototype, storage cost estimates, and privacy gates
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
@@ -136,6 +138,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` — #116 no-training FunctionGemma fine-tuning gate and synthetic dataset contract
 - `docs/MEDIA_UNDERSTANDING_BOUNDARY.md` — #118 placeholder-only media policy, future Photo Picker/scoped URI path, and candidate vision-model separation
 - `docs/ASSISTANT_SAFETY_POLICY.md` — #119 deterministic assistant safety policy and ShieldGemma/ShieldGemma 2 future gate
+- `docs/GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md` — #110 WhatsApp-first source abstraction and future SMS/Gmail/Phone/Calendar gating
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
@@ -146,6 +149,7 @@ The implementation has since been split and merged through later issue branches 
 - `FunctionGemmaRoutingBenchmarkCorpusTest.kt` — Unit coverage for routing corpus categories, enriched tool descriptions, unsupported workflow fallback, no-model baseline, and the synthetic fine-tuning template coverage/safety labels
 - `MediaUnderstandingPolicyTest.kt` — Unit coverage that notification media placeholders cannot inspect bytes or enter a model path, while future user-selected image/video states require granted access and confirmation
 - `AssistantSafetyPolicyTest.kt` — Unit coverage that all registered tool safety levels map to deterministic V1 policy levels and future media analysis maps to a ShieldGemma 2 gate
+- `NotificationSourceCatalogTest.kt` — Unit coverage that only WhatsApp is production-enabled, future sources are planned but action-disabled, and generic WhatsApp event projection works
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
 - Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 

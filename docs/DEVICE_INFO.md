@@ -396,7 +396,7 @@ ADB must not be treated as product capability:
 - #118: media understanding boundary is placeholder-only for V1; actual image/file analysis needs user-selected media or scoped URI access.
 - #119: assistant safety policy is deterministic for V1; ShieldGemma/ShieldGemma 2 remain future-only gates.
 - #122: Accessibility service only after permission/capability and safety evaluation.
-- #110: generic notification source abstraction after WhatsApp pipeline is reliable.
+- #110: generic notification source abstraction exists, with only WhatsApp enabled for V1 capture/reply.
 
 ## Model Decision Notes For This Device
 

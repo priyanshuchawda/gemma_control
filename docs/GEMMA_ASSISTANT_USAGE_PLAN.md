@@ -22,6 +22,8 @@ Media understanding boundary: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTAND
 
 Assistant safety policy: [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md)
 
+Generic notification source abstraction: [GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md](GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md)
+
 ## #112 Roadmap Status
 
 The #112 P1 model architecture roadmap is now defined for the current device:
@@ -54,6 +56,8 @@ Reliable WhatsApp notification assistant
  -> semantic retrieval
  -> optional broader phone control after capability review
 ```
+
+The broader notification-source foundation is documented in [GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md](GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md). WhatsApp remains the only enabled V1 production source.
 
 ## Required Architecture
 
@@ -490,6 +494,8 @@ Current decision:
 | #113 | `MessageEmbeddingStore` | Future sensitive local embedding persistence after explicit model approval. |
 | #113 | `SemanticContextSelector` | Combines recency and embedding relevance. |
 | #117 | `LocalSummarizationModelDecision` | Documents that V1 stays rules-first and no second generative model is approved. |
+| #110 | `NotificationSourceCatalog` | Defines WhatsApp/SMS/Gmail/Phone/Calendar/Other source descriptors while keeping only WhatsApp enabled. |
+| #110 | `NotificationQueryScope` / `ParsedNotificationEvent` | Common future read/summarize/search event/query shapes without enabling non-WhatsApp actions. |
 
 ## Benchmark Requirements
 
@@ -540,6 +546,7 @@ done: #122 Accessibility decision, no Accessibility service in V1
 done: #116 FunctionGemma fine-tuning evaluation, no training/model import now
 done: #118 media understanding boundary, placeholder-only in V1
 done: #119 ShieldGemma-style safety assessment, deterministic V1 gates
+done: #110 generic notification source abstraction, WhatsApp-only enabled
 ```
 
 FunctionGemma remains the only required model until measured evidence says otherwise.
