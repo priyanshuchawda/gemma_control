@@ -21,6 +21,8 @@ This matrix defines what GemmaControl can actually do on the current Xiaomi Redm
 | Accessibility service | Accessibility service, V2 evaluation only | Could read visible screen text or perform narrow UI actions only if explicitly approved later. | Does not read WhatsApp databases, recover hidden content, or allow silent sends/destructive actions. | High-risk assistive mode; no V1 production tools. | Not requested in current V1; future setup requires explicit disclosure and manual enablement. | [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md), future policy review, and physical Xiaomi persistence tests. |
 | ADB | USB debugging / developer bridge | Install, inspect, and test during development. | Never real-user app functionality. | Development-only, excluded from tools. | Developer-only USB debugging. | Development terminal commands only. |
 
+Generic source planning is documented in [GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md](GENERIC_NOTIFICATION_SOURCE_ABSTRACTION.md). SMS, Gmail, Phone, Calendar, and Other sources are not enabled V1 production capabilities.
+
 ## Tool Capability Mapping
 
 | Tool | Capability source(s) | Missing-capability response |
@@ -45,6 +47,7 @@ This matrix defines what GemmaControl can actually do on the current Xiaomi Redm
 ## Product Rules
 
 - ADB-only abilities are excluded from every production tool requirement.
+- Non-WhatsApp notification sources are not production-enabled and must not receive reply/send actions accidentally.
 - Missing capabilities must produce setup guidance instead of a hallucinated success message.
 - FunctionGemma can propose tools, but Kotlin validates capability state, safety level, parameters, and confirmation before execution. The deterministic safety policy is documented in [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md).
 - Accessibility, contacts, calendar, media, EmbeddingGemma, and extra Gemma models remain future decisions and are not required for the current WhatsApp V1 path. Media is placeholder-only in V1 per [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md). Accessibility is specifically deferred by [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md).
