@@ -29,6 +29,7 @@ This document records the truthful current state of completed modules, verified 
 | EmbeddingGemma Semantic Memory | **NO-MODEL SCAFFOLD IMPLEMENTED LOCALLY** — Query/document prompt formatter, provider interface, exact cosine index, fake-embedder prototype tests, and storage/privacy plan exist; no EmbeddingGemma artifact is downloaded or bundled |
 | Local Summarization Model Decision | **DECIDED FOR V1** — #117 keeps summaries rules-first with FunctionGemma as router only; Gemma 4/Gemma 3n require future benchmark evidence and explicit model approval |
 | Accessibility Service Decision | **DEFERRED FROM V1** — #122 documents Accessibility as V2 assistive-mode evaluation only; no service is implemented and no production tool depends on it |
+| Media Understanding Boundary | **DEFERRED FROM V1** — #118 defines placeholder-only notification behavior, future user-selected media/URI states, and a no-model policy guard; no media permission or vision model is added |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -73,6 +74,7 @@ This document records the truthful current state of completed modules, verified 
 - `ai/tools/PhoneContextSnapshot.kt` / `ai/tools/GemmaPromptBuilder.kt` — Compact phone-context builder for FunctionGemma calls with active notification, unread chat summary, relevant message, `content_kind`, priority, and reply availability facts
 - `FunctionGemmaRoutingBenchmarkCorpusTest.kt` / `docs/FUNCTION_GEMMA_ROUTING_BENCHMARK.md` — Offline FunctionGemma routing corpus and baseline for natural WhatsApp assistant commands without downloading or executing a model
 - `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` / `docs/function_gemma_finetune_dataset_template.jsonl` — #116 no-training decision, benchmark gate, privacy rules, and synthetic dataset template for future FunctionGemma routing evaluation
+- `ai/media/MediaUnderstandingPolicy.kt` / `docs/MEDIA_UNDERSTANDING_BOUNDARY.md` — #118 no-model media boundary for notification placeholders, future user-selected files, scoped URI grants, and unsupported media states
 - `ai/semantic/EmbeddingGemmaSemanticMemory.kt` / `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — No-model semantic retrieval scaffold with prompt formatting, provider boundary, exact cosine top-k ranking, fake-embedder test prototype, storage cost estimates, and privacy gates
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
@@ -130,6 +132,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/LOCAL_SUMMARIZATION_MODEL_DECISION.md` — #117 no-download decision keeping Gemma 4/Gemma 3n out of V1, with summary benchmark scenarios and approval gates
 - `docs/ACCESSIBILITY_SERVICE_EVALUATION.md` — #122 V1/V2 Accessibility decision, capability comparison, safety policy, and prototype gate
 - `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` — #116 no-training FunctionGemma fine-tuning gate and synthetic dataset contract
+- `docs/MEDIA_UNDERSTANDING_BOUNDARY.md` — #118 placeholder-only media policy, future Photo Picker/scoped URI path, and candidate vision-model separation
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
@@ -138,6 +141,7 @@ The implementation has since been split and merged through later issue branches 
 - `VoiceReadAloudBuilderTest.kt` — Unit coverage for 0, 1, 3, 4+, multi-chat, continue, chat-specific, important-only, summarize, and emoji-cleanup read-aloud cases
 - `EmbeddingGemmaSemanticMemoryTest.kt` — Unit coverage for retrieval prompt formatting, truthful media placeholders, exact cosine ranking, dimension mismatch filtering, and fake-embedder sample retrieval without a real model
 - `FunctionGemmaRoutingBenchmarkCorpusTest.kt` — Unit coverage for routing corpus categories, enriched tool descriptions, unsupported workflow fallback, no-model baseline, and the synthetic fine-tuning template coverage/safety labels
+- `MediaUnderstandingPolicyTest.kt` — Unit coverage that notification media placeholders cannot inspect bytes or enter a model path, while future user-selected image/video states require granted access and confirmation
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
 - Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 

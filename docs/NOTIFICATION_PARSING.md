@@ -101,7 +101,7 @@ Every parsed message preview carries a non-sensitive `WhatsAppContentKind`:
 | `HIDDEN` | Blank, redacted, or explicitly hidden notification content |
 | `UNKNOWN` | Unsupported placeholder text that should not be treated as ordinary message body text |
 
-The local read/TTS/prompt paths use this kind directly. For example, a `PHOTO` notification is described as a photo attachment with contents not inspected; the assistant must not claim what the image contains.
+The local read/TTS/prompt paths use this kind directly. For example, a `PHOTO` notification is described as a photo attachment with contents not inspected; the assistant must not claim what the image contains. The future media-analysis boundary is documented in [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md).
 
 ---
 
@@ -137,7 +137,7 @@ To normalize this pattern and prevent duplicate inbox entries:
 - **No plaintext message body text, sender names, or group names are logged to Logcat or written to disk.**
 - Logcat output is limited to: package name, key suffix (last 8 chars), parse source label, message count.
 - Encrypted data at rest: `messageText`, `senderName`, and `conversationTitle` are encrypted using Android Keystore-backed AES-GCM before writing to the database, ensuring absolute privacy at rest.
-- Media placeholders are treated as metadata only. The notification parser does not receive image, video, sticker, audio, or document bytes, so downstream AI/TTS output must not invent media contents.
+- Media placeholders are treated as metadata only. The notification parser does not receive image, video, sticker, audio, or document bytes, so downstream AI/TTS output must not invent media contents. Actual media analysis requires a separate user-selected file or scoped URI flow.
 
 ---
 

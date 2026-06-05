@@ -18,6 +18,8 @@ Accessibility decision: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERV
 
 FunctionGemma fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md)
 
+Media understanding boundary: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
+
 ## #112 Roadmap Status
 
 The #112 P1 model architecture roadmap is now defined for the current device:
@@ -30,7 +32,8 @@ The #112 P1 model architecture roadmap is now defined for the current device:
 | Larger summarizer | Decided through #117 | No Gemma 4/Gemma 3n summarizer in V1. Revisit only after benchmark evidence and user approval. |
 | Accessibility expansion | Decided through #122 | No Accessibility service in V1. Possible V2 assistive mode only after separate policy/safety review. |
 | Fine-tuning | Complete through #116 | Do not fine-tune now; use the synthetic dataset template only if routing benchmarks later prove prompt/context tuning is insufficient. |
-| Media/safety | P2 follow-ups #118/#119 | Keep open as later evaluations; neither blocks the V1 WhatsApp notification assistant. |
+| Media understanding | Complete through #118 | Notification placeholders stay placeholder-only; future analysis requires user-selected media or a scoped URI and explicit model approval. |
+| Safety gates | P2 follow-up #119 | Keep open for deterministic-vs-ShieldGemma policy evaluation; it does not block the V1 WhatsApp notification assistant. |
 
 This closes the P1 architecture definition while preserving the remaining P2 research issues.
 
@@ -403,14 +406,16 @@ Issues:
 
 Accessibility decision note: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md)
 
+Media decision note: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
+
 ### Media
 
 Notification placeholders are not media bytes. If WhatsApp says "Photo", the assistant can only say a photo was received.
 
 Future media analysis requires:
 
-- User-selected image/file, or
-- Scoped media permission, or
+- User-selected image/file through Android Photo Picker, or
+- A scoped/persisted content URI grant, or
 - Another approved Android access path.
 
 Only then evaluate:
@@ -529,7 +534,7 @@ done: #113 EmbeddingGemma semantic memory design/prototype, no model download
 done: #109/#117 bigger model decision, no second generative model in V1
 done: #122 Accessibility decision, no Accessibility service in V1
 done: #116 FunctionGemma fine-tuning evaluation, no training/model import now
-P2:  #118 actual media understanding path
+done: #118 media understanding boundary, placeholder-only in V1
 P2:  #119 ShieldGemma-style safety gate assessment
 ```
 
