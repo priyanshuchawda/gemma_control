@@ -34,6 +34,21 @@ class AssistantCapabilityMatrixTest {
     }
 
     @Test
+    fun accessibilityIsDocumentedButNeverRequiredByV1Tools() {
+        val capability = matrix.capability(AssistantCapabilitySource.AccessibilityService)
+        assertTrue(capability.permission.contains("V2 evaluation only"))
+        val accessibilityBackedTools = registry.tools
+            .map { it.name }
+            .filter { toolName ->
+                matrix.requirementsForTool(toolName).any {
+                    it.source == AssistantCapabilitySource.AccessibilityService
+                }
+            }
+
+        assertEquals(emptyList<WhatsAppToolName>(), accessibilityBackedTools)
+    }
+
+    @Test
     fun notificationReadToolExplainsMissingNotificationListenerSetup() {
         val state = AssistantCapabilityState.assumeReady().copy(notificationListenerEnabled = false)
 

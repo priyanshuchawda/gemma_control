@@ -27,6 +27,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma Routing Benchmark | **IMPLEMENTED LOCALLY** — Offline routing corpus, enriched tool-description coverage tests, unsupported-workflow Kotlin fallback checks, and a no-model baseline document exist |
 | EmbeddingGemma Semantic Memory | **NO-MODEL SCAFFOLD IMPLEMENTED LOCALLY** — Query/document prompt formatter, provider interface, exact cosine index, fake-embedder prototype tests, and storage/privacy plan exist; no EmbeddingGemma artifact is downloaded or bundled |
 | Local Summarization Model Decision | **DECIDED FOR V1** — #117 keeps summaries rules-first with FunctionGemma as router only; Gemma 4/Gemma 3n require future benchmark evidence and explicit model approval |
+| Accessibility Service Decision | **DEFERRED FROM V1** — #122 documents Accessibility as V2 assistive-mode evaluation only; no service is implemented and no production tool depends on it |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -125,6 +126,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/REAL_DEVICE_ASSISTANT_TEST_MATRIX.md` — Privacy-safe manual assistant/device validation matrix and PR regression checklist
 - `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — EmbeddingGemma #113 no-download spike, future storage design, prompt contract, and device gates
 - `docs/LOCAL_SUMMARIZATION_MODEL_DECISION.md` — #117 no-download decision keeping Gemma 4/Gemma 3n out of V1, with summary benchmark scenarios and approval gates
+- `docs/ACCESSIBILITY_SERVICE_EVALUATION.md` — #122 V1/V2 Accessibility decision, capability comparison, safety policy, and prototype gate
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
