@@ -2,7 +2,7 @@
 
 This document maps Gemma and LiteRT-LM capabilities into the GemmaControl Android assistant roadmap.
 
-Snapshot date: 2026-06-04
+Snapshot date: 2026-06-05
 
 Primary device reference: [DEVICE_INFO.md](DEVICE_INFO.md)
 
@@ -15,6 +15,21 @@ Embedding memory plan: [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA
 Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
 
 Accessibility decision: [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md)
+
+## #112 Roadmap Status
+
+The #112 P1 model architecture roadmap is now defined for the current device:
+
+| Area | Status | Decision |
+| :--- | :--- | :--- |
+| FunctionGemma routing | Complete through #114/#115 | Keep FunctionGemma as the only required generative/router model for V1. Kotlin owns state, safety, and execution. |
+| Runtime/device baseline | Complete locally through #120 | Use the Settings benchmark dashboard and physical device matrix before approving any new model. |
+| Semantic retrieval | Designed/prototyped through #113 | EmbeddingGemma remains optional and requires explicit model approval before download/import. |
+| Larger summarizer | Decided through #117 | No Gemma 4/Gemma 3n summarizer in V1. Revisit only after benchmark evidence and user approval. |
+| Accessibility expansion | Decided through #122 | No Accessibility service in V1. Possible V2 assistive mode only after separate policy/safety review. |
+| Fine-tuning/media/safety | P2 follow-ups #116/#118/#119 | Keep open as later evaluations; none block the V1 WhatsApp notification assistant. |
+
+This closes the P1 architecture definition while preserving the remaining P2 research issues.
 
 ## Product Goal
 
@@ -495,21 +510,24 @@ Benchmark prompts should include:
 
 ## Final Recommendation
 
-Use this order:
+Use this order. Completed P1/P0 architecture items are marked as done; P2 research remains explicit:
 
 ```text
-#120 device/model baseline
- -> #123 permission/capability matrix
- -> #121 Xiaomi notification reliability
- -> #102 notification truth classifier
- -> #114 compact phone context
- -> #115 FunctionGemma routing benchmark
- -> #103 adaptive reading
- -> #107 safe reply flow
- -> #108 practical search/follow-up
- -> #113 EmbeddingGemma semantic memory
- -> #109/#117 bigger model decision
- -> #118/#119/#122 optional media/safety/accessibility
+done: #120 device/model baseline
+done: #123 permission/capability matrix
+done: #121 Xiaomi notification reliability
+done: #102 notification truth classifier
+done: #114 compact phone context
+done: #115 FunctionGemma routing benchmark
+done: #103 adaptive reading
+done: #107 safe reply flow
+done: #108 practical search/follow-up
+done: #113 EmbeddingGemma semantic memory design/prototype, no model download
+done: #109/#117 bigger model decision, no second generative model in V1
+done: #122 Accessibility decision, no Accessibility service in V1
+P2:  #116 FunctionGemma fine-tuning evaluation
+P2:  #118 actual media understanding path
+P2:  #119 ShieldGemma-style safety gate assessment
 ```
 
 FunctionGemma remains the only required model until measured evidence says otherwise.
