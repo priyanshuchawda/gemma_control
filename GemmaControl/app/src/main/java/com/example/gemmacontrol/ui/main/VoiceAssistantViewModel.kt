@@ -12,6 +12,7 @@ import com.example.gemmacontrol.ai.runtime.GemmaEngineResult
 import com.example.gemmacontrol.ai.tools.AndroidWhatsAppDraftLauncher
 import com.example.gemmacontrol.ai.tools.GemmaMessageContext
 import com.example.gemmacontrol.ai.tools.GemmaPromptBuilder
+import com.example.gemmacontrol.ai.tools.PhoneContextSnapshotBuilder
 import com.example.gemmacontrol.ai.tools.ToolExecutionResult
 import com.example.gemmacontrol.ai.tools.WhatsAppToolRegistry
 import com.example.gemmacontrol.ai.tools.WhatsAppLocalToolExecutor
@@ -56,6 +57,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val gemmaPromptBuilder = GemmaPromptBuilder()
     private val readAloudBuilder = VoiceReadAloudBuilder()
     private val assistantPlanner = AssistantPlanner()
+    private val phoneContextSnapshotBuilder = PhoneContextSnapshotBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
     private val textToSpeechController = VoiceTextToSpeechController(
         application = application,
@@ -224,6 +226,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             }
 
             _state.value = VoiceAssistantState.Streaming("")
+            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
             val decryptedMessages = repository.getAllDecryptedMessages()
             val promptContext = decryptedMessages.map { message ->
                 GemmaMessageContext.fromDecryptedMessage(
@@ -233,12 +236,24 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     senderName = message.senderName,
                     decryptedText = message.decryptedText,
                     postedAt = message.postedAt,
+                    priority = message.priority,
+                    replyAvailable = message.notificationKey in activeKeys,
                     contentKind = message.contentKind
                 )
             }
+            val latestActiveNotificationKey = decryptedMessages
+                .filter { it.notificationKey in activeKeys }
+                .maxByOrNull { it.postedAt }
+                ?.notificationKey
+                ?: activeKeys.firstOrNull()
+            val phoneContext = phoneContextSnapshotBuilder.build(
+                messages = promptContext,
+                activeNotificationKeys = activeKeys,
+                latestActiveNotificationKey = latestActiveNotificationKey
+            )
             val prompt = gemmaPromptBuilder.buildForUserCommand(
                 userCommand = transcript,
-                messages = promptContext
+                phoneContext = phoneContext
             )
             val result = gemmaModelManager.generateToolProposal(
                 prompt = prompt,
@@ -246,14 +261,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             ) { partialText ->
                 _state.value = VoiceAssistantState.Streaming(partialText)
             }
-            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
             val conversationTitleByNotificationKey = decryptedMessages
                 .associate { it.notificationKey to it.conversationId }
-            val latestActiveNotificationKey = decryptedMessages
-                .filter { it.notificationKey in activeKeys }
-                .maxByOrNull { it.postedAt }
-                ?.notificationKey
-                ?: activeKeys.firstOrNull()
             _state.value = functionGemmaProposalHandler.resolve(
                 result = result,
                 context = FunctionGemmaVoiceProposalContext(

@@ -25,7 +25,7 @@ fun WhatsAppContentKind.promptBodyText(rawText: String?): String {
         WhatsAppContentKind.DOCUMENT -> "Document attachment (contents not inspected)"
         WhatsAppContentKind.MISSED_CALL -> "Missed WhatsApp call"
         WhatsAppContentKind.SYSTEM -> "WhatsApp system notification"
-        WhatsAppContentKind.HIDDEN -> "[content hidden or unavailable]"
+        WhatsAppContentKind.HIDDEN -> "Content hidden or unavailable"
         WhatsAppContentKind.UNKNOWN -> rawText.nonBlankOr("[unsupported WhatsApp content]")
     }
 }
