@@ -22,6 +22,7 @@ import com.example.gemmacontrol.notifications.NotificationEventType
 import com.example.gemmacontrol.notifications.NotificationParseSource
 import com.example.gemmacontrol.notifications.ParsedMessagePreview
 import com.example.gemmacontrol.notifications.ParsedWhatsAppNotificationEvent
+import com.example.gemmacontrol.notifications.RecentOutgoingReplyEchoSuppressor
 import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import com.example.gemmacontrol.notifications.WhatsAppNotificationParser
 import org.junit.Assert.assertEquals
@@ -440,6 +441,31 @@ class NotificationPersistenceCoordinatorTest {
         assertTrue(messageEventDao.list.isEmpty())
         assertTrue(conversationDao.list.isEmpty())
         assertTrue(activeNotificationReferenceDao.list.isEmpty())
+    }
+
+    @Test
+    fun testCoordinatorSkipsRecentlySentReplyEcho() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        RecentOutgoingReplyEchoSuppressor.clear()
+        RecentOutgoingReplyEchoSuppressor.register(
+            notificationKey = "key_reply_echo",
+            replyText = "I am in a meeting"
+        )
+
+        val event = createDummyEvent(
+            key = "key_reply_echo",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Mom",
+            text = "I am in a meeting",
+            timestamp = 1_716_900_001_000L
+        )
+
+        coordinator.handleNotificationEvent(event)
+
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
+        RecentOutgoingReplyEchoSuppressor.clear()
     }
 
     @Test

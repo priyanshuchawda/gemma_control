@@ -18,6 +18,7 @@ import com.example.gemmacontrol.ai.tools.WhatsAppLocalToolExecutor
 import com.example.gemmacontrol.data.preferences.VoiceInputMode
 import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
+import com.example.gemmacontrol.notifications.RecentOutgoingReplyEchoSuppressor
 import com.example.gemmacontrol.notifications.ReplySendResult
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -304,6 +305,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         val context = getApplication<Application>()
         val result = replyExecutor.sendConfirmedReply(context, draft.notificationKey, draft.replyText)
         if (result == ReplySendResult.Success) {
+            RecentOutgoingReplyEchoSuppressor.register(draft.notificationKey, draft.replyText)
             resetToIdle()
         } else {
             val safeReason = when (result) {

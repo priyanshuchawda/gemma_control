@@ -33,6 +33,7 @@ internal fun StoredInboxSheetContent(
     onReplyTextChange: (String) -> Unit,
     onEnableStorage: () -> Unit,
     onDeleteAll: () -> Unit,
+    onDeleteConversation: (String) -> Unit,
     onCancel: () -> Unit,
     onReviewReply: (DecryptedMessage) -> Unit,
     onSendReply: (DecryptedMessage) -> Unit
@@ -58,6 +59,11 @@ internal fun StoredInboxSheetContent(
             StoredInboxSheet.DeleteAll -> DeleteAllSheetBody(
                 onCancel = onCancel,
                 onDeleteAll = onDeleteAll
+            )
+            is StoredInboxSheet.DeleteConversation -> DeleteConversationSheetBody(
+                conversationName = sheet.conversationName,
+                onCancel = onCancel,
+                onDeleteConversation = onDeleteConversation
             )
             is StoredInboxSheet.ComposeReply -> ComposeReplySheetBody(
                 message = sheet.message,
@@ -109,6 +115,26 @@ private fun DeleteAllSheetBody(
         primaryText = "Delete All",
         onSecondaryClick = onCancel,
         onPrimaryClick = onDeleteAll,
+        destructive = true
+    )
+}
+
+@Composable
+private fun DeleteConversationSheetBody(
+    conversationName: String,
+    onCancel: () -> Unit,
+    onDeleteConversation: (String) -> Unit
+) {
+    Text(
+        text = "This permanently deletes locally stored WhatsApp message previews for $conversationName from this app. It does not delete anything inside WhatsApp.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    TwoActionButtons(
+        secondaryText = "Cancel",
+        primaryText = "Delete Chat",
+        onSecondaryClick = onCancel,
+        onPrimaryClick = { onDeleteConversation(conversationName) },
         destructive = true
     )
 }

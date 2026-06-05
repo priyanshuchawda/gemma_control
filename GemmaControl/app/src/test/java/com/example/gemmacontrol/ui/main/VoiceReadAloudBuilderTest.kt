@@ -17,7 +17,7 @@ class VoiceReadAloudBuilderTest {
             request = VoiceReadAloudRequest.Latest
         )
 
-        assertEquals("There are no captured WhatsApp messages to read.", plan.spokenText)
+        assertEquals("There are no locally stored captured WhatsApp messages to read.", plan.spokenText)
         assertEquals(0, plan.spokenMessageCount)
         assertEquals(0, plan.nextOffset)
     }
@@ -31,7 +31,7 @@ class VoiceReadAloudBuilderTest {
 
         assertEquals(1, plan.spokenMessageCount)
         assertEquals(1, plan.nextOffset)
-        assertTrue(plan.spokenText.contains("You have 1 recent WhatsApp message."))
+        assertTrue(plan.spokenText.contains("You have 1 locally stored captured WhatsApp message."))
         assertTrue(plan.spokenText.contains("First message: From Mom. Dinner at 7."))
     }
 
@@ -48,7 +48,7 @@ class VoiceReadAloudBuilderTest {
 
         assertEquals(3, plan.spokenMessageCount)
         assertEquals(3, plan.nextOffset)
-        assertTrue(plan.spokenText.contains("You have 3 recent WhatsApp messages."))
+        assertTrue(plan.spokenText.contains("You have 3 locally stored captured WhatsApp messages."))
         assertTrue(plan.spokenText.contains("Third message: From Aunt May in Work. Call back."))
     }
 
@@ -66,7 +66,7 @@ class VoiceReadAloudBuilderTest {
 
         assertEquals(0, plan.spokenMessageCount)
         assertEquals(0, plan.nextOffset)
-        assertTrue(plan.spokenText.contains("You have 4 recent WhatsApp messages across 3 chats."))
+        assertTrue(plan.spokenText.contains("You have 4 locally stored captured WhatsApp messages across 3 chats."))
         assertTrue(plan.spokenText.contains("Mom has 2 messages."))
         assertTrue(plan.spokenText.contains("Say continue to hear messages"))
     }
@@ -104,7 +104,7 @@ class VoiceReadAloudBuilderTest {
         )
 
         assertEquals(1, plan.spokenMessageCount)
-        assertTrue(plan.spokenText.contains("You have 1 recent WhatsApp message from Mom."))
+        assertTrue(plan.spokenText.contains("You have 1 locally stored captured WhatsApp message from Mom."))
         assertTrue(plan.spokenText.contains("Dinner."))
     }
 
@@ -120,7 +120,7 @@ class VoiceReadAloudBuilderTest {
         )
 
         assertEquals(0, plan.spokenMessageCount)
-        assertTrue(plan.spokenText.contains("You have 3 recent WhatsApp messages across 3 chats."))
+        assertTrue(plan.spokenText.contains("You have 3 locally stored captured WhatsApp messages across 3 chats."))
     }
 
     @Test
@@ -134,7 +134,7 @@ class VoiceReadAloudBuilderTest {
         )
 
         assertEquals(1, plan.spokenMessageCount)
-        assertTrue(plan.spokenText.contains("You have 1 important WhatsApp message."))
+        assertTrue(plan.spokenText.contains("You have 1 important locally stored captured WhatsApp message."))
         assertTrue(plan.spokenText.contains("Urgent."))
         assertTrue(!plan.spokenText.contains("Normal."))
     }

@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -133,6 +136,71 @@ internal fun StoredInboxSettingsCard(
                 checked = captureEnabled,
                 onCheckedChange = onCaptureCheckedChange
             )
+        }
+    }
+}
+
+@Composable
+internal fun StoredInboxCleanupCard(
+    state: StoredInboxCleanupState,
+    onDeleteAll: () -> Unit,
+    onDeleteConversation: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (!state.hasMessages) {
+        return
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Stored message cleanup",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Delete local encrypted previews from this app. WhatsApp chats are not changed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = onDeleteAll,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(
+                    text = state.deleteAllLabel,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            state.conversationNames.take(4).forEach { conversationName ->
+                Button(
+                    onClick = { onDeleteConversation(conversationName) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                ) {
+                    Text(
+                        text = "Delete stored messages from $conversationName",
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
 }

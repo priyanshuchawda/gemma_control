@@ -34,6 +34,7 @@ fun StoredInboxScreen(
 
     val formatter = remember { SimpleDateFormat("MMM dd, HH:mm:ss", Locale.US) }
     val actionableState = buildActionableInboxSectionState(actionableItems)
+    val cleanupState = buildStoredInboxCleanupState(messages)
 
     LaunchedEffect(messages) { viewModel.refreshActionableInbox() }
 
@@ -84,6 +85,16 @@ fun StoredInboxScreen(
                 )
             }
 
+            item(key = "stored_inbox_cleanup") {
+                StoredInboxCleanupCard(
+                    state = cleanupState,
+                    onDeleteAll = { activeSheet = StoredInboxSheet.DeleteAll },
+                    onDeleteConversation = { conversationName ->
+                        activeSheet = StoredInboxSheet.DeleteConversation(conversationName)
+                    }
+                )
+            }
+
             item(key = "inbox_header") {
                 StoredInboxListHeader(messages.size)
             }
@@ -130,6 +141,10 @@ fun StoredInboxScreen(
                 },
                 onDeleteAll = {
                     viewModel.deleteAllMessages()
+                    activeSheet = null
+                },
+                onDeleteConversation = { conversationName ->
+                    viewModel.deleteConversationMessages(conversationName)
                     activeSheet = null
                 },
                 onCancel = {

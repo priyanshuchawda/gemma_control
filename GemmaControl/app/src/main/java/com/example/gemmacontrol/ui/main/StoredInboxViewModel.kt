@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.gemmacontrol.ai.tools.LocalActionableInboxItem
 import com.example.gemmacontrol.ServiceLocator
 import com.example.gemmacontrol.data.repository.StoredInboxRepository
+import com.example.gemmacontrol.notifications.RecentOutgoingReplyEchoSuppressor
+import com.example.gemmacontrol.notifications.ReplySendResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,11 +44,15 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
         notificationKey: String,
         text: String
     ): com.example.gemmacontrol.notifications.ReplySendResult {
-        return replyExecutor.sendConfirmedReply(
+        val result = replyExecutor.sendConfirmedReply(
             context = getApplication(),
             notificationKey = notificationKey,
             text = text
         )
+        if (result == ReplySendResult.Success) {
+            RecentOutgoingReplyEchoSuppressor.register(notificationKey, text)
+        }
+        return result
     }
 
     fun setCaptureEnabled(enabled: Boolean) {
@@ -66,6 +72,13 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             storedInboxRepository.deleteAllData()
             _actionableItems.value = emptyList()
+        }
+    }
+
+    fun deleteConversationMessages(conversationName: String) {
+        viewModelScope.launch {
+            storedInboxRepository.deleteConversationData(conversationName)
+            refreshActionableInbox()
         }
     }
 

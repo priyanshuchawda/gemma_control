@@ -75,7 +75,7 @@ internal class VoiceReadAloudBuilder(
         val selected = messages.drop(boundedOffset).take(directWindowSize)
         if (selected.isEmpty()) {
             return VoiceReadAloudPlan(
-                spokenText = "There are no more captured WhatsApp messages to read.",
+                spokenText = "There are no more locally stored captured WhatsApp messages to read.",
                 spokenMessageCount = 0,
                 nextOffset = boundedOffset
             )
@@ -160,10 +160,10 @@ internal class VoiceReadAloudBuilder(
 
     private fun scopedMessageLabel(count: Int, request: VoiceReadAloudRequest): String {
         val base = when (request) {
-            VoiceReadAloudRequest.ImportantOnly -> "important WhatsApp ${messageWord(count)}"
+            VoiceReadAloudRequest.ImportantOnly -> "important locally stored captured WhatsApp ${messageWord(count)}"
             is VoiceReadAloudRequest.Conversation ->
-                "recent WhatsApp ${messageWord(count)} from ${request.conversationName}"
-            else -> "recent WhatsApp ${messageWord(count)}"
+                "locally stored captured WhatsApp ${messageWord(count)} from ${request.conversationName}"
+            else -> "locally stored captured WhatsApp ${messageWord(count)}"
         }
         return base
     }
@@ -198,10 +198,10 @@ internal class VoiceReadAloudBuilder(
 
     private fun emptyStateText(request: VoiceReadAloudRequest): String {
         return when (request) {
-            VoiceReadAloudRequest.ImportantOnly -> "There are no important captured WhatsApp messages to read."
+            VoiceReadAloudRequest.ImportantOnly -> "There are no important locally stored captured WhatsApp messages to read."
             is VoiceReadAloudRequest.Conversation ->
-                "There are no captured WhatsApp messages from ${request.conversationName}."
-            else -> "There are no captured WhatsApp messages to read."
+                "There are no locally stored captured WhatsApp messages from ${request.conversationName}."
+            else -> "There are no locally stored captured WhatsApp messages to read."
         }
     }
 
