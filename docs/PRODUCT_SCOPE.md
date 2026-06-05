@@ -49,6 +49,7 @@ The functional scope is governed entirely by an English-only interaction paradig
 - **No Multilingual Examples**: Strictly English-only inputs, training sets, and user interfaces. No Hindi or Hinglish commands.
 - **No FunctionGemma Fine-Tuning in V1**: Fine-tuning is deferred by [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md). The synthetic dataset template is only a future evaluation contract, not an approval to train or import another model.
 - **No Media Understanding in V1**: WhatsApp media notifications remain placeholders only. Actual image/video analysis is deferred by [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md) until a user-selected media or scoped URI flow, safety review, benchmark evidence, and explicit model approval exist.
+- **No ShieldGemma in V1**: Assistant safety is deterministic per [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md). ShieldGemma/ShieldGemma 2 are future-only gates for generated text or actual media analysis, not current dependencies.
 - **No Unofficial APIs**: No Baileys, whatsapp-web.js, or AccessibilityService UI scripting in V1. Accessibility is deferred by [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md).
 - **No Vector Embeddings in V1**: EmbeddingGemma integration is deferred to V2.
 - **No Second Generative Summarizer in V1**: Gemma 4 and Gemma 3n summarization are deferred by [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md) until benchmark evidence and explicit model approval exist.

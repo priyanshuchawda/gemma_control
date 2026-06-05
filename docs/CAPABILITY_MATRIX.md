@@ -46,5 +46,5 @@ This matrix defines what GemmaControl can actually do on the current Xiaomi Redm
 
 - ADB-only abilities are excluded from every production tool requirement.
 - Missing capabilities must produce setup guidance instead of a hallucinated success message.
-- FunctionGemma can propose tools, but Kotlin validates capability state, safety level, parameters, and confirmation before execution.
+- FunctionGemma can propose tools, but Kotlin validates capability state, safety level, parameters, and confirmation before execution. The deterministic safety policy is documented in [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md).
 - Accessibility, contacts, calendar, media, EmbeddingGemma, and extra Gemma models remain future decisions and are not required for the current WhatsApp V1 path. Media is placeholder-only in V1 per [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md). Accessibility is specifically deferred by [ACCESSIBILITY_SERVICE_EVALUATION.md](ACCESSIBILITY_SERVICE_EVALUATION.md).

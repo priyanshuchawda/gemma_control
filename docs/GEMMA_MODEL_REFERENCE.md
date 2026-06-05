@@ -28,6 +28,8 @@ FunctionGemma fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUN
 
 Media understanding boundary: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
 
+Assistant safety policy: [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md)
+
 Do not treat one generative model as if it can "access the phone". The app must build truthful Android context, the model can propose a tool, and Kotlin must validate and execute.
 
 ## Model Fit Table
@@ -336,14 +338,16 @@ Possible future role:
 
 ShieldGemma 2 is an image safety classifier built on Gemma 3. Official docs describe it as taking an image and policy instruction and outputting safety scores/labels.
 
+Decision note: [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md)
+
 ### Use in GemmaControl
 
 Not needed for v1 WhatsApp notification reading/replying.
 
 Potential future use:
 
-- Image/media analysis safety.
-- Filtering generated or received images if the app later handles actual media.
+- ShieldGemma 1-style text safety only if future GemmaControl generates substantive external reply text or broader open-ended output.
+- ShieldGemma 2 image safety only if the app later analyzes actual user-selected image/video bytes.
 
 Prefer deterministic Kotlin safety first:
 

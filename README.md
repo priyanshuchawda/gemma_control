@@ -57,6 +57,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── LOCAL_SUMMARIZATION_MODEL_DECISION.md # No-download Gemma 4/Gemma 3n decision for #117
 │   ├── FUNCTION_GEMMA_FINE_TUNING_DECISION.md # No-training FunctionGemma routing decision for #116
 │   ├── MEDIA_UNDERSTANDING_BOUNDARY.md # No-model media placeholder/user-selected file boundary for #118
+│   ├── ASSISTANT_SAFETY_POLICY.md # Deterministic safety and ShieldGemma gate decision for #119
 │   ├── ACCESSIBILITY_SERVICE_EVALUATION.md # V1/V2 decision and safety policy for #122
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals

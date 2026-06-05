@@ -46,7 +46,7 @@ Actual media analysis is separated from notification capture V1:
 | Gemma 3n E2B/E4B | Device-oriented multimodal text/image/audio path. | Future only; still much heavier than FunctionGemma and deferred by #117. |
 | Gemma 4 E2B/E4B | Stronger multimodal reasoning if runtime/device headroom exists. | Future only; requires #120 benchmark evidence and explicit model approval. |
 | PaliGemma / PaliGemma 2 | Vision-language model for captioning, VQA, text reading, object detection/segmentation style tasks. | Future image-specific candidate, not for notification placeholders. |
-| ShieldGemma 2 | Image safety classifier for future actual media processing. | Evaluate in #119 after this media boundary; not needed for V1 placeholders. |
+| ShieldGemma 2 | Image safety classifier for future actual media processing. | Future-only per [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md); not needed for V1 placeholders. |
 
 No model should receive a prompt that implies a placeholder contains real visual/audio/document content.
 
@@ -85,7 +85,7 @@ Before implementing actual media analysis:
 3. Do not log URI strings, filenames, OCR text, or model outputs containing private media content.
 4. Purge temporary decoded bitmaps and extracted text after the task.
 5. Run the model through the same single-import lifecycle rule: no duplicate model loading.
-6. Add #119 safety policy for image/media analysis before enabling it.
+6. Follow [ASSISTANT_SAFETY_POLICY.md](ASSISTANT_SAFETY_POLICY.md) before enabling image/media analysis.
 7. Benchmark memory, latency, cache, and thermal cost on the Xiaomi Redmi 13 5G.
 
 ## Tests
