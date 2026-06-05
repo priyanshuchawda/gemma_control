@@ -182,6 +182,7 @@ sealed interface VoiceAssistantState {
     data class LocalToolConfirmationRequired(val action: PendingLocalToolAction) : VoiceAssistantState
     data class LocalToolSucceeded(val message: String) : VoiceAssistantState
     data class SpeakingMessages(val count: Int) : VoiceAssistantState
+    data class ClarificationRequired(val prompt: String) : VoiceAssistantState
     data class Failure(val safeReason: String) : VoiceAssistantState
     data object LanguagePackMissingError : VoiceAssistantState
     data object ConfirmSystemRecognitionConsent : VoiceAssistantState

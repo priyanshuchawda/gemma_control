@@ -80,6 +80,7 @@ internal fun typedVoiceCommandInputEnabled(state: VoiceAssistantState): Boolean 
     return when (state) {
         VoiceAssistantState.Idle,
         is VoiceAssistantState.Failure,
+        is VoiceAssistantState.ClarificationRequired,
         is VoiceAssistantState.LocalToolSucceeded -> true
         else -> false
     }

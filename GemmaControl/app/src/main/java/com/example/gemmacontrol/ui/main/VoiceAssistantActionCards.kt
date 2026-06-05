@@ -64,6 +64,10 @@ private fun VoiceAssistantActionSheetBody(
             message = state.message,
             onDismiss = actions.onCancel
         )
+        is VoiceAssistantState.ClarificationRequired -> VoiceClarificationCard(
+            prompt = state.prompt,
+            onDismiss = actions.onCancel
+        )
         is VoiceAssistantState.Failure -> VoiceFailureCard(
             reason = state.safeReason,
             onDismiss = actions.onCancel
@@ -130,6 +134,44 @@ private fun ReadLatestConfirmationCard(
                 primaryText = "Read Aloud",
                 onSecondaryClick = onCancel,
                 onPrimaryClick = onReadAloud
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceClarificationCard(
+    prompt: String,
+    onDismiss: () -> Unit
+) {
+    Card(
+        shape = VoiceCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                prompt,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            TwoButtonRow(
+                secondaryText = "Dismiss",
+                primaryText = "Try Again",
+                onSecondaryClick = onDismiss,
+                onPrimaryClick = onDismiss
             )
         }
     }

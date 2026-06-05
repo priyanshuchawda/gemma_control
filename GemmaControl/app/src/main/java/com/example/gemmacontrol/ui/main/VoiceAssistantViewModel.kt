@@ -55,6 +55,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     )
     private val gemmaPromptBuilder = GemmaPromptBuilder()
     private val readAloudBuilder = VoiceReadAloudBuilder()
+    private val assistantPlanner = AssistantPlanner()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
     private val textToSpeechController = VoiceTextToSpeechController(
         application = application,
@@ -172,21 +173,29 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    private fun processTranscript(transcript: String) {
+    private fun processTranscript(
+        transcript: String,
+        source: AssistantInputSource = AssistantInputSource.Voice
+    ) {
         _state.value = VoiceAssistantState.TranscriptReady(transcript)
-        val command = VoiceCommandParser.parse(transcript)
+        handleAssistantPlan(assistantPlanner.plan(transcript, source))
+    }
 
-        when (command) {
-            is VoiceReadCommand -> {
-                _state.value = VoiceAssistantState.CommandReady(command)
+    private fun handleAssistantPlan(plan: AssistantPlan) {
+        when (plan) {
+            is AssistantPlan.ReadCommand -> {
+                _state.value = VoiceAssistantState.CommandReady(plan.command)
                 // Read commands do not immediately speak; wait for user confirmation.
             }
-            is VoiceCommand.ReplyToLatestActiveMessage -> {
-                _state.value = VoiceAssistantState.CommandReady(command)
-                prepareVoiceReply(command.replyText)
+            is AssistantPlan.ReplyCommand -> {
+                _state.value = VoiceAssistantState.CommandReady(plan.command)
+                prepareVoiceReply(plan.command.replyText)
             }
-            is VoiceCommand.Unsupported -> {
-                requestFunctionGemmaProposal(transcript, command.reason)
+            is AssistantPlan.AskClarification -> {
+                _state.value = VoiceAssistantState.ClarificationRequired(plan.prompt)
+            }
+            is AssistantPlan.RequestModelProposal -> {
+                requestFunctionGemmaProposal(plan.transcript, plan.fallbackState)
             }
         }
     }
@@ -204,13 +213,13 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         } catch (e: Exception) {
             Log.e(TAG, "Error cancelling SpeechRecognizer before typed command", e)
         }
-        processTranscript(transcript)
+        processTranscript(transcript, AssistantInputSource.Typed)
     }
 
-    private fun requestFunctionGemmaProposal(transcript: String, fallbackReason: String) {
+    private fun requestFunctionGemmaProposal(transcript: String, fallbackState: VoiceAssistantState) {
         viewModelScope.launch {
             if (!ensureFunctionGemmaReady()) {
-                _state.value = VoiceAssistantState.Failure(fallbackReason)
+                _state.value = fallbackState
                 return@launch
             }
 
