@@ -4,11 +4,13 @@ Snapshot date: 2026-06-05
 
 Related issues: #109, #112, #113, #117, #120
 
+Detailed #117 summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
+
 ## Decision
 
 Keep the V1 runtime on **FunctionGemma-only generation/routing** plus deterministic Kotlin logic. Do not add, download, or bundle a second model yet.
 
-The next model to evaluate, after #120 device metrics and #113 design work, is **EmbeddingGemma** for semantic retrieval over locally stored notification rows. A second generative model, such as Gemma 4 E2B or Gemma 3n E2B, remains a later #117 evaluation item only if measured summary/rewrite quality is still not good enough after deterministic summaries, FunctionGemma routing, and semantic retrieval.
+The next model to evaluate, after #120 device metrics and #113 design work, is **EmbeddingGemma** for semantic retrieval over locally stored notification rows. #117 keeps a second generative model, such as Gemma 4 E2B or Gemma 3n E2B, out of V1 unless measured summary/rewrite quality is still not good enough after deterministic summaries, FunctionGemma routing, and semantic retrieval.
 
 ## Why
 
@@ -123,7 +125,7 @@ For the next implementation issues:
 
 1. Finish #111/#120 style benchmark capture before adding model code.
 2. Use [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md) and the #113 scaffold to design an EmbeddingGemma semantic index, but do not download the model yet.
-3. Use #117 to compare Gemma 4 E2B and Gemma 3n E2B on paper and later on-device only after explicit approval.
+3. Use [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md) as the #117 gate: no Gemma 4/Gemma 3n summarizer for V1; later on-device evaluation only after explicit approval.
 4. Keep improving Kotlin summaries, deterministic command parsing, and FunctionGemma tool descriptions first.
 
 This keeps the app useful on the current phone now, while preserving a clear path to semantic retrieval and richer summaries when evidence justifies the extra model cost.
