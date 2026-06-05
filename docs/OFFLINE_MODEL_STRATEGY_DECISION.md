@@ -2,9 +2,11 @@
 
 Snapshot date: 2026-06-05
 
-Related issues: #109, #112, #113, #117, #120
+Related issues: #109, #112, #113, #116, #117, #120
 
 Detailed #117 summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
+
+Detailed #116 fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md)
 
 ## Decision
 
@@ -28,6 +30,7 @@ This matches the current implementation:
 - `WhatsAppToolRegistry` defines the tool surface
 - `ToolCallParser`, `ToolSafetyRouter`, and UI confirmations keep execution under Kotlin control
 - no model is allowed to send WhatsApp messages, delete data, change capture state, or invent media contents
+- #116 keeps FunctionGemma fine-tuning deferred until routing benchmarks prove prompt/context tuning is insufficient
 
 ## Device Constraint
 
@@ -127,5 +130,6 @@ For the next implementation issues:
 2. Use [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md) and the #113 scaffold to design an EmbeddingGemma semantic index, but do not download the model yet.
 3. Use [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md) as the #117 gate: no Gemma 4/Gemma 3n summarizer for V1; later on-device evaluation only after explicit approval.
 4. Keep improving Kotlin summaries, deterministic command parsing, and FunctionGemma tool descriptions first.
+5. Do not fine-tune FunctionGemma unless [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md) gates are met and the user explicitly approves training/model import.
 
 This keeps the app useful on the current phone now, while preserving a clear path to semantic retrieval and richer summaries when evidence justifies the extra model cost.

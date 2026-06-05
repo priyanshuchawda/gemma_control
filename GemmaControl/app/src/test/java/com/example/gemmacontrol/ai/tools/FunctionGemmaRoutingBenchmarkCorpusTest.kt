@@ -2,6 +2,7 @@ package com.example.gemmacontrol.ai.tools
 
 import com.example.gemmacontrol.ui.main.AssistantPlan
 import com.example.gemmacontrol.ui.main.AssistantPlanner
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,6 +92,51 @@ class FunctionGemmaRoutingBenchmarkCorpusTest {
         assertEquals("model execution deferred; no model download in this benchmark slice", baselineReason)
     }
 
+    @Test
+    fun fineTuneDatasetTemplateCoversFutureRoutingAndSafetyGates() {
+        val template = repoFile("docs/function_gemma_finetune_dataset_template.jsonl")
+        val rows = template.readLines().filter { it.isNotBlank() }
+        val content = rows.joinToString(separator = "\n")
+
+        assertTrue(rows.size >= 10)
+        assertTrue(rows.all { it.contains("\"privacy_source\":\"synthetic\"") })
+        assertContainsAll(
+            valuesForField(content, "category"),
+            "read",
+            "summarize",
+            "search",
+            "reply",
+            "follow_up",
+            "reminder",
+            "unsupported",
+            "open_external_app",
+            "delete_data",
+            "capture_control"
+        )
+        assertContainsAll(
+            valuesForField(content, "expected_tool_name"),
+            "list_recent_whatsapp_messages",
+            "search_whatsapp_messages",
+            "send_reply_to_active_whatsapp_notification",
+            "draft_whatsapp_reply",
+            "create_follow_up_from_message",
+            "schedule_reminder_for_message",
+            "open_whatsapp_share_draft",
+            "delete_local_whatsapp_data",
+            "pause_whatsapp_capture"
+        )
+        assertContainsAll(
+            valuesForField(content, "expected_safety_level"),
+            "ReadOnly",
+            "LocalWrite",
+            "ConfirmationRequired",
+            "OpenExternalApp",
+            "SendMessage",
+            "DeleteData",
+            "Reject"
+        )
+    }
+
     private fun assertDescriptionHints(
         toolName: WhatsAppToolName,
         vararg expectedHints: String
@@ -102,6 +148,28 @@ class FunctionGemmaRoutingBenchmarkCorpusTest {
                 description.contains(hint)
             )
         }
+    }
+
+    private fun assertContainsAll(actual: Set<String>, vararg expected: String) {
+        expected.forEach { value ->
+            assertTrue("Expected template values to contain '$value'. Actual: $actual", actual.contains(value))
+        }
+    }
+
+    private fun valuesForField(content: String, field: String): Set<String> {
+        val pattern = Regex("\"$field\":\"([^\"]+)\"")
+        return pattern.findAll(content).map { it.groupValues[1] }.toSet()
+    }
+
+    private fun repoFile(path: String): File {
+        val candidates = listOf(
+            File(path),
+            File("../$path"),
+            File("../../$path")
+        ).map { it.absoluteFile }
+
+        return candidates.firstOrNull { it.exists() }
+            ?: error("Missing $path. Checked: ${candidates.joinToString { it.path }}")
     }
 
     private companion object {

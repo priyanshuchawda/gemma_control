@@ -14,6 +14,8 @@ This benchmark is intentionally offline for the current device-development phase
 
 The current baseline is not a quality score for FunctionGemma. It records that model execution is deliberately deferred while the app builds the deterministic corpus and prompt/tool-description surface.
 
+Fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md). Current decision is no fine-tuning until this benchmark records persistent routing, malformed-output, or safety-refusal failures after prompt/context improvements.
+
 ## Corpus Categories
 
 The JVM corpus in `FunctionGemmaRoutingBenchmarkCorpusTest` covers:
@@ -37,3 +39,4 @@ The JVM corpus in `FunctionGemmaRoutingBenchmarkCorpusTest` covers:
 - Tool descriptions include natural phrases such as "what did I miss", "find the payment message", "tell Mom", "anything urgent", "remind me later", and "mark important".
 - Kotlin remains responsible for unsupported and high-risk workflows. Voice notes and empty replies are clarified before model execution; broad direct-history and hidden-media requests can reach FunctionGemma only as proposal requests and still require Kotlin validation before any action.
 - Future physical runs should report routing accuracy, malformed output rate, unsupported-command quality, latency, and battery/thermal notes against this same corpus.
+- Future fine-tuning evaluation must use only synthetic or explicitly sanitized/approved rows. The starter schema and examples live in [function_gemma_finetune_dataset_template.jsonl](function_gemma_finetune_dataset_template.jsonl).
