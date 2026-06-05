@@ -10,6 +10,8 @@ Model reference: [GEMMA_MODEL_REFERENCE.md](GEMMA_MODEL_REFERENCE.md)
 
 Offline model decision: [OFFLINE_MODEL_STRATEGY_DECISION.md](OFFLINE_MODEL_STRATEGY_DECISION.md)
 
+Embedding memory plan: [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md)
+
 ## Product Goal
 
 GemmaControl should make one Android phone easier to use through natural voice/text commands while keeping private data local.
@@ -275,6 +277,8 @@ Issue:
 
 - #113 Evaluate EmbeddingGemma semantic memory.
 
+Detailed spike: [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md)
+
 ### Why add it
 
 Keyword search is not enough for natural phone commands. Users ask:
@@ -308,7 +312,7 @@ On query:
 
 Start simple:
 
-- `MessageEmbeddingEntity(messageEventId, vectorDim, vectorBytes, modelId, createdAt)`
+- `MessageEmbeddingEntity(messageEventId, vectorDim, encryptedVectorBytes, modelId, promptVersion, createdAt)`
 - `ConversationEmbeddingSummaryEntity(conversationId, summaryWindow, vectorBytes, modelId)`
 
 Start with:
@@ -326,6 +330,7 @@ Required:
 
 - Store locally only.
 - Treat as protected data.
+- Encrypt persisted vector bytes or protect them under the same local-sensitive-data policy as message bodies.
 - Delete embeddings when message rows are deleted.
 - Include embeddings in local data purge.
 - Do not log query vectors or retrieved private message text.
@@ -442,9 +447,10 @@ Current decision:
 | #114 | `PhoneContextSnapshot` | Typed compact context model. |
 | #114 | `PhoneContextBuilder` | Builds context from notifications, storage, permissions. |
 | #115 | `FunctionGemmaRoutingBenchmark` | Prompt corpus and routing accuracy report. |
-| #113 | `EmbeddingGemmaModelCatalog` | Approved embedding model metadata. |
-| #113 | `MessageEmbeddingStore` | Sensitive local embedding persistence. |
-| #113 | `EmbeddingRetriever` | Query embedding and top-k retrieval. |
+| #113 | `EmbeddingGemmaPromptFormatter` | Formats query/document prompts for future EmbeddingGemma retrieval. |
+| #113 | `MessageEmbeddingProvider` | Model-agnostic interface so the real embedding runtime can be imported once and reused later. |
+| #113 | `ExactMessageEmbeddingIndex` | Exact cosine top-k retrieval scaffold for the first no-model prototype and later small local indexes. |
+| #113 | `MessageEmbeddingStore` | Future sensitive local embedding persistence after explicit model approval. |
 | #113 | `SemanticContextSelector` | Combines recency and embedding relevance. |
 | #117 | `SummarizationModelDecisionReport` | Documents whether a bigger model is justified. |
 

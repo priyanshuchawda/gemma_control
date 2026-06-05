@@ -122,7 +122,7 @@ Record these before changing architecture:
 For the next implementation issues:
 
 1. Finish #111/#120 style benchmark capture before adding model code.
-2. Use #113 to design an EmbeddingGemma semantic index, but do not download the model yet.
+2. Use [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md) and the #113 scaffold to design an EmbeddingGemma semantic index, but do not download the model yet.
 3. Use #117 to compare Gemma 4 E2B and Gemma 3n E2B on paper and later on-device only after explicit approval.
 4. Keep improving Kotlin summaries, deterministic command parsing, and FunctionGemma tool descriptions first.
 
