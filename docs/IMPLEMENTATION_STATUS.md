@@ -24,6 +24,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma / LiteRT-LM Runtime | **IMPLEMENTED WITH PHYSICAL SMOKE VALIDATION** — Lifecycle manager, streaming callback boundary, stop-response hook, background/low-memory release hooks, unavailable adapter, isolated LiteRT-LM engine wrapper, lazy Android engine factory, installed MobileActions model resolver, native LiteRT `ToolSet` callback path, and Settings runtime benchmark dashboard exist. Physical latency/quality numbers still need capture. |
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Native three-callback Gallery-style `ToolSet`, typed 16-action app-level registry, risk-specific safety levels, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, compact phone-context prompt builder, and visible confirmation-time function-call details exist |
+| FunctionGemma Routing Benchmark | **IMPLEMENTED LOCALLY** — Offline routing corpus, enriched tool-description coverage tests, unsupported-workflow Kotlin fallback checks, and a no-model baseline document exist |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -66,6 +67,7 @@ This document records the truthful current state of completed modules, verified 
 - `data/local/entity/ReminderEntity.kt` — Room entity for encrypted local reminder notes linked to stored message events
 - `data/reminder/ReminderWorker.kt` — WorkManager notification worker that loads reminders by id, checks notification permission, decrypts reminder notes locally, and posts local notifications
 - `ai/tools/PhoneContextSnapshot.kt` / `ai/tools/GemmaPromptBuilder.kt` — Compact phone-context builder for FunctionGemma calls with active notification, unread chat summary, relevant message, `content_kind`, priority, and reply availability facts
+- `FunctionGemmaRoutingBenchmarkCorpusTest.kt` / `docs/FUNCTION_GEMMA_ROUTING_BENCHMARK.md` — Offline FunctionGemma routing corpus and baseline for natural WhatsApp assistant commands without downloading or executing a model
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
 - `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
@@ -155,7 +157,7 @@ The implementation has since been split and merged through later issue branches 
 
 ## 4. Next Technical Slice
 
-**Current local slice: P0 compact phone context builder complete locally.**
+**Current local slice: P0 FunctionGemma routing benchmark corpus complete locally.**
 - **Automated local checks**: JVM unit tests, debug assembly, and lint are the expected local verification gates for non-device work.
 - **Physical Validation**: Handset validation on the Xiaomi Redmi 13 5G has confirmed the installed model can open and the notification listener is live. Structured testing is still required for real WhatsApp media placeholders, adaptive TTS quality, microphone reliability, `RemoteInput` reply execution, WhatsApp draft intents, and FunctionGemma `.litertlm` latency/quality. Do not download another model for this step.
 - **Next AI Runtime Slice**: Treat FunctionGemma as a proposal system even when LiteRT automatic callbacks are enabled for the small native `WhatsAppTools` surface. Kotlin remains responsible for validation, safety routing, and user confirmation before high-risk actions.
