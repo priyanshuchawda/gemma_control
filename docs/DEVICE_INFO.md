@@ -200,7 +200,7 @@ Roadmap impact:
 
 - Hardware supports many future capability tracks, but app access is permission-gated.
 - The assistant should expose capability setup clearly rather than implying broad phone access.
-- Camera/media understanding remains out of scope until user-selected media or scoped media access is designed.
+- Camera/media understanding remains out of scope for V1. Future analysis must follow [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md): user-selected media or scoped URI access only, with no notification-placeholder analysis.
 
 ## GemmaControl App State
 
@@ -393,7 +393,7 @@ ADB must not be treated as product capability:
 ### P2: Later or evaluation-only
 
 - #116: FunctionGemma fine-tuning only if #115 proves prompt/schema improvements are not enough.
-- #118: media understanding only after actual image/file access exists.
+- #118: media understanding boundary is placeholder-only for V1; actual image/file analysis needs user-selected media or scoped URI access.
 - #119: ShieldGemma-style safety gates only if deterministic safety is insufficient.
 - #122: Accessibility service only after permission/capability and safety evaluation.
 - #110: generic notification source abstraction after WhatsApp pipeline is reliable.

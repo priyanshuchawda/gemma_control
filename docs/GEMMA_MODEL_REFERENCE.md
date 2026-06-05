@@ -26,6 +26,8 @@ Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMM
 
 FunctionGemma fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md)
 
+Media understanding boundary: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
+
 Do not treat one generative model as if it can "access the phone". The app must build truthful Android context, the model can propose a tool, and Kotlin must validate and execute.
 
 ## Model Fit Table
@@ -315,6 +317,8 @@ Deferred by #117. It should not be added before:
 
 PaliGemma and PaliGemma 2 are vision-language models for image+text inputs. Official docs say they can answer image questions, caption images/short videos, detect objects, and read text embedded in images.
 
+Decision note: [MEDIA_UNDERSTANDING_BOUNDARY.md](MEDIA_UNDERSTANDING_BOUNDARY.md)
+
 ### Use in GemmaControl
 
 Do not use for WhatsApp notifications unless actual image bytes are available.
@@ -324,7 +328,7 @@ Notification text like "Photo", "Sticker", or "Image" is only a placeholder. The
 Possible future role:
 
 - User manually selects an image.
-- App obtains scoped media access.
+- App obtains scoped media access or a user-granted URI.
 - A vision model analyzes the actual bytes.
 - Safety and confirmation policies apply.
 
