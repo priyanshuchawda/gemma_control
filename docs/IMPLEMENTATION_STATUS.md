@@ -25,6 +25,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Expanded side-effect-free Gallery-style `ToolSet`, typed 16-action app-level registry, risk-specific safety levels, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, compact phone-context prompt builder, and visible confirmation-time function-call details exist |
 | FunctionGemma Routing Benchmark | **IMPLEMENTED LOCALLY** — Offline routing corpus, enriched tool-description coverage tests, unsupported-workflow Kotlin fallback checks, and a no-model baseline document exist |
+| EmbeddingGemma Semantic Memory | **NO-MODEL SCAFFOLD IMPLEMENTED LOCALLY** — Query/document prompt formatter, provider interface, exact cosine index, fake-embedder prototype tests, and storage/privacy plan exist; no EmbeddingGemma artifact is downloaded or bundled |
 | Permission/Capability Matrix | **IMPLEMENTED LOCALLY** — Typed Android capability matrix maps every WhatsApp tool to required app/device capabilities, excludes ADB from production behavior, and lets the safety router return setup guidance for missing capabilities |
 | Xiaomi/HyperOS Reliability Diagnostics | **IMPLEMENTED LOCALLY** — Settings shows notification listener, recent listener event, reminder notification, and microphone diagnostic status with direct actions for Notification Access, Autostart, and Battery setup |
 | Production App Shell | **IMPLEMENTED LOCALLY** — Setup gate routes into a Material 3 bottom-nav shell with Home, Voice, Inbox, and Settings destinations |
@@ -68,6 +69,7 @@ This document records the truthful current state of completed modules, verified 
 - `data/reminder/ReminderWorker.kt` — WorkManager notification worker that loads reminders by id, checks notification permission, decrypts reminder notes locally, and posts local notifications
 - `ai/tools/PhoneContextSnapshot.kt` / `ai/tools/GemmaPromptBuilder.kt` — Compact phone-context builder for FunctionGemma calls with active notification, unread chat summary, relevant message, `content_kind`, priority, and reply availability facts
 - `FunctionGemmaRoutingBenchmarkCorpusTest.kt` / `docs/FUNCTION_GEMMA_ROUTING_BENCHMARK.md` — Offline FunctionGemma routing corpus and baseline for natural WhatsApp assistant commands without downloading or executing a model
+- `ai/semantic/EmbeddingGemmaSemanticMemory.kt` / `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — No-model semantic retrieval scaffold with prompt formatting, provider boundary, exact cosine top-k ranking, fake-embedder test prototype, storage cost estimates, and privacy gates
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
 - `ai/runtime/LiteRtGemmaEngineOptions.kt` — JVM-testable mapper from app config to LiteRT engine/conversation options
@@ -120,12 +122,14 @@ The implementation has since been split and merged through later issue branches 
 - `docs/CAPABILITY_MATRIX.md` — Permission/capability matrix and full 16-tool capability mapping
 - `docs/XIAOMI_HYPEROS_RELIABILITY_CHECKLIST.md` — Xiaomi/HyperOS reboot, idle, swipe-away, battery saver, and listener-toggle physical test checklist
 - `docs/REAL_DEVICE_ASSISTANT_TEST_MATRIX.md` — Privacy-safe manual assistant/device validation matrix and PR regression checklist
+- `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — EmbeddingGemma #113 no-download spike, future storage design, prompt contract, and device gates
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
 - `MainScreenViewModelTest.kt` — 1 unit test (initial loading state)
 - `NotificationPersistenceCoordinatorTest.kt` — Unit coverage for settings defaults, consent control skipping, dual-notification canonicalization, content-kind metadata persistence, system notification filtering, dedupe, follow-ups, priorities, reminders, and fail-closed crypto behavior
 - `VoiceReadAloudBuilderTest.kt` — Unit coverage for 0, 1, 3, 4+, multi-chat, continue, chat-specific, important-only, summarize, and emoji-cleanup read-aloud cases
+- `EmbeddingGemmaSemanticMemoryTest.kt` — Unit coverage for retrieval prompt formatting, truthful media placeholders, exact cosine ranking, dimension mismatch filtering, and fake-embedder sample retrieval without a real model
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
 - Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 

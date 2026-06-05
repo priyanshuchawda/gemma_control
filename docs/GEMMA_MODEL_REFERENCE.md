@@ -142,6 +142,7 @@ Official docs call out:
 - Output dimensions from 768 down to 128 using Matryoshka Representation Learning.
 - Quantized storage/memory efficiency.
 - Offline operation on local hardware.
+- Query and document prompt formats for retrieval, including `task: search result | query:` and `title: ... | text:`.
 
 ### What it should do in GemmaControl
 
@@ -173,7 +174,9 @@ Use cases:
 
 ### Recommended first spike
 
-Start with:
+The first #113 spike is documented in [EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md](EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md). It intentionally adds no model artifact and no Room migration.
+
+Start future approved model work with:
 
 - `128d` vectors for minimum storage.
 - Then compare `256d`.
@@ -383,9 +386,11 @@ New modules to add in future issues:
 | `PhoneContextBuilder` | #114 | Builds bounded truth from notifications, stored messages, active replies, and permission state. |
 | `AssistantCapabilityMatrix` | #123 | Maps tools to Android permissions/capabilities. |
 | `DeviceBenchmarkReporter` | #120 | Captures model/device metrics without private content. |
-| `EmbeddingGemmaModelCatalog` | #113 | Defines allowed embedding model artifacts after approval. |
-| `MessageEmbeddingStore` | #113 | Stores sensitive local embeddings per message/summary. |
-| `EmbeddingRetriever` | #113 | Retrieves top-k relevant message facts for a query. |
+| `EmbeddingGemmaPromptFormatter` | #113 | Formats query/document prompts for semantic retrieval. |
+| `MessageEmbeddingProvider` | #113 | Keeps the embedding runtime behind one reusable provider boundary. |
+| `ExactMessageEmbeddingIndex` | #113 | Retrieves top-k relevant message facts with exact cosine ranking. |
+| `EmbeddingGemmaModelCatalog` | future #113 follow-up | Defines allowed embedding model artifacts after approval. |
+| `MessageEmbeddingStore` | future #113 follow-up | Stores sensitive local embeddings per message/summary. |
 | `SemanticContextSelector` | #113/#114 | Mixes recency and embedding relevance into compact prompt context. |
 | `ModelDecisionReport` | #109/#117 | Records whether a bigger model is justified. |
 
@@ -396,6 +401,7 @@ New modules to add in future issues:
 - FunctionGemma formatting and best practices: https://ai.google.dev/gemma/docs/functiongemma/formatting-and-best-practices
 - EmbeddingGemma overview: https://ai.google.dev/gemma/docs/embeddinggemma
 - EmbeddingGemma model card: https://ai.google.dev/gemma/docs/embeddinggemma/model_card
+- EmbeddingGemma embeddings tutorial: https://ai.google.dev/gemma/docs/embeddinggemma/inference-embeddinggemma-with-sentence-transformers
 - Gemma 4 overview: https://ai.google.dev/gemma/docs/core
 - Gemma 4 model card: https://ai.google.dev/gemma/docs/core/model_card_4
 - Gemma 3 overview: https://ai.google.dev/gemma/docs/core
