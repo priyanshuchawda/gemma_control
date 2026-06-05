@@ -29,7 +29,27 @@ class AssistantPlannerTest {
         val typedPlan = planner.plan(input, AssistantInputSource.Typed)
 
         assertEquals(
-            AssistantPlan.ReplyCommand(VoiceCommand.ReplyToLatestActiveMessage("I am in a meeting")),
+            AssistantPlan.ReplyCommand(
+                VoiceCommand.ReplyToLatestActiveMessage(
+                    replyText = "I am in a meeting",
+                    explicitLatest = true
+                )
+            ),
+            voicePlan
+        )
+        assertEquals(voicePlan, typedPlan)
+    }
+
+    @Test
+    fun plan_returnsSameNamedReplyActionForVoiceAndTypedInput() {
+        val input = "reply to Mom: I am leaving now"
+        val voicePlan = planner.plan(input, AssistantInputSource.Voice)
+        val typedPlan = planner.plan(input, AssistantInputSource.Typed)
+
+        assertEquals(
+            AssistantPlan.NamedReplyCommand(
+                VoiceCommand.ReplyToConversation("Mom", "I am leaving now")
+            ),
             voicePlan
         )
         assertEquals(voicePlan, typedPlan)

@@ -50,6 +50,7 @@ class VoiceAssistantTest {
         val cmd1 = VoiceCommandParser.parse("reply to the latest message: I am in a meeting")
         assertTrue(cmd1 is VoiceCommand.ReplyToLatestActiveMessage)
         assertEquals("I am in a meeting", (cmd1 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
+        assertEquals(true, cmd1.explicitLatest)
 
         val cmd2 = VoiceCommandParser.parse("reply latest message I will call later")
         assertTrue(cmd2 is VoiceCommand.ReplyToLatestActiveMessage)
@@ -66,6 +67,7 @@ class VoiceAssistantTest {
         val cmd5 = VoiceCommandParser.parse("reply I'm busy")
         assertTrue(cmd5 is VoiceCommand.ReplyToLatestActiveMessage)
         assertEquals("I'm busy", (cmd5 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
+        assertEquals(false, cmd5.explicitLatest)
 
         val cmd6 = VoiceCommandParser.parse("say I am in a meeting")
         assertTrue(cmd6 is VoiceCommand.ReplyToLatestActiveMessage)
@@ -74,6 +76,15 @@ class VoiceAssistantTest {
         val cmd7 = VoiceCommandParser.parse("tell them that I'll be late")
         assertTrue(cmd7 is VoiceCommand.ReplyToLatestActiveMessage)
         assertEquals("I'll be late", (cmd7 as VoiceCommand.ReplyToLatestActiveMessage).replyText)
+    }
+
+    @Test
+    fun testParserRecognisesNamedReplyCommands() {
+        val cmd1 = VoiceCommandParser.parse("reply to Mom: I am leaving now")
+        assertEquals(VoiceCommand.ReplyToConversation("Mom", "I am leaving now"), cmd1)
+
+        val cmd2 = VoiceCommandParser.parse("tell Office Group that I will join late")
+        assertEquals(VoiceCommand.ReplyToConversation("Office Group", "I will join late"), cmd2)
     }
 
     @Test
