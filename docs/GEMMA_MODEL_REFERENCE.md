@@ -2,7 +2,7 @@
 
 This document summarizes the Gemma-related model and runtime choices relevant to GemmaControl. It is based on official Gemma and LiteRT-LM documentation plus the current app implementation.
 
-Snapshot date: 2026-06-04
+Snapshot date: 2026-06-05
 
 ## Decision Summary
 
@@ -24,6 +24,8 @@ Gemma 4 E2B or Gemma 3n E2B
 
 Local summarization decision: [LOCAL_SUMMARIZATION_MODEL_DECISION.md](LOCAL_SUMMARIZATION_MODEL_DECISION.md)
 
+FunctionGemma fine-tuning decision: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md)
+
 Do not treat one generative model as if it can "access the phone". The app must build truthful Android context, the model can propose a tool, and Kotlin must validate and execute.
 
 ## Model Fit Table
@@ -37,7 +39,7 @@ Do not treat one generative model as if it can "access the phone". The app must 
 | Gemma 3n E2B | Device-optimized multimodal model | Later summarization/audio/image if Gemma 4 path is not practical | Deferred by #117 |
 | PaliGemma | Vision-language model | Image understanding when actual image bytes are available | Not for WhatsApp notification placeholders |
 | ShieldGemma 2 | Image safety classifier | Future image/media safety gate | Not needed for v1 |
-| FunctionGemma fine-tune | Custom routing model trained on app-specific examples | Improve routing if prompts/tool descriptions are insufficient | Later only |
+| FunctionGemma fine-tune | Custom routing model trained on app-specific examples | Improve routing only if benchmarked prompt/context routing is insufficient | Deferred by #116 |
 
 ## FunctionGemma
 
@@ -350,12 +352,15 @@ Prefer deterministic Kotlin safety first:
 
 FunctionGemma docs and the `gemma-dev` skill both treat fine-tuning as appropriate when a domain needs more reliable tool routing than prompting/tool descriptions can provide.
 
-For GemmaControl, fine-tuning is not first. It becomes relevant only if #115 shows:
+Decision note: [FUNCTION_GEMMA_FINE_TUNING_DECISION.md](FUNCTION_GEMMA_FINE_TUNING_DECISION.md)
 
-- Tool descriptions and prompt context cannot reach acceptable routing accuracy.
-- Malformed output remains high.
-- Indirect natural language frequently maps to the wrong tool.
-- Clarification handling remains weak despite Kotlin state.
+For GemmaControl, fine-tuning is not approved now. It becomes relevant only if #115 and physical-device runs show:
+
+- Tool descriptions and prompt context cannot reach at least `95%` supported-command routing accuracy.
+- Valid parse/tool-call rate remains below `99%` or malformed output appears in safety-critical cases.
+- Unsupported, hidden-content, media-placeholder, delete, open-app, and send-message prompts do not fail cleanly.
+- Indirect natural language frequently maps to the wrong tool after compact context and optional semantic retrieval.
+- The fine-tuned artifact stays within the target phone's latency, memory, and cache budget.
 
 If needed later, training data should be synthetic/sanitized:
 
@@ -365,6 +370,8 @@ If needed later, training data should be synthetic/sanitized:
 - Unsupported/negative examples.
 - Confirmation-required examples.
 - No private real WhatsApp text unless explicitly sanitized and approved.
+
+The starter template is [function_gemma_finetune_dataset_template.jsonl](function_gemma_finetune_dataset_template.jsonl). It is a contract for future evaluation/training only and does not authorize training or importing another model artifact.
 
 ## Module Recommendations
 

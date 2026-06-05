@@ -25,6 +25,7 @@ This document records the truthful current state of completed modules, verified 
 | FunctionGemma Model Download | **PARTIAL LOCAL IMPLEMENTATION** — WorkManager dependency, HTTPS-only request contract, `.gallerytmp` temporary files, resume/progress bookkeeping, SHA-256 verification, enqueue/cancel manager, Settings download/progress UI, and app-private model install path resolution exist; physical download validation remains deferred |
 | FunctionGemma Tool Contract | **IMPLEMENTED LOCALLY** — Expanded side-effect-free Gallery-style `ToolSet`, typed 16-action app-level registry, risk-specific safety levels, OpenAPI-style schema exporter, strict JSON proposal parser, safety router, local executor boundary, follow-up/priority/reminder persistence, compact phone-context prompt builder, and visible confirmation-time function-call details exist |
 | FunctionGemma Routing Benchmark | **IMPLEMENTED LOCALLY** — Offline routing corpus, enriched tool-description coverage tests, unsupported-workflow Kotlin fallback checks, and a no-model baseline document exist |
+| FunctionGemma Fine-Tuning Decision | **DEFERRED FROM V1** — #116 defines the benchmark gate and synthetic dataset template; no training, model download, model conversion, or model import is approved |
 | EmbeddingGemma Semantic Memory | **NO-MODEL SCAFFOLD IMPLEMENTED LOCALLY** — Query/document prompt formatter, provider interface, exact cosine index, fake-embedder prototype tests, and storage/privacy plan exist; no EmbeddingGemma artifact is downloaded or bundled |
 | Local Summarization Model Decision | **DECIDED FOR V1** — #117 keeps summaries rules-first with FunctionGemma as router only; Gemma 4/Gemma 3n require future benchmark evidence and explicit model approval |
 | Accessibility Service Decision | **DEFERRED FROM V1** — #122 documents Accessibility as V2 assistive-mode evaluation only; no service is implemented and no production tool depends on it |
@@ -71,6 +72,7 @@ This document records the truthful current state of completed modules, verified 
 - `data/reminder/ReminderWorker.kt` — WorkManager notification worker that loads reminders by id, checks notification permission, decrypts reminder notes locally, and posts local notifications
 - `ai/tools/PhoneContextSnapshot.kt` / `ai/tools/GemmaPromptBuilder.kt` — Compact phone-context builder for FunctionGemma calls with active notification, unread chat summary, relevant message, `content_kind`, priority, and reply availability facts
 - `FunctionGemmaRoutingBenchmarkCorpusTest.kt` / `docs/FUNCTION_GEMMA_ROUTING_BENCHMARK.md` — Offline FunctionGemma routing corpus and baseline for natural WhatsApp assistant commands without downloading or executing a model
+- `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` / `docs/function_gemma_finetune_dataset_template.jsonl` — #116 no-training decision, benchmark gate, privacy rules, and synthetic dataset template for future FunctionGemma routing evaluation
 - `ai/semantic/EmbeddingGemmaSemanticMemory.kt` / `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — No-model semantic retrieval scaffold with prompt formatting, provider boundary, exact cosine top-k ranking, fake-embedder test prototype, storage cost estimates, and privacy gates
 - `ai/runtime/GemmaEngine.kt` — Runtime interface plus unavailable adapter for honest LiteRT-LM blocked state
 - `ai/runtime/LiteRtGemmaEngine.kt` — Isolated LiteRT-LM engine/conversation wrapper using Gallery defaults and manual tool calling
@@ -127,6 +129,7 @@ The implementation has since been split and merged through later issue branches 
 - `docs/EMBEDDING_GEMMA_SEMANTIC_MEMORY_PLAN.md` — EmbeddingGemma #113 no-download spike, future storage design, prompt contract, and device gates
 - `docs/LOCAL_SUMMARIZATION_MODEL_DECISION.md` — #117 no-download decision keeping Gemma 4/Gemma 3n out of V1, with summary benchmark scenarios and approval gates
 - `docs/ACCESSIBILITY_SERVICE_EVALUATION.md` — #122 V1/V2 Accessibility decision, capability comparison, safety policy, and prototype gate
+- `docs/FUNCTION_GEMMA_FINE_TUNING_DECISION.md` — #116 no-training FunctionGemma fine-tuning gate and synthetic dataset contract
 
 ### Test Coverage
 - `WhatsAppNotificationParserTest.kt` — Unit coverage for package allowlist, SHA-256 determinism, content-kind classification, POSTED/UPDATED/REMOVED lifecycle, and 100-entry cap
@@ -134,6 +137,7 @@ The implementation has since been split and merged through later issue branches 
 - `NotificationPersistenceCoordinatorTest.kt` — Unit coverage for settings defaults, consent control skipping, dual-notification canonicalization, content-kind metadata persistence, system notification filtering, dedupe, follow-ups, priorities, reminders, and fail-closed crypto behavior
 - `VoiceReadAloudBuilderTest.kt` — Unit coverage for 0, 1, 3, 4+, multi-chat, continue, chat-specific, important-only, summarize, and emoji-cleanup read-aloud cases
 - `EmbeddingGemmaSemanticMemoryTest.kt` — Unit coverage for retrieval prompt formatting, truthful media placeholders, exact cosine ranking, dimension mismatch filtering, and fake-embedder sample retrieval without a real model
+- `FunctionGemmaRoutingBenchmarkCorpusTest.kt` — Unit coverage for routing corpus categories, enriched tool descriptions, unsupported workflow fallback, no-model baseline, and the synthetic fine-tuning template coverage/safety labels
 - `RoomEncryptionInstrumentationTest.kt` — 4 instrumented tests (Android Keystore Aes-GCM round trip, Room DB insert/read encrypted text, unique dedupe constraint, bulk delete clear)
 - Earlier phase test logs record passing JVM and connected-device checks. For the current `main`, rerun `.\gradlew test`, `.\gradlew connectedDebugAndroidTest`, and physical handset voice/model validation before claiming a fresh all-tests-passing state.
 
