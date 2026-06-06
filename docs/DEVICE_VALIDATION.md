@@ -33,6 +33,35 @@ Manual assistant regression cases are tracked in [REAL_DEVICE_ASSISTANT_TEST_MAT
 
 ## 3. On-Device Validation Milestones
 
+### Fresh Validation Notes: 2026-06-05
+
+Target device: Xiaomi `2406ERN9CI`, Android 16 / API 36, HyperOS `OS3.0`, ADB serial `1431df87`.
+
+| Check | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Debug APK build | **PASS** | `./gradlew :app:testDebugUnitTest :app:assembleDebug` passed on 2026-06-05 after prompt compaction. |
+| Debug APK install/update | **BLOCKED BY DEVICE SETTING** | `adb install -r -d app-debug.apk` returned `INSTALL_FAILED_USER_RESTRICTED`; user must approve/enable Xiaomi "Install via USB" before fresh install. |
+| Notification listener setting | **PASS** | `enabled_notification_listeners` includes `com.example.gemmacontrol/.notifications.WhatsAppNotificationListener`. |
+| Microphone permission | **PASS** | Package permission dump shows `android.permission.RECORD_AUDIO: granted=true`; app-op shows foreground/allow behavior. |
+| Reminder notification permission | **PASS** | Package permission dump shows `android.permission.POST_NOTIFICATIONS: granted=true`. |
+| WhatsApp package presence | **PASS** | `pm list packages com.whatsapp` returns `package:com.whatsapp`. |
+| WhatsApp active notification evidence | **PASS** | `dumpsys notification` showed active `com.whatsapp` message notifications with `actions=3`; no message body, sender name, group name, or phone number was committed. |
+| App home readiness after WhatsApp event | **PASS** | UI hierarchy showed `Ready for voice actions`, `3 active WhatsApp notifications ready for reply`, `Captured` = `8`, `Stored` = `30`, `Notification listener active`, and `FunctionGemma model: Ready`. |
+| FunctionGemma model file reuse | **PASS / WORKFLOW WARNING** | Before Gradle connected tests, `run-as com.example.gemmacontrol stat files/models/mobile_actions_q8_ekv1024.litertlm` showed `288,964,608` bytes app-private. Normal `adb install -r` preserves this file. Running `connectedDebugAndroidTest` can uninstall the target app and delete app-private `files/models`; do not use that workflow for model-preserving manual validation. |
+| FunctionGemma cold initialization | **PASS** | Physical benchmark attempt loaded the installed model in `973 ms`; warm initialize reused the loaded engine in `0 ms`. |
+| FunctionGemma route generation before prompt compaction | **FAIL / FIXED IN CODE** | Physical benchmark found `Input token ids are too long... 2059 >= 1024`; prompt builder was compacted so native LiteRT-LM tool schemas are not duplicated in text. |
+| WhatsApp draft intent | **BLOCKED BY DEVICE SETTING** | Direct WhatsApp send/share intent resolved to WhatsApp, but Xiaomi App Lock intercepted with `com.miui.securitycenter/.applicationlock.AppLockActivity`; user must unlock WhatsApp to validate draft launch. |
+| ADB tap automation | **BLOCKED BY DEVICE POLICY** | `adb shell input tap ...` returned `SecurityException: Injecting input events requires ... INJECT_EVENTS`; use manual taps for UI-only steps on this phone. |
+
+Manual model-preserving validation flow:
+
+1. Build with `./gradlew :app:testDebugUnitTest :app:assembleDebug`.
+2. Install with `adb install -r -d GemmaControl/app/build/outputs/apk/debug/app-debug.apk`.
+3. If the app was uninstalled by a test workflow, restore the already downloaded local model from `C:\Users\Admin\Desktop\gemma_control\mobile_actions_q8_ekv1024.litertlm`; do not download again unless the local file is absent or checksum validation fails.
+4. Launch with `adb shell am start -n com.example.gemmacontrol/.MainActivity`.
+5. Use manual taps/voice on-device because this Xiaomi build blocks shell input injection.
+6. Avoid `connectedDebugAndroidTest` for manual validation sessions that need app-private model persistence.
+
 ### Milestone 1: Notification Listener POC
 
 | Stage | Status | Evidence Type |

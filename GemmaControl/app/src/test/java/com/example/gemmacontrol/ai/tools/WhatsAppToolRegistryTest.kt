@@ -47,15 +47,16 @@ class WhatsAppToolRegistryTest {
     }
 
     @Test
-    fun systemPromptSummarisesToolNamesAndManualExecutionBoundary() {
+    fun systemPromptKeepsNativeToolInstructionsCompact() {
         val prompt = WhatsAppToolRegistry.default().buildSystemPrompt(
             currentDateTimeIso = "2026-05-28T20:30:00",
             dayOfWeek = "Thursday"
         )
 
-        assertTrue(prompt.contains("Use the native LiteRT-LM WhatsApp tools"))
-        assertTrue(prompt.contains("send_reply_to_active_whatsapp_notification"))
-        assertTrue(prompt.contains("Never claim that a reply was sent"))
-        assertTrue(prompt.contains("Current date and time: 2026-05-28T20:30:00"))
+        assertTrue(prompt.contains("Use native tools for supported WhatsApp actions"))
+        assertTrue(prompt.contains("Replies, drafts, local writes, capture changes, and deletes need Kotlin confirmation"))
+        assertTrue(prompt.contains("Never claim an action ran until Kotlin reports success"))
+        assertTrue(prompt.contains("Time: 2026-05-28T20:30:00 (Thursday)"))
+        assertTrue(prompt.length < 600)
     }
 }

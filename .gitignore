@@ -23,8 +23,10 @@ local.properties
 skills-lock.json
 
 # Model Binaries (FunctionGemma Large Files)
+models/
 *.litertlm
 *.tflite
+*.safetensors
 *.bin
 
 # Android build artifacts
