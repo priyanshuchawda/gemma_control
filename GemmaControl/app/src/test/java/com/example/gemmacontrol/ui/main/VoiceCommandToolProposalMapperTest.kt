@@ -78,6 +78,16 @@ class VoiceCommandToolProposalMapperTest {
         assertEquals("summarize", summarizeProposal.string("read_mode"))
         assertEquals(8, summarizeProposal.integer("limit"))
 
+        val chatSummary = mapper.mapNativeToolAction(
+            WhatsAppToolAction.SummarizeMessages(conversationName = "Mom", limit = 8)
+        )
+        assertTrue(chatSummary is VoiceToolProposalResult.Valid)
+        val chatSummaryProposal = (chatSummary as VoiceToolProposalResult.Valid).proposal
+        assertEquals(WhatsAppToolName.ListRecentWhatsAppMessages, chatSummaryProposal.name)
+        assertEquals("Mom", chatSummaryProposal.string("conversation_name"))
+        assertEquals("summarize", chatSummaryProposal.string("read_mode"))
+        assertEquals(8, chatSummaryProposal.integer("limit"))
+
         val chat = mapper.mapNativeToolAction(WhatsAppToolAction.GetChatMessages(conversationName = "Mom", limit = 6))
         assertTrue(chat is VoiceToolProposalResult.Valid)
         val chatProposal = (chat as VoiceToolProposalResult.Valid).proposal

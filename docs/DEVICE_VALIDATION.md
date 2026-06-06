@@ -26,14 +26,53 @@ Manual assistant regression cases are tracked in [REAL_DEVICE_ASSISTANT_TEST_MAT
 
 | Blocker | Resolution |
 | :--- | :--- |
-| **Xiaomi USB installation restriction** | Manually toggled "Install via USB" in MIUI Developer Options |
-| **Xiaomi Autostart rejection** | Manually toggled Autostart ON in App Info settings |
+| **Xiaomi USB installation restriction** | Manually toggled "Install via USB" in MIUI Developer Options; `adb install -r -d` succeeds on the 2026-06-06 validation build. |
+| **Xiaomi Autostart gate** | The app correctly presents the Xiaomi Autostart setup gate. For foreground validation, `Continue anyway` can be used; background reliability still requires manual Autostart and Battery "No restrictions" confirmation. |
 
 ---
 
 ## 3. On-Device Validation Milestones
 
-### Fresh Validation Notes: 2026-06-05
+### Fresh Validation Notes: 2026-06-06
+
+Target device: Xiaomi `2406ERN9CI`, Android 16 / API 36, HyperOS `OS3.0`, ADB serial `1431df87`, SoC `SM4450`.
+
+| Check | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Debug APK install/update | **PASS** | `adb install -r -d GemmaControl/app/build/outputs/apk/debug/app-debug.apk` succeeded after the user enabled Xiaomi install permissions. |
+| FunctionGemma model file reuse | **PASS** | `files/models/mobile_actions_q8_ekv1024.litertlm` exists in app-private storage at `288,964,608` bytes. Normal `adb install -r` preserves this file; avoid Gradle connected test workflows that uninstall the target app. |
+| EmbeddingGemma LiteRT artifact availability | **STAGED / NOT WIRED** | User downloaded `litert-community/embeddinggemma-300m` under local `models/embeddinggemma-litert`. For this `SM4450` device, the generic `embeddinggemma-300M_seq512_mixed-precision.tflite` plus `sentencepiece.model` were copied to `files/models/embeddinggemma-300m/`. Vendor-specific Qualcomm artifacts in the download target `sm8550`, `sm8650`, `sm8750`, or `sm8850`, so they were not selected. Current app code does not execute the `.tflite` embedder yet. |
+| Notification listener setting | **PASS** | Android notification manager lists `com.example.gemmacontrol/com.example.gemmacontrol.notifications.WhatsAppNotificationListener` under allowed and live listeners. |
+| App foreground launch | **PASS** | `adb shell am start -n com.example.gemmacontrol/.MainActivity` opens the app without crash. |
+| Xiaomi Autostart setup gate | **PASS / MANUAL GATE** | App opens the Xiaomi Autostart instructions after reinstall. Foreground validation can continue via `Continue anyway`; background reliability requires manual Autostart and Battery setup. |
+| Home readiness | **PASS** | UI hierarchy shows `Notification listener active`, `FunctionGemma model: Ready`, and `FunctionGemma model file is installed locally.` |
+| Voice screen readiness | **PASS / MIC GATE** | Voice screen shows `Ready for voice actions` and recent WhatsApp context availability. Android package permission dump still shows `RECORD_AUDIO: granted=false`; Xiaomi blocks `pm grant`, so microphone permission must be accepted manually from the phone UI. |
+| Reminder notification permission | **MANUAL GATE** | Android package permission dump still shows `POST_NOTIFICATIONS: granted=false`; Xiaomi blocks `pm grant`, so local reminder notification permission must be accepted manually from the phone UI. |
+| Stored database count after reinstall | **PASS / EXPECTED EMPTY** | App-private Room DB exists and row-count metadata shows `message_events=0`, `conversations=0`, `active_notification_references=0`, `reminders=0`, and `follow_ups=0`. Home's `Stored 0` is accurate after reinstall. |
+| Live notification context | **PARTIAL** | Home/Voice showed live captured context, but a redacted notification manager scan did not show an active WhatsApp notification record at the time of capture. A fresh incoming WhatsApp message is needed to validate persistence and reply actions. |
+| ADB tap automation | **BLOCKED BY DEVICE POLICY** | `adb shell input tap ...` returns `SecurityException: Injecting input events requires ... INJECT_EVENTS`; manual taps are required for permission prompts and voice recording. |
+| Crash check | **PASS** | Recent logcat around launch/navigation showed no `FATAL EXCEPTION` or app `AndroidRuntime` crash. |
+
+Manual next steps for this exact device:
+
+1. On the phone, grant microphone permission when tapping `Speak to GemmaControl`.
+2. On the phone, allow GemmaControl notifications if prompted.
+3. In Xiaomi/HyperOS settings, enable Autostart and set Battery to No restrictions for GemmaControl before background reliability testing.
+4. Send a fresh WhatsApp message while GemmaControl is installed and the listener is live.
+5. Re-check Home counters and the Room row counts; `message_events` should increase only after storage consent is enabled.
+6. Use voice or the app's foreground controls to test "Read my latest WhatsApp messages" and reply proposal flow.
+
+Manual model-preserving validation flow:
+
+1. Build with `./gradlew :app:testDebugUnitTest :app:assembleDebug`.
+2. Install with `adb install -r -d GemmaControl/app/build/outputs/apk/debug/app-debug.apk`.
+3. If the app was uninstalled by a test workflow, restore the already downloaded local FunctionGemma model from `C:\Users\Admin\Desktop\gemma_control\mobile_actions_q8_ekv1024.litertlm`; do not download again unless the local file is absent or checksum validation fails.
+4. If EmbeddingGemma Android integration is being evaluated, copy only the selected generic LiteRT artifact and `sentencepiece.model`; do not copy the full multi-variant Hugging Face download to the phone.
+5. Launch with `adb shell am start -n com.example.gemmacontrol/.MainActivity`.
+6. Use manual taps/voice on-device because this Xiaomi build blocks shell input injection.
+7. Avoid `connectedDebugAndroidTest` for manual validation sessions that need app-private model persistence.
+
+### Previous Validation Notes: 2026-06-05
 
 Target device: Xiaomi `2406ERN9CI`, Android 16 / API 36, HyperOS `OS3.0`, ADB serial `1431df87`.
 

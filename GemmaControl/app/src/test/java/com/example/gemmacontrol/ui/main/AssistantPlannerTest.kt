@@ -19,8 +19,38 @@ class AssistantPlannerTest {
             source = AssistantInputSource.Typed
         )
 
-        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.ReadLatestMessages), voicePlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.ReadStoredMessages), voicePlan)
         assertEquals(voicePlan, typedPlan)
+    }
+
+    @Test
+    fun plan_routesLatestMessagesToActiveNotificationRead() {
+        val plan = planner.plan("read my latest WhatsApp messages", AssistantInputSource.Voice)
+
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.ReadLatestMessages), plan)
+    }
+
+    @Test
+    fun plan_routesNaturalSummaryRequestsLocallyWithoutModelProposal() {
+        val voicePlan = planner.plan("summarize message", AssistantInputSource.Voice)
+        val typedPlan = planner.plan("summary of WhatsApp messages", AssistantInputSource.Typed)
+        val catchUpPlan = planner.plan("catch me up on WhatsApp", AssistantInputSource.Voice)
+        val whatHappenedPlan = planner.plan("what happened in WhatsApp", AssistantInputSource.Typed)
+
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), voicePlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), typedPlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), catchUpPlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), whatHappenedPlan)
+    }
+
+    @Test
+    fun plan_routesChatScopedSummaryRequestsLocallyWithoutModelProposal() {
+        val plan = planner.plan("catch me up on messages from Mom", AssistantInputSource.Voice)
+
+        assertEquals(
+            AssistantPlan.ReadCommand(VoiceCommand.SummarizeMessagesFromConversation("Mom")),
+            plan
+        )
     }
 
     @Test

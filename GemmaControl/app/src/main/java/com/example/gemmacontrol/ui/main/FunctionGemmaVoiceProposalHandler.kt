@@ -89,9 +89,9 @@ class FunctionGemmaVoiceProposalHandler(
         return when (result) {
             is GemmaEngineResult.ProposalText -> resolveProposal(result, context)
             is GemmaEngineResult.NativeToolAction -> resolveNativeToolAction(result, context)
-            is GemmaEngineResult.Blocked -> VoiceAssistantState.Failure(result.reason)
-            is GemmaEngineResult.Failure -> VoiceAssistantState.Failure(result.safeReason)
-            GemmaEngineResult.Ready -> VoiceAssistantState.Failure("FunctionGemma did not return a tool proposal.")
+            is GemmaEngineResult.Blocked,
+            is GemmaEngineResult.Failure,
+            GemmaEngineResult.Ready -> modelProposalFallbackState()
         }
     }
 
@@ -110,9 +110,13 @@ class FunctionGemmaVoiceProposalHandler(
         context: FunctionGemmaVoiceProposalContext
     ): VoiceAssistantState {
         return when (val mapped = mapper.mapParseResult(result.parseResult)) {
-            is VoiceToolProposalResult.Invalid -> VoiceAssistantState.Failure(mapped.reason)
+            is VoiceToolProposalResult.Invalid -> modelProposalFallbackState()
             is VoiceToolProposalResult.Valid -> mapped.toVoiceState(context)
         }
+    }
+
+    private fun modelProposalFallbackState(): VoiceAssistantState {
+        return VoiceAssistantState.ClarificationRequired(ModelProposalFallbackClarification)
     }
 
     private fun VoiceToolProposalResult.Valid.toVoiceState(
@@ -160,6 +164,8 @@ class FunctionGemmaVoiceProposalHandler(
         val readMode = string("read_mode").orEmpty()
         val conversationName = string("conversation_name")?.trim().orEmpty()
         val command = when {
+            readMode == "summarize" && conversationName.isNotBlank() ->
+                VoiceCommand.SummarizeMessagesFromConversation(conversationName)
             readMode == "summarize" -> VoiceCommand.SummarizeWhatsAppMessages
             readMode == "continue" -> VoiceCommand.ContinueReadingMessages
             conversationName.isNotBlank() -> VoiceCommand.ReadMessagesFromConversation(conversationName)
@@ -257,3 +263,6 @@ internal const val ExpiredActiveReplyTargetMessage =
 
 internal const val NoActiveReplyTargetMessage =
     "No active WhatsApp reply notification is available. Ask the sender to message again, then retry while the notification is still visible."
+
+internal const val ModelProposalFallbackClarification =
+    "I could not turn that into a safe WhatsApp action. Try: read latest WhatsApp messages, summarize WhatsApp, search WhatsApp for payment, or draft reply to Mom: On my way."

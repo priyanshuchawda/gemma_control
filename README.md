@@ -23,7 +23,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 - **Inbox Cleanup**: Dismiss and hide noise from the local inbox without clearing notifications inside WhatsApp.
 
 ### 3. Safe Execution Boundaries (Android 16 Target)
-- **Adaptive Read-Aloud**: Reads 1-3 messages directly, summarizes larger sets by chat, and supports continue, chat-specific reads, summarize, and important-only voice phrases.
+- **Adaptive Read-Aloud**: `Read latest WhatsApp messages` targets currently active notification rows, while `Read stored messages` uses the local history index. Reads 1-3 messages directly, summarizes larger sets by chat, and supports continue, chat-specific reads, summarize, and important-only voice phrases.
 - **Edge-to-Edge Jetpack Compose**: Mandatory edge-to-edge UI display with full support for window insets and IME (keyboard) overlays.
 - **Predictive Back Navigation**: Built using predictive-back-compatible AndroidX navigation frameworks and custom `BackHandler` hooks.
 - **Verified Click-to-Chat Intents**: Securely launches click-to-chat `ACTION_VIEW` intents utilizing E.164 phone formats.

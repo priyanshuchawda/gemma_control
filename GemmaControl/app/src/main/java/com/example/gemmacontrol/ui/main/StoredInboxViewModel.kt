@@ -42,7 +42,8 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
 
     fun sendConfirmedReply(
         notificationKey: String,
-        text: String
+        text: String,
+        conversationTitle: String? = null
     ): com.example.gemmacontrol.notifications.ReplySendResult {
         val result = replyExecutor.sendConfirmedReply(
             context = getApplication(),
@@ -50,7 +51,11 @@ class StoredInboxViewModel(application: Application) : AndroidViewModel(applicat
             text = text
         )
         if (result == ReplySendResult.Success) {
-            RecentOutgoingReplyEchoSuppressor.register(notificationKey, text)
+            RecentOutgoingReplyEchoSuppressor.register(
+                notificationKey = notificationKey,
+                replyText = text,
+                conversationTitle = conversationTitle
+            )
         }
         return result
     }

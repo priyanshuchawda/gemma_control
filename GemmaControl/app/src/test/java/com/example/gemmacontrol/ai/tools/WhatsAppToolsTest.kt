@@ -94,6 +94,23 @@ class WhatsAppToolsTest {
     }
 
     @Test
+    fun summarizeMessagesCanScopeToConversation() {
+        val actions = mutableListOf<WhatsAppToolAction>()
+        val tools = WhatsAppToolActionHandler(onFunctionCalled = actions::add)
+
+        val result = tools.summarizeMessages(conversationName = " Mom ", limit = 8)
+
+        assertEquals(
+            WhatsAppToolAction.SummarizeMessages(conversationName = "Mom", limit = 8),
+            actions.single()
+        )
+        assertEquals("success", result["result"])
+        assertEquals("summarize_messages", result["action"])
+        assertEquals("Mom", result["conversation_name"])
+        assertEquals("8", result["limit"])
+    }
+
+    @Test
     fun expandedNativeToolsRejectBlankRequiredArguments() {
         val actions = mutableListOf<WhatsAppToolAction>()
         val tools = WhatsAppToolActionHandler(onFunctionCalled = actions::add)

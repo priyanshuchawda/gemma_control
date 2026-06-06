@@ -13,7 +13,7 @@ internal fun voiceAssistantStatusTitle(state: VoiceAssistantState): String {
         is VoiceAssistantState.ConfirmationRequired -> "Review Dictated Reply"
         is VoiceAssistantState.LocalToolConfirmationRequired -> "Review Local Action"
         is VoiceAssistantState.LocalToolSucceeded -> "Action complete"
-        is VoiceAssistantState.SpeakingMessages -> "Reading stored messages"
+        is VoiceAssistantState.SpeakingMessages -> "Reading messages"
         is VoiceAssistantState.ClarificationRequired -> "Clarification needed"
         is VoiceAssistantState.Failure -> "Error encountered"
         VoiceAssistantState.LanguagePackMissingError -> "Language Pack Missing"
@@ -42,7 +42,7 @@ internal fun voiceAssistantSubtitle(
             } else {
                 ""
             }
-            "$privacyNote$inputModeHint\n\nTry: 'Read my latest stored messages', 'Search WhatsApp for payment', or 'Reply to the latest message: I am in a meeting'"
+            "$privacyNote$inputModeHint\n\nTry: 'Read my latest WhatsApp messages', 'Read my latest stored messages', or 'Reply to the latest message: I am in a meeting'"
         }
         is VoiceAssistantState.Failure -> state.safeReason
         is VoiceAssistantState.Streaming -> "FunctionGemma is drafting a local response."

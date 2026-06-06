@@ -20,7 +20,10 @@ sealed interface WhatsAppToolAction {
         val limit: Int = DEFAULT_WHATSAPP_TOOL_NOTIFICATION_LIMIT
     ) : WhatsAppToolAction
 
-    data class SummarizeMessages(val limit: Int = DEFAULT_WHATSAPP_TOOL_NOTIFICATION_LIMIT) : WhatsAppToolAction
+    data class SummarizeMessages(
+        val conversationName: String? = null,
+        val limit: Int = DEFAULT_WHATSAPP_TOOL_NOTIFICATION_LIMIT
+    ) : WhatsAppToolAction
 
     data class SearchMessages(
         val query: String,

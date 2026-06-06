@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 internal val voiceQuickCommandExamples = listOf(
+    "Read my latest WhatsApp messages",
     "Read my latest stored messages",
     "Search WhatsApp for payment",
     "Show pending follow ups",

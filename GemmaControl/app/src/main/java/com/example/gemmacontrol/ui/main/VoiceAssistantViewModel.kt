@@ -235,7 +235,8 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             }
 
             _state.value = VoiceAssistantState.Streaming("")
-            val activeKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            val activeReplyKeys = InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            val visibleActiveKeys = repository.getActiveNotificationKeys() + activeReplyKeys
             val decryptedMessages = repository.getAllDecryptedMessages()
             val promptContext = decryptedMessages.map { message ->
                 GemmaMessageContext.fromDecryptedMessage(
@@ -246,18 +247,18 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                     decryptedText = message.decryptedText,
                     postedAt = message.postedAt,
                     priority = message.priority,
-                    replyAvailable = message.notificationKey in activeKeys,
+                    replyAvailable = message.notificationKey in activeReplyKeys,
                     contentKind = message.contentKind
                 )
             }
             val latestActiveNotificationKey = decryptedMessages
-                .filter { it.notificationKey in activeKeys }
+                .filter { it.notificationKey in visibleActiveKeys }
                 .maxByOrNull { it.postedAt }
                 ?.notificationKey
-                ?: activeKeys.firstOrNull()
+                ?: visibleActiveKeys.firstOrNull()
             val phoneContext = phoneContextSnapshotBuilder.build(
                 messages = promptContext,
-                activeNotificationKeys = activeKeys,
+                activeNotificationKeys = visibleActiveKeys,
                 latestActiveNotificationKey = latestActiveNotificationKey
             )
             val prompt = gemmaPromptBuilder.buildForUserCommand(
@@ -275,7 +276,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             _state.value = functionGemmaProposalHandler.resolve(
                 result = result,
                 context = FunctionGemmaVoiceProposalContext(
-                    activeNotificationKeys = activeKeys,
+                    activeNotificationKeys = activeReplyKeys,
                     latestActiveNotificationKey = latestActiveNotificationKey,
                     conversationTitleByNotificationKey = conversationTitleByNotificationKey
                 )
@@ -379,7 +380,11 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
         val context = getApplication<Application>()
         val result = replyExecutor.sendConfirmedReply(context, draft.notificationKey, draft.replyText)
         if (result == ReplySendResult.Success) {
-            RecentOutgoingReplyEchoSuppressor.register(draft.notificationKey, draft.replyText)
+            RecentOutgoingReplyEchoSuppressor.register(
+                notificationKey = draft.notificationKey,
+                replyText = draft.replyText,
+                conversationTitle = draft.conversationTitle
+            )
             resetToIdle()
         } else {
             val safeReason = when (result) {
@@ -419,7 +424,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 messages = repository.getAllDecryptedMessages(),
                 request = builderRequest,
                 continueOffset = offset,
-                forceDirect = isContinuation
+                forceDirect = isContinuation,
+                activeNotificationKeys = repository.getActiveNotificationKeys() +
+                    InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
             )
 
             if (!isContinuation) {
@@ -500,8 +507,9 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
 
 private fun VoiceReadAloudRequest.continuationBase(): VoiceReadAloudRequest {
     return when (this) {
-        VoiceReadAloudRequest.Continue,
-        VoiceReadAloudRequest.Summarize -> VoiceReadAloudRequest.Latest
+        VoiceReadAloudRequest.Continue -> VoiceReadAloudRequest.Latest
+        VoiceReadAloudRequest.Summarize -> VoiceReadAloudRequest.StoredLatest
+        is VoiceReadAloudRequest.ConversationSummary -> VoiceReadAloudRequest.Conversation(conversationName)
         else -> this
     }
 }
