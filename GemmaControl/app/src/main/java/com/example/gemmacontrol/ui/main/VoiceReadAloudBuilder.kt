@@ -5,6 +5,9 @@ import com.example.gemmacontrol.notifications.WhatsAppContentKind
 import com.example.gemmacontrol.notifications.spokenSummaryText
 import java.util.Locale
 
+private const val MaxSummarySnippetsPerChat = 2
+private const val MaxSummarySnippetCharacters = 80
+
 internal data class VoiceReadAloudPlan(
     val spokenText: String,
     val spokenMessageCount: Int,
@@ -19,11 +22,12 @@ internal class VoiceReadAloudBuilder(
         messages: List<StoredInboxRepository.DecryptedMessage>,
         request: VoiceReadAloudRequest,
         continueOffset: Int = 0,
-        forceDirect: Boolean = request == VoiceReadAloudRequest.Continue
+        forceDirect: Boolean = request == VoiceReadAloudRequest.Continue,
+        activeNotificationKeys: Set<String> = emptySet()
     ): VoiceReadAloudPlan {
         val sortedMessages = messages
             .asSequence()
-            .filterByRequest(request)
+            .filterByRequest(request, activeNotificationKeys)
             .sortedByDescending { it.postedAt }
             .toList()
 
@@ -35,7 +39,7 @@ internal class VoiceReadAloudBuilder(
             )
         }
 
-        if (request == VoiceReadAloudRequest.Summarize) {
+        if (request == VoiceReadAloudRequest.Summarize || request is VoiceReadAloudRequest.ConversationSummary) {
             return summarize(sortedMessages, request, continueOffset = 0)
         }
 
@@ -47,17 +51,22 @@ internal class VoiceReadAloudBuilder(
     }
 
     private fun Sequence<StoredInboxRepository.DecryptedMessage>.filterByRequest(
-        request: VoiceReadAloudRequest
+        request: VoiceReadAloudRequest,
+        activeNotificationKeys: Set<String>
     ): Sequence<StoredInboxRepository.DecryptedMessage> {
         return when (request) {
-            VoiceReadAloudRequest.Latest,
             VoiceReadAloudRequest.Continue,
+            VoiceReadAloudRequest.StoredLatest,
             VoiceReadAloudRequest.Summarize -> this
+            VoiceReadAloudRequest.Latest -> filter { message ->
+                message.notificationKey in activeNotificationKeys
+            }
             VoiceReadAloudRequest.ImportantOnly -> filter {
                 it.priority.equals("HIGH", ignoreCase = true)
             }
-            is VoiceReadAloudRequest.Conversation -> {
-                val target = normalizeName(request.conversationName)
+            is VoiceReadAloudRequest.Conversation,
+            is VoiceReadAloudRequest.ConversationSummary -> {
+                val target = normalizeName(request.conversationNameFilter().orEmpty())
                 filter { message ->
                     normalizeName(message.conversationId) == target ||
                         normalizeName(message.senderName.orEmpty()) == target
@@ -117,7 +126,7 @@ internal class VoiceReadAloudBuilder(
 
         val intro = summaryIntro(messages.size, chats.size, request)
         val chatSummary = chats.take(maxSummaryChats).joinToString(separator = " ") { (chat, chatMessages) ->
-            "$chat has ${chatMessages.size} ${messageWord(chatMessages.size)}."
+            chatSummaryLine(chat, chatMessages)
         }
         val hiddenChats = chats.size - maxSummaryChats
         val hiddenSummary = if (hiddenChats > 0) {
@@ -132,6 +141,38 @@ internal class VoiceReadAloudBuilder(
             spokenMessageCount = 0,
             nextOffset = continueOffset
         )
+    }
+
+    private fun chatSummaryLine(
+        chat: String,
+        chatMessages: List<StoredInboxRepository.DecryptedMessage>
+    ): String {
+        val snippets = chatMessages
+            .take(MaxSummarySnippetsPerChat)
+            .mapNotNull(::summarySnippet)
+        val extraCount = chatMessages.size - snippets.size
+        val contentSummary = when {
+            snippets.isEmpty() -> "."
+            extraCount > 0 -> ": ${snippets.joinToString("; ")}; plus $extraCount more."
+            else -> ": ${snippets.joinToString("; ")}."
+        }
+        return "$chat has ${chatMessages.size} ${messageWord(chatMessages.size)}$contentSummary"
+    }
+
+    private fun summarySnippet(message: StoredInboxRepository.DecryptedMessage): String? {
+        val spokenText = message.contentKind.spokenSummaryText(message.decryptedText)
+            .safeSpeechText(message.contentKind)
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .trimEnd('.', '!', '?')
+        if (spokenText.isBlank()) {
+            return null
+        }
+        return if (spokenText.length <= MaxSummarySnippetCharacters) {
+            spokenText
+        } else {
+            spokenText.take(MaxSummarySnippetCharacters - 3).trimEnd() + "..."
+        }
     }
 
     private fun directIntro(
@@ -153,15 +194,19 @@ internal class VoiceReadAloudBuilder(
     ): String {
         val scopedLabel = scopedMessageLabel(messageCount, request)
         return when (request) {
-            is VoiceReadAloudRequest.Conversation -> "You have $messageCount $scopedLabel."
+            is VoiceReadAloudRequest.Conversation,
+            is VoiceReadAloudRequest.ConversationSummary -> "You have $messageCount $scopedLabel."
             else -> "You have $messageCount $scopedLabel across $chatCount ${chatWord(chatCount)}."
         }
     }
 
     private fun scopedMessageLabel(count: Int, request: VoiceReadAloudRequest): String {
         val base = when (request) {
+            VoiceReadAloudRequest.Latest -> "active WhatsApp notification ${messageWord(count)}"
             VoiceReadAloudRequest.ImportantOnly -> "important locally stored captured WhatsApp ${messageWord(count)}"
             is VoiceReadAloudRequest.Conversation ->
+                "locally stored captured WhatsApp ${messageWord(count)} from ${request.conversationName}"
+            is VoiceReadAloudRequest.ConversationSummary ->
                 "locally stored captured WhatsApp ${messageWord(count)} from ${request.conversationName}"
             else -> "locally stored captured WhatsApp ${messageWord(count)}"
         }
@@ -198,8 +243,12 @@ internal class VoiceReadAloudBuilder(
 
     private fun emptyStateText(request: VoiceReadAloudRequest): String {
         return when (request) {
+            VoiceReadAloudRequest.Latest ->
+                "There are no active WhatsApp notifications to read. Say read stored messages to hear local captured history."
             VoiceReadAloudRequest.ImportantOnly -> "There are no important locally stored captured WhatsApp messages to read."
             is VoiceReadAloudRequest.Conversation ->
+                "There are no locally stored captured WhatsApp messages from ${request.conversationName}."
+            is VoiceReadAloudRequest.ConversationSummary ->
                 "There are no locally stored captured WhatsApp messages from ${request.conversationName}."
             else -> "There are no locally stored captured WhatsApp messages to read."
         }
@@ -219,6 +268,14 @@ internal class VoiceReadAloudBuilder(
         return value.trim()
             .replace(Regex("\\s+"), " ")
             .lowercase(Locale.ROOT)
+    }
+
+    private fun VoiceReadAloudRequest.conversationNameFilter(): String? {
+        return when (this) {
+            is VoiceReadAloudRequest.Conversation -> conversationName
+            is VoiceReadAloudRequest.ConversationSummary -> conversationName
+            else -> null
+        }
     }
 
     private fun messageWord(count: Int): String = if (count == 1) "message" else "messages"

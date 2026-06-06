@@ -12,6 +12,9 @@ class VoiceAssistantTest {
         val cmd1 = VoiceCommandParser.parse("read my latest messages")
         assertEquals(VoiceCommand.ReadLatestMessages, cmd1)
 
+        val storedCmd = VoiceCommandParser.parse("read my latest stored messages")
+        assertEquals(VoiceCommand.ReadStoredMessages, storedCmd)
+
         val cmd2 = VoiceCommandParser.parse("read current messages")
         assertEquals(VoiceCommand.ReadLatestMessages, cmd2)
 
@@ -39,11 +42,25 @@ class VoiceAssistantTest {
         assertEquals(VoiceCommand.ContinueReadingMessages, VoiceCommandParser.parse("continue"))
         assertEquals(VoiceCommand.ContinueReadingMessages, VoiceCommandParser.parse("read more"))
         assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize WhatsApp"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize message"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize my messages"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summary of WhatsApp messages"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("catch me up on WhatsApp"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("what happened in WhatsApp"))
         assertEquals(VoiceCommand.ReadImportantMessages, VoiceCommandParser.parse("read only important WhatsApp messages"))
 
         val chatCommand = VoiceCommandParser.parse("read messages from Mom")
         assertTrue(chatCommand is VoiceCommand.ReadMessagesFromConversation)
         assertEquals("Mom", (chatCommand as VoiceCommand.ReadMessagesFromConversation).conversationName)
+
+        assertEquals(
+            VoiceCommand.SummarizeMessagesFromConversation("Mom"),
+            VoiceCommandParser.parse("summarize messages from Mom")
+        )
+        assertEquals(
+            VoiceCommand.SummarizeMessagesFromConversation("Mom"),
+            VoiceCommandParser.parse("catch me up on messages from Mom")
+        )
     }
 
     @Test

@@ -10,15 +10,20 @@ object RecentOutgoingReplyEchoSuppressor {
     fun register(
         notificationKey: String,
         replyText: String,
+        conversationTitle: String? = null,
         nowMillis: Long = System.currentTimeMillis()
     ) {
         val normalizedText = replyText.normalizeForEchoMatch()
+        val normalizedConversation = conversationTitle
+            ?.normalizeForEchoMatch()
+            ?.takeIf { it.isNotBlank() }
         if (notificationKey.isBlank() || normalizedText.isBlank()) {
             return
         }
         synchronized(entries) {
             entries[notificationKey] = OutgoingReplyEcho(
                 normalizedText = normalizedText,
+                normalizedConversation = normalizedConversation,
                 expiresAt = nowMillis + ReplyEchoWindowMillis
             )
             pruneExpiredLocked(nowMillis)
@@ -39,12 +44,23 @@ object RecentOutgoingReplyEchoSuppressor {
 
         synchronized(entries) {
             pruneExpiredLocked(nowMillis)
-            val echo = entries[event.notificationKey] ?: return false
-            val matches = echo.normalizedText == latestText
-            if (matches) {
+            val eventConversation = event.conversationTitle
+                ?.normalizeForEchoMatch()
+                ?.takeIf { it.isNotBlank() }
+            val exactKeyEcho = entries[event.notificationKey]
+            if (exactKeyEcho?.normalizedText == latestText) {
                 entries.remove(event.notificationKey)
+                return true
             }
-            return matches
+
+            val refreshedKeyEcho = entries.entries.firstOrNull { (_, echo) ->
+                echo.normalizedConversation != null &&
+                    echo.normalizedConversation == eventConversation &&
+                    echo.normalizedText == latestText
+            } ?: return false
+
+            entries.remove(refreshedKeyEcho.key)
+            return true
         }
     }
 
@@ -66,6 +82,7 @@ object RecentOutgoingReplyEchoSuppressor {
 
     private data class OutgoingReplyEcho(
         val normalizedText: String,
+        val normalizedConversation: String?,
         val expiresAt: Long
     )
 }

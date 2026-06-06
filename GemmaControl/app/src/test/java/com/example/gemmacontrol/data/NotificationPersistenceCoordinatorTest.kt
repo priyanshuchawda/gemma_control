@@ -469,6 +469,57 @@ class NotificationPersistenceCoordinatorTest {
     }
 
     @Test
+    fun testCoordinatorSkipsReplyEchoWhenWhatsAppRefreshesNotificationKey() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        RecentOutgoingReplyEchoSuppressor.clear()
+        RecentOutgoingReplyEchoSuppressor.register(
+            notificationKey = "key_original_reply",
+            replyText = "I am in a meeting",
+            conversationTitle = "Mom"
+        )
+
+        val refreshedKeyEvent = createDummyEvent(
+            key = "key_refreshed_reply",
+            source = NotificationParseSource.MESSAGING_STYLE,
+            title = "Mom",
+            text = "I am in a meeting",
+            timestamp = 1_716_900_001_000L
+        )
+
+        coordinator.handleNotificationEvent(refreshedKeyEvent)
+
+        assertTrue(messageEventDao.list.isEmpty())
+        assertTrue(conversationDao.list.isEmpty())
+        assertTrue(activeNotificationReferenceDao.list.isEmpty())
+        RecentOutgoingReplyEchoSuppressor.clear()
+    }
+
+    @Test
+    fun testCoordinatorDoesNotSuppressSameReplyTextFromDifferentConversation() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+        RecentOutgoingReplyEchoSuppressor.clear()
+        RecentOutgoingReplyEchoSuppressor.register(
+            notificationKey = "key_original_reply",
+            replyText = "Ok",
+            conversationTitle = "Mom"
+        )
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_office",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Office",
+                text = "Ok",
+                timestamp = 1_716_900_001_000L
+            )
+        )
+
+        assertEquals(1, messageEventDao.list.size)
+        assertEquals(1, conversationDao.list.size)
+        RecentOutgoingReplyEchoSuppressor.clear()
+    }
+
+    @Test
     fun testRepositoryCanonicalPersistenceUsesInjectedNowProvider() = runTest {
         val fixedNow = 123_456_789L
         val repositoryWithFixedClock = StoredInboxRepository(
@@ -867,6 +918,32 @@ class NotificationPersistenceCoordinatorTest {
         assertEquals(1, results.size)
         assertEquals("Mom", results.single().conversationName)
         assertEquals("Dinner at 7", results.single().text)
+    }
+
+    @Test
+    fun testRepository_getActiveNotificationKeysReturnsOnlyVisibleNotifications() = runTest {
+        preferencesRepository.setStorageEnabled(true)
+
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_active",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Mom",
+                text = "Still visible"
+            )
+        )
+        coordinator.handleNotificationEvent(
+            createDummyEvent(
+                key = "key_removed",
+                source = NotificationParseSource.MESSAGING_STYLE,
+                title = "Office",
+                text = "Already dismissed"
+            )
+        )
+
+        repository.markNotificationRemoved("key_removed")
+
+        assertEquals(setOf("key_active"), repository.getActiveNotificationKeys())
     }
 
     @Test

@@ -179,11 +179,14 @@ private fun VoiceClarificationCard(
 
 private fun readCommandConfirmationText(command: VoiceReadCommand): String {
     return when (command) {
-        VoiceCommand.ReadLatestMessages -> "Read your latest locally stored captured WhatsApp messages aloud?"
+        VoiceCommand.ReadLatestMessages -> "Read active WhatsApp notification messages aloud?"
+        VoiceCommand.ReadStoredMessages -> "Read your latest locally stored captured WhatsApp messages aloud?"
         VoiceCommand.ContinueReadingMessages -> "Continue reading locally stored captured WhatsApp messages aloud?"
         VoiceCommand.SummarizeWhatsAppMessages -> "Summarize locally stored captured WhatsApp messages aloud?"
         VoiceCommand.ReadImportantMessages -> "Read important locally stored captured WhatsApp messages aloud?"
         is VoiceCommand.ReadMessagesFromConversation ->
             "Read locally stored captured WhatsApp messages from ${command.conversationName} aloud?"
+        is VoiceCommand.SummarizeMessagesFromConversation ->
+            "Summarize locally stored captured WhatsApp messages from ${command.conversationName} aloud?"
     }
 }

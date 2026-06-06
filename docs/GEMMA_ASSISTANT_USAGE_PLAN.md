@@ -517,7 +517,8 @@ For every model/runtime decision, measure:
 
 Benchmark prompts should include:
 
-- "Show my latest WhatsApp messages."
+- "Show my latest WhatsApp messages." -> active notification rows only.
+- "Read my latest stored messages." -> encrypted local history index.
 - "Read messages from Mom."
 - "Anything urgent from office?"
 - "What was that payment message?"

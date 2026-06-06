@@ -14,7 +14,7 @@ class VoiceReadAloudBuilderTest {
     fun build_returnsEmptyMessageWhenNoCapturedMessagesExist() {
         val plan = builder.build(
             messages = emptyList(),
-            request = VoiceReadAloudRequest.Latest
+            request = VoiceReadAloudRequest.StoredLatest
         )
 
         assertEquals("There are no locally stored captured WhatsApp messages to read.", plan.spokenText)
@@ -26,7 +26,7 @@ class VoiceReadAloudBuilderTest {
     fun build_readsSingleMessageDirectly() {
         val plan = builder.build(
             messages = listOf(message(id = "1", conversation = "Mom", text = "Dinner at 7")),
-            request = VoiceReadAloudRequest.Latest
+            request = VoiceReadAloudRequest.StoredLatest
         )
 
         assertEquals(1, plan.spokenMessageCount)
@@ -43,7 +43,7 @@ class VoiceReadAloudBuilderTest {
                 message(id = "2", conversation = "Peter", text = "On my way", postedAt = 2L),
                 message(id = "3", conversation = "Work", sender = "Aunt May", text = "Call back", postedAt = 1L)
             ),
-            request = VoiceReadAloudRequest.Latest
+            request = VoiceReadAloudRequest.StoredLatest
         )
 
         assertEquals(3, plan.spokenMessageCount)
@@ -61,14 +61,48 @@ class VoiceReadAloudBuilderTest {
                 message(id = "3", conversation = "Work", sender = "Peter", text = "Standup", postedAt = 3L),
                 message(id = "4", conversation = "Peter", text = "On my way", postedAt = 2L)
             ),
-            request = VoiceReadAloudRequest.Latest
+            request = VoiceReadAloudRequest.StoredLatest
         )
 
         assertEquals(0, plan.spokenMessageCount)
         assertEquals(0, plan.nextOffset)
         assertTrue(plan.spokenText.contains("You have 4 locally stored captured WhatsApp messages across 3 chats."))
-        assertTrue(plan.spokenText.contains("Mom has 2 messages."))
+        assertTrue(plan.spokenText.contains("Mom has 2 messages: Dinner; Bring milk."))
+        assertTrue(plan.spokenText.contains("Work has 1 message: Standup."))
         assertTrue(plan.spokenText.contains("Say continue to hear messages"))
+    }
+
+    @Test
+    fun build_activeLatestReadsOnlyActiveNotificationMessages() {
+        val plan = builder.build(
+            messages = listOf(
+                message(id = "old", conversation = "Mom", text = "Already seen", postedAt = 1L),
+                message(id = "active", conversation = "Office", text = "Join now", postedAt = 2L)
+            ),
+            request = VoiceReadAloudRequest.Latest,
+            activeNotificationKeys = setOf("key-active")
+        )
+
+        assertEquals(1, plan.spokenMessageCount)
+        assertTrue(plan.spokenText.contains("You have 1 active WhatsApp notification message."))
+        assertTrue(plan.spokenText.contains("Join now."))
+        assertTrue(!plan.spokenText.contains("Already seen."))
+    }
+
+    @Test
+    fun build_activeLatestDoesNotFallBackToStoredHistoryWhenNoActiveNotificationsExist() {
+        val plan = builder.build(
+            messages = listOf(message(id = "old", conversation = "Mom", text = "Already seen")),
+            request = VoiceReadAloudRequest.Latest,
+            activeNotificationKeys = emptySet()
+        )
+
+        assertEquals(0, plan.spokenMessageCount)
+        assertEquals(0, plan.nextOffset)
+        assertEquals(
+            "There are no active WhatsApp notifications to read. Say read stored messages to hear local captured history.",
+            plan.spokenText
+        )
     }
 
     @Test
@@ -124,6 +158,23 @@ class VoiceReadAloudBuilderTest {
     }
 
     @Test
+    fun build_chatScopedSummarizeModeSummarizesSpecificChatEvenForSmallSets() {
+        val plan = builder.build(
+            messages = listOf(
+                message(id = "1", conversation = "Mom", text = "Dinner", postedAt = 3L),
+                message(id = "2", conversation = "Mom", text = "Bring medicine", postedAt = 2L),
+                message(id = "3", conversation = "Work", text = "Standup", postedAt = 1L)
+            ),
+            request = VoiceReadAloudRequest.ConversationSummary("Mom")
+        )
+
+        assertEquals(0, plan.spokenMessageCount)
+        assertTrue(plan.spokenText.contains("You have 2 locally stored captured WhatsApp messages from Mom."))
+        assertTrue(plan.spokenText.contains("Mom has 2 messages: Dinner; Bring medicine."))
+        assertTrue(!plan.spokenText.contains("First message:"))
+    }
+
+    @Test
     fun build_importantModeOnlyReadsHighPriorityMessages() {
         val plan = builder.build(
             messages = listOf(
@@ -143,7 +194,7 @@ class VoiceReadAloudBuilderTest {
     fun build_removesEmojiOnlySpeechNoise() {
         val plan = builder.build(
             messages = listOf(message(id = "1", conversation = "Mom", text = "😂😂 ok")),
-            request = VoiceReadAloudRequest.Latest
+            request = VoiceReadAloudRequest.StoredLatest
         )
 
         assertTrue(plan.spokenText.contains("ok."))

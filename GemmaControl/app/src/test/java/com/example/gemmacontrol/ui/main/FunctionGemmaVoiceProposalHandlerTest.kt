@@ -408,7 +408,7 @@ class FunctionGemmaVoiceProposalHandlerTest {
     }
 
     @Test
-    fun mapsInvalidModelOutputToSafeFailure() {
+    fun mapsInvalidModelOutputToClarification() {
         val state = handler.resolve(
             result = GemmaEngineResult.ProposalText(
                 rawText = "{}",
@@ -417,7 +417,27 @@ class FunctionGemmaVoiceProposalHandlerTest {
             context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
         )
 
-        assertTrue(state is VoiceAssistantState.Failure)
+        assertEquals(
+            VoiceAssistantState.ClarificationRequired(
+                "I could not turn that into a safe WhatsApp action. Try: read latest WhatsApp messages, summarize WhatsApp, search WhatsApp for payment, or draft reply to Mom: On my way."
+            ),
+            state
+        )
+    }
+
+    @Test
+    fun mapsModelRuntimeFailureToClarificationWithoutRawLiteRtError() {
+        val state = handler.resolve(
+            result = GemmaEngineResult.Failure("LiteRT-LM failed while generating a FunctionGemma proposal."),
+            context = FunctionGemmaVoiceProposalContext(activeNotificationKeys = emptySet())
+        )
+
+        assertEquals(
+            VoiceAssistantState.ClarificationRequired(
+                "I could not turn that into a safe WhatsApp action. Try: read latest WhatsApp messages, summarize WhatsApp, search WhatsApp for payment, or draft reply to Mom: On my way."
+            ),
+            state
+        )
     }
 
     private fun proposalResult(

@@ -48,12 +48,14 @@ class WhatsAppTools(
         return handler.readMessages(conversationName, limit)
     }
 
-    @Tool(description = "Summarize recently captured WhatsApp messages from local notification context.")
+    @Tool(description = "Summarize recently captured WhatsApp messages from local notification context, optionally filtered to a sender or group.")
     fun summarizeMessages(
+        @ToolParam(description = "Optional sender or group display name. Pass an empty string for all chats.")
+        conversationName: String,
         @ToolParam(description = "Maximum number of recent messages to summarize.")
         limit: Int
     ): Map<String, String> {
-        return handler.summarizeMessages(limit)
+        return handler.summarizeMessages(conversationName, limit)
     }
 
     @Tool(description = "Search locally captured WhatsApp notification messages by keyword or topic.")

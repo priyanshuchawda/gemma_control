@@ -157,7 +157,11 @@ fun StoredInboxScreen(
                     }
                 },
                 onSendReply = { message ->
-                    val result = viewModel.sendConfirmedReply(message.notificationKey, replyText)
+                    val result = viewModel.sendConfirmedReply(
+                        notificationKey = message.notificationKey,
+                        text = replyText,
+                        conversationTitle = message.conversationId
+                    )
                     activeSheet = null
                     replyText = ""
                     scope.launch {

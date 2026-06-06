@@ -116,6 +116,12 @@ class StoredInboxRepository(
         return messageEventDao.getAllMessages().map { decryptMessageEntity(it, titleMap) }
     }
 
+    suspend fun getActiveNotificationKeys(): Set<String> {
+        return activeNotificationReferenceDao.getActiveReferences()
+            .map { it.notificationKey }
+            .toSet()
+    }
+
     fun getStoredConversationsFlow(): Flow<List<StoredConversation>> {
         return conversationDao.getAllConversationsFlow().map { conversations ->
             conversations.map { conversation ->

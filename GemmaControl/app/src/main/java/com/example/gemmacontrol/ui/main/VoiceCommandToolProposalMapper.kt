@@ -48,6 +48,7 @@ class VoiceCommandToolProposalMapper(
             )
             is WhatsAppToolAction.SummarizeMessages -> mapListRecent(
                 limit = action.limit,
+                conversationName = action.conversationName,
                 readMode = "summarize"
             )
             is WhatsAppToolAction.SearchMessages -> mapSearchMessages(action)

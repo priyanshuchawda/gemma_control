@@ -80,11 +80,24 @@ class WhatsAppToolActionHandler(
     }
 
     fun summarizeMessages(limit: Int): Map<String, String> {
+        return summarizeMessages(conversationName = "", limit = limit)
+    }
+
+    fun summarizeMessages(conversationName: String, limit: Int): Map<String, String> {
+        val cleanedConversation = conversationName.trim().ifBlank { null }
         val safeLimit = safeLimit(limit)
-        onFunctionCalled(WhatsAppToolAction.SummarizeMessages(limit = safeLimit))
+        onFunctionCalled(
+            WhatsAppToolAction.SummarizeMessages(
+                conversationName = cleanedConversation,
+                limit = safeLimit
+            )
+        )
         return successResult(
             action = "summarize_messages",
-            values = mapOf("limit" to safeLimit.toString())
+            values = buildMap {
+                put("limit", safeLimit.toString())
+                cleanedConversation?.let { put("conversation_name", it) }
+            }
         )
     }
 
