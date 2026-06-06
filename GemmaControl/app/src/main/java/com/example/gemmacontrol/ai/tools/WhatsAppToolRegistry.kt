@@ -12,26 +12,14 @@ class WhatsAppToolRegistry private constructor(
     }
 
     fun buildSystemPrompt(currentDateTimeIso: String, dayOfWeek: String): String {
-        val toolLines = tools.joinToString(separator = "\n") { tool ->
-            val params = if (tool.parameters.isEmpty()) {
-                "no parameters"
-            } else {
-                tool.parameters.joinToString { param ->
-                    val marker = if (param.required) "required" else "optional"
-                    "${param.name}:${param.type.name.lowercase()}:$marker"
-                }
-            }
-            "- ${tool.name.value}: ${tool.description} Parameters: $params. Safety: ${tool.safetyLevel}."
-        }
-
         return """
-            You are GemmaControl, a private on-device WhatsApp notification assistant.
-            Current date and time: $currentDateTimeIso. Day of week: $dayOfWeek.
-            Use the native LiteRT-LM WhatsApp tools when a supported action is needed.
-            Never execute tools yourself. Never claim that a reply was sent, data was deleted, capture was changed, or WhatsApp was opened unless Kotlin reports success after user confirmation.
-            Use English only. Keep message_text under 1000 characters.
-            Tool registry:
-            $toolLines
+            You are GemmaControl, a private on-device WhatsApp assistant.
+            Time: $currentDateTimeIso ($dayOfWeek).
+            Use native tools for supported WhatsApp actions.
+            Read/search/summarize are safe. Replies, drafts, local writes, capture changes, and deletes need Kotlin confirmation.
+            Never claim an action ran until Kotlin reports success.
+            If unsure, ask one short clarification.
+            Keep reply text concise.
         """.trimIndent()
     }
 

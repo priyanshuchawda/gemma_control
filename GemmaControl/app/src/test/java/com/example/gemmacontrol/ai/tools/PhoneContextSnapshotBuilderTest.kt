@@ -110,12 +110,12 @@ class PhoneContextSnapshotBuilderTest {
             maxBodyChars = 24
         )
 
-        assertTrue(prompt.contains("Compact phone context:"))
-        assertTrue(prompt.contains("Active WhatsApp notifications:"))
-        assertTrue(prompt.contains("Unread chat summaries:"))
-        assertTrue(prompt.contains("Relevant stored messages:"))
-        assertTrue(prompt.contains("reply_available=true"))
-        assertTrue(prompt.contains("latest_reply_target=true"))
+        assertTrue(prompt.contains("Context:"))
+        assertTrue(prompt.contains("Active:"))
+        assertTrue(prompt.contains("Chats:"))
+        assertTrue(prompt.contains("Messages:"))
+        assertTrue(prompt.contains("reply=true"))
+        assertTrue(prompt.contains("key=active"))
         assertTrue(prompt.contains("body=xxxxxxxxxxxxxxxxxxxxxxxx..."))
         assertFalse(prompt.contains("x".repeat(80)))
     }

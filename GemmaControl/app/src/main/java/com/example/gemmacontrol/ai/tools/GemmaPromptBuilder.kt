@@ -89,19 +89,19 @@ class GemmaPromptBuilder(
         return """
             $systemPrompt
 
-            Compact phone context:
-            Active WhatsApp notifications:
+            Context:
+            Active:
             ${activeNotificationBlock(phoneContext.activeNotifications, maxBodyChars)}
 
-            Unread chat summaries:
+            Chats:
             ${chatSummaryBlock(phoneContext.unreadChats, maxBodyChars)}
 
-            Relevant stored messages:
+            Messages:
             ${messageBlock(phoneContext.relevantMessages, maxBodyChars)}
 
-            User command: ${userCommand.oneLine().truncate(maxUserCommandChars)}
+            User: ${userCommand.oneLine().truncate(maxUserCommandChars)}
 
-            Call one native WhatsApp tool when a supported safe action applies. If no safe tool applies, respond briefly without claiming that any tool ran.
+            Call one native tool if useful. Otherwise answer briefly.
         """.trimIndent()
     }
 
@@ -114,14 +114,13 @@ class GemmaPromptBuilder(
         } else {
             activeNotifications.joinToString(separator = "\n") { active ->
                 listOf(
-                    "notification_key=${active.notificationKey}",
-                    "conversation=${active.conversationName.oneLine()}",
-                    "unread_count=${active.unreadCount}",
-                    "latest_message_event_id=${active.latestMessageEventId ?: "unknown"}",
-                    "latest_content_kind=${active.latestContentKind.name}",
-                    "latest_snippet=${active.latestSnippet.oneLine().truncate(maxBodyChars)}",
-                    "reply_available=${active.replyAvailable}",
-                    "latest_reply_target=${active.latestReplyTarget}"
+                    "key=${active.notificationKey}",
+                    "chat=${active.conversationName.oneLine()}",
+                    "unread=${active.unreadCount}",
+                    "msg=${active.latestMessageEventId ?: "unknown"}",
+                    "kind=${active.latestContentKind.name}",
+                    "text=${active.latestSnippet.oneLine().truncate(maxBodyChars)}",
+                    "reply=${active.replyAvailable}"
                 ).joinToString(prefix = "- ", separator = "; ")
             }
         }
@@ -136,14 +135,13 @@ class GemmaPromptBuilder(
         } else {
             unreadChats.joinToString(separator = "\n") { chat ->
                 listOf(
-                    "conversation=${chat.conversationName.oneLine()}",
-                    "stored_count=${chat.storedCount}",
-                    "active_count=${chat.activeCount}",
-                    "latest_at=${chat.latestAt}",
-                    "latest_content_kind=${chat.latestContentKind.name}",
-                    "latest_snippet=${chat.latestSnippet.oneLine().truncate(maxBodyChars)}",
-                    "high_priority_count=${chat.highPriorityCount}",
-                    "reply_available=${chat.replyAvailable}"
+                    "chat=${chat.conversationName.oneLine()}",
+                    "stored=${chat.storedCount}",
+                    "active=${chat.activeCount}",
+                    "kind=${chat.latestContentKind.name}",
+                    "text=${chat.latestSnippet.oneLine().truncate(maxBodyChars)}",
+                    "important=${chat.highPriorityCount}",
+                    "reply=${chat.replyAvailable}"
                 ).joinToString(prefix = "- ", separator = "; ")
             }
         }
@@ -158,14 +156,14 @@ class GemmaPromptBuilder(
         } else {
             messages.joinToString(separator = "\n") { message ->
                 listOf(
-                    "message_event_id=${message.messageEventId}",
-                    "notification_key=${message.notificationKey}",
-                    "conversation=${message.conversationName.oneLine()}",
+                    "msg=${message.messageEventId}",
+                    "key=${message.notificationKey}",
+                    "chat=${message.conversationName.oneLine()}",
                     "sender=${message.senderName.oneLine()}",
-                    "posted_at=${message.postedAt}",
-                    "content_kind=${message.contentKind.name}",
+                    "at=${message.postedAt}",
+                    "kind=${message.contentKind.name}",
                     "priority=${message.priority.oneLine()}",
-                    "reply_available=${message.replyAvailable}",
+                    "reply=${message.replyAvailable}",
                     "body=${message.body.oneLine().truncate(maxBodyChars)}"
                 ).joinToString(prefix = "- ", separator = "; ")
             }
@@ -180,9 +178,9 @@ class GemmaPromptBuilder(
     }
 
     private companion object {
-        const val DEFAULT_MAX_MESSAGES = 5
-        const val DEFAULT_MAX_BODY_CHARS = 500
-        const val DEFAULT_MAX_USER_COMMAND_CHARS = 500
+        const val DEFAULT_MAX_MESSAGES = 3
+        const val DEFAULT_MAX_BODY_CHARS = 160
+        const val DEFAULT_MAX_USER_COMMAND_CHARS = 220
 
         fun systemClockSnapshot(): PromptClockSnapshot {
             val now = Date()

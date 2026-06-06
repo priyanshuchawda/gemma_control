@@ -32,13 +32,13 @@ class GemmaPromptBuilderTest {
             maxMessages = 3
         )
 
-        assertTrue(prompt.contains("Current date and time: 2026-05-28T21:00:00"))
-        assertTrue(prompt.contains("User command: Reply to the latest message saying ok"))
+        assertTrue(prompt.contains("Time: 2026-05-28T21:00:00 (Thursday)"))
+        assertTrue(prompt.contains("User: Reply to the latest message saying ok"))
         assertTrue(prompt.contains("message-8"))
         assertTrue(prompt.contains("message-7"))
         assertTrue(prompt.contains("message-6"))
         assertFalse(prompt.contains("message-5"))
-        assertTrue(prompt.contains("Call one native WhatsApp tool"))
+        assertTrue(prompt.contains("Call one native tool"))
         assertFalse(prompt.contains("Return only one JSON object"))
     }
 
@@ -72,7 +72,7 @@ class GemmaPromptBuilderTest {
             maxUserCommandChars = 30
         )
 
-        assertTrue(prompt.contains("User command: reply reply reply reply reply ..."))
+        assertTrue(prompt.contains("User: reply reply reply reply reply ..."))
         assertFalse(prompt.contains("reply ".repeat(20)))
     }
 
@@ -110,7 +110,18 @@ class GemmaPromptBuilderTest {
 
         assertEquals(WhatsAppContentKind.PHOTO, context.contentKind)
         assertEquals("Photo attachment (contents not inspected)", context.body)
-        assertTrue(prompt.contains("content_kind=PHOTO"))
+        assertTrue(prompt.contains("kind=PHOTO"))
         assertTrue(prompt.contains("body=Photo attachment (contents not inspected)"))
+    }
+
+    @Test
+    fun emptyContextPromptFitsMobileActionsInputWindow() {
+        val prompt = builder.buildForUserCommand(
+            userCommand = "Read my latest WhatsApp messages",
+            messages = emptyList()
+        )
+
+        assertTrue(prompt.length < 1_200)
+        assertFalse(prompt.contains("Tool registry:"))
     }
 }
