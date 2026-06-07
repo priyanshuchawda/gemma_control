@@ -36,11 +36,17 @@ class AssistantPlannerTest {
         val typedPlan = planner.plan("summary of WhatsApp messages", AssistantInputSource.Typed)
         val catchUpPlan = planner.plan("catch me up on WhatsApp", AssistantInputSource.Voice)
         val whatHappenedPlan = planner.plan("what happened in WhatsApp", AssistantInputSource.Typed)
+        val fillerWordPlan = planner.plan("summarize the WhatsApp messages", AssistantInputSource.Voice)
+        val britishSpellingPlan = planner.plan("summarise WhatsApp messages", AssistantInputSource.Voice)
+        val asrSuffixPlan = planner.plan("summarize WhatsApp message is", AssistantInputSource.Voice)
 
         assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), voicePlan)
         assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), typedPlan)
         assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), catchUpPlan)
         assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), whatHappenedPlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), fillerWordPlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), britishSpellingPlan)
+        assertEquals(AssistantPlan.ReadCommand(VoiceCommand.SummarizeWhatsAppMessages), asrSuffixPlan)
     }
 
     @Test

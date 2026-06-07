@@ -436,8 +436,17 @@ object VoiceCommandParser {
     }
 
     private fun summarizeMessagesCommand(lower: String): VoiceCommand.SummarizeWhatsAppMessages? {
-        val normalized = lower.removeSuffix(".").removeSuffix("?").trim()
-        return if (normalized in summarizeReadPhrases || normalized.startsWith("summarize whatsapp ")) {
+        val normalized = lower
+            .removeSuffix(".")
+            .removeSuffix("?")
+            .trim()
+            .replace("summarise", "summarize")
+        val naturalSummaryIntent = SummaryMessagesRegex.matches(normalized)
+        return if (
+            normalized in summarizeReadPhrases ||
+            normalized.startsWith("summarize whatsapp ") ||
+            naturalSummaryIntent
+        ) {
             VoiceCommand.SummarizeWhatsAppMessages
         } else {
             null
@@ -552,6 +561,10 @@ object VoiceCommandParser {
     private val SummaryFromConversationRegex = Regex(
         pattern = """^(?:summarize|summary\s+of|catch\s+me\s+up\s+on)(?:\s+(?:whatsapp\s+)?(?:messages?|notifications?))?\s+from\s+(.+?)[?.]?$""",
         option = RegexOption.IGNORE_CASE
+    )
+
+    private val SummaryMessagesRegex = Regex(
+        pattern = """^summarize\s+(?:the\s+|my\s+)?(?:whatsapp\s+)?(?:messages?|notifications?)(?:\s+is)?$"""
     )
 
     private val senderSearchRegex = Regex(
