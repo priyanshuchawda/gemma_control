@@ -33,6 +33,38 @@ Manual assistant regression cases are tracked in [REAL_DEVICE_ASSISTANT_TEST_MAT
 
 ## 3. On-Device Validation Milestones
 
+### Fresh Validation Notes: 2026-06-07
+
+Target device: Xiaomi `2406ERN9CI`, Android 16 / API 36, HyperOS `OS3.0`, ADB serial `1431df87`.
+
+Validated build: `003af86` (`main` after PR #157 merge).
+
+| Check | Status | Evidence / Notes |
+| :--- | :--- | :--- |
+| Local Gradle unit test gate | **PASS** | `.\gradlew.bat :app:testDebugUnitTest` passed before physical validation. |
+| Debug APK assembly | **PASS** | `.\gradlew.bat :app:assembleDebug` passed before reinstall. |
+| Debug APK install/update | **PASS** | `adb install -r -d app-debug.apk` succeeded and preserved app-private model files. |
+| FunctionGemma model file reuse | **PASS** | `files/models/mobile_actions_q8_ekv1024.litertlm` remained present at `288,964,608` bytes. |
+| Local WhatsApp test-message helper | **PASS / LOCAL-ONLY TEST TOOL** | A local WhatsApp Web helper outside this repository reported a synthetic test send. The helper is not part of GitHub and must remain local-only. |
+| WhatsApp capture after synthetic send | **PASS** | Privacy-safe DB count check after the synthetic send showed `message_events=72`, `conversations=9`, and `active_notification_references=9`. No message text, sender, chat name, or phone number was committed. |
+| Active latest read command | **PASS** | Typed `Read my latest WhatsApp messages` opened the `Read active WhatsApp notification messages aloud?` confirmation sheet. After user confirmation, UI entered `Reading messages aloud...`; filtered error log check was empty. |
+| Stored summarize command | **PASS** | Typed `summarize WhatsApp messages` opened the `Summarize locally stored captured WhatsApp messages aloud?` confirmation sheet. After user confirmation, UI entered `Reading messages aloud...`; filtered error log check was empty. |
+| Debug-only spoken output capture | **PASS** | Debug build wrote the TTS text to app-private cache at `cache/debug/last_spoken_output.txt`. Local pull confirmed a non-empty file (`67` bytes in the validation run). This is private local evidence and must not be pasted into issues, PRs, docs, or final summaries. |
+| Frontend spoken-output visibility | **PASS** | UI hierarchy search after read-aloud found `0` frontend labels for `Last spoken output`, `Clear Spoken Output`, or `Local session only`. Spoken output is not shown in the app UI. |
+| Reply safety with no active target | **PASS** | Generic reply command did not send. UI returned safe no-active-target guidance instead of selecting a target silently. |
+| Settings speech recovery guidance | **PASS** | Settings screen exposed language/input recovery guidance for system speech recognition failure cases. |
+| Crash/error check | **PASS** | Filtered checks for `AndroidRuntime:E`, `GemmaControl:E`, `VoiceAssistantVM:E`, `FunctionGemma:E`, and `LiteRt:E` were empty during read/summarize validation. |
+
+Remaining issue #42 physical validation gaps:
+
+1. Active single-target RemoteInput send validation with explicit user approval.
+2. Named active reply validation when one live target matches a safe test chat.
+3. WhatsApp share draft and click-to-chat draft intent validation after WhatsApp/App Lock state is ready.
+4. Settings runtime benchmark dashboard capture for cold/warm FunctionGemma latency, memory, battery, and thermal state.
+5. Microphone live speech-recognition validation, including offline-language-pack behavior.
+6. Xiaomi reboot, idle, swipe-away, and battery-saver reliability tests after Autostart and Battery `No restrictions` are manually confirmed.
+7. Media-placeholder and hidden-content physical WhatsApp notification validation.
+
 ### Fresh Validation Notes: 2026-06-06
 
 Target device: Xiaomi `2406ERN9CI`, Android 16 / API 36, HyperOS `OS3.0`, ADB serial `1431df87`, SoC `SM4450`.
