@@ -61,6 +61,7 @@ Built entirely as a native application for **Android 16 (API Level 36)**, GemmaC
 │   ├── ASSISTANT_SAFETY_POLICY.md # Deterministic safety and ShieldGemma gate decision for #119
 │   ├── ACCESSIBILITY_SERVICE_EVALUATION.md # V1/V2 decision and safety policy for #122
 │   ├── DEVICE_INFO.md        # Current connected handset capability snapshot
+│   ├── PHONE_TESTING_TOOLKIT.md # Local laptop and phone testing tools, commands, and setup
 │   ├── PRODUCT_SCOPE.md      # V1 functional capabilities and non-goals
 │   ├── REAL_DEVICE_ASSISTANT_TEST_MATRIX.md # Manual assistant/device validation matrix
 │   ├── TOOL_REGISTRY.md      # Parameter type schemas for the 16 registry tools
@@ -91,6 +92,58 @@ npm run serve
 ```
 
 The primary APK button points to the canonical GitHub Releases artifact configured in `website/src/release-links.ts`. APK/AAB/EXE/MSI files remain ignored and must not be committed.
+
+---
+
+## AI Contributor Instructions
+
+This repository is developed against one known physical device profile unless a later issue explicitly expands the matrix:
+
+- Phone: Xiaomi Redmi 13 5G / `2406ERN9CI`
+- OS: HyperOS `OS3.0`, Android `16`, API `36`
+- ABI/RAM: `arm64-v8a`, approximately 6 GB physical RAM
+- ADB serial used in current validation docs: `1431df87`
+- Android app package: `com.example.gemmacontrol`
+- Android project root: `GemmaControl/`
+
+Before changing behavior, read:
+
+- `plan.md` for the product roadmap and phase boundaries.
+- `detailed_plan.md` for implementation sequencing and safety constraints.
+- `docs/ARCHITECTURE.md` for runtime boundaries.
+- `docs/GEMMA_ASSISTANT_USAGE_PLAN.md` and `docs/GEMMA_MODEL_REFERENCE.md` for model roles.
+- `docs/TOOL_REGISTRY.md` for the allowed assistant tool surface.
+- `docs/PHONE_TESTING_TOOLKIT.md` for laptop, ADB, Appium, Maestro, scrcpy, and manual phone testing setup.
+- `docs/REAL_DEVICE_ASSISTANT_TEST_MATRIX.md` for real-device validation scenarios.
+
+Development rules:
+
+- Keep WhatsApp data local. Do not log, commit, or summarize private message contents in issues, PRs, docs, or final reports.
+- Do not make direct WhatsApp replies automatic. Reply sending must remain behind a visible user confirmation step.
+- Treat FunctionGemma as the local tool-routing model, not as the source of unrestricted app control.
+- Kotlin validation owns permissions, safety checks, schema validation, and execution decisions even when LiteRT native callbacks propose tool calls.
+- Current media notifications are placeholders only. Do not claim image/audio/video understanding unless a future explicit media feature handles actual user-selected bytes.
+- Use the issue -> `feat/<issue-number>` branch -> PR -> merge -> delete branch -> clean `main` workflow for implementation work.
+- Do not commit APK/AAB/EXE/MSI/model binaries. Large model files belong outside git-tracked source unless a release process explicitly says otherwise.
+
+Minimum verification for code changes:
+
+```powershell
+cd C:\Users\Admin\Desktop\gemma_control\GemmaControl
+.\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:assembleDebug
+```
+
+Real-device validation, when the phone is connected:
+
+```powershell
+adb devices -l
+adb install -r -d .\app\build\outputs\apk\debug\app-debug.apk
+adb shell am start -n com.example.gemmacontrol/.MainActivity
+scrcpy --serial 1431df87 --stay-awake --turn-screen-on
+```
+
+Use Appium or Maestro for repeatable UI flows, and use manual testing for real WhatsApp incoming messages, voice prompts, Xiaomi permission prompts, and confirmed replies. Full setup and command examples are documented in `docs/PHONE_TESTING_TOOLKIT.md`.
 
 ---
 
