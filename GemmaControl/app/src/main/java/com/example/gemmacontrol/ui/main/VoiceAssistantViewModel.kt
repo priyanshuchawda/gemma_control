@@ -60,6 +60,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
     private val assistantPlanner = AssistantPlanner()
     private val phoneContextSnapshotBuilder = PhoneContextSnapshotBuilder()
     private val whatsAppToolRegistry = WhatsAppToolRegistry.default()
+    private val spokenOutputDebugSink = application.voiceSpokenOutputDebugSink()
     private val textToSpeechController = VoiceTextToSpeechController(
         application = application,
         onFinished = ::handleTextToSpeechFinished
@@ -433,6 +434,7 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
                 lastReadRequest = requestedRead.continuationBase()
             }
             readCursorOffset = plan.nextOffset
+            spokenOutputDebugSink.record(plan.spokenText)
             _state.value = VoiceAssistantState.SpeakingMessages(plan.spokenMessageCount)
             textToSpeechController.speak(plan.spokenText)
         }

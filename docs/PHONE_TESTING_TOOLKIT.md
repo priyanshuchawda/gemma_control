@@ -194,6 +194,14 @@ adb logcat -c
 adb logcat -v time GemmaControl:D VoiceAssistantVM:D WhatsAppNotificationListener:D FunctionGemma:D LiteRt:D AndroidRuntime:E *:S
 ```
 
+Read the debug-only spoken output transcript from the app-private cache:
+
+```powershell
+.\scripts\android\read-debug-spoken-output.ps1
+```
+
+This is local test evidence only. It may contain private WhatsApp text because it mirrors what TTS just spoke, so do not paste it into docs, issues, PRs, or final summaries.
+
 Privacy-safe database count check:
 
 ```powershell
