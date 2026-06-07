@@ -22,6 +22,7 @@ import com.example.gemmacontrol.notifications.ActiveNotificationReplyExecutor
 import com.example.gemmacontrol.notifications.InMemoryActiveReplyActionRegistry
 import com.example.gemmacontrol.notifications.RecentOutgoingReplyEchoSuppressor
 import com.example.gemmacontrol.notifications.ReplySendResult
+import com.example.gemmacontrol.notifications.WhatsAppNotificationListener
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -420,18 +421,49 @@ class VoiceAssistantViewModel(application: Application) : AndroidViewModel(appli
             val requestedRead = command.readRequest
             val isContinuation = requestedRead == VoiceReadAloudRequest.Continue
             val builderRequest = if (isContinuation) lastReadRequest else requestedRead
+            val liveNotificationMessages = LiveNotificationReadMapper.toReadableMessages(
+                WhatsAppNotificationListener.capturedNotifications.value
+            )
+            val isActiveNotificationReadRequest = builderRequest == VoiceReadAloudRequest.Latest ||
+                builderRequest == VoiceReadAloudRequest.Summarize
+            val shouldReadLiveNotifications = liveNotificationMessages.isNotEmpty() &&
+                isActiveNotificationReadRequest
+            val messagesForRead = if (shouldReadLiveNotifications) {
+                liveNotificationMessages
+            } else if (builderRequest == VoiceReadAloudRequest.Summarize) {
+                emptyList()
+            } else {
+                repository.getAllDecryptedMessages()
+            }
+            val requestForBuilder = if (
+                isActiveNotificationReadRequest &&
+                builderRequest == VoiceReadAloudRequest.Summarize
+            ) {
+                VoiceReadAloudRequest.Latest
+            } else {
+                builderRequest
+            }
+            val activeNotificationKeys = if (shouldReadLiveNotifications) {
+                liveNotificationMessages.map { it.notificationKey }.toSet()
+            } else {
+                repository.getActiveNotificationKeys() +
+                    InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+            }
             val offset = if (isContinuation) readCursorOffset else 0
             val plan = readAloudBuilder.build(
-                messages = repository.getAllDecryptedMessages(),
-                request = builderRequest,
+                messages = messagesForRead,
+                request = requestForBuilder,
                 continueOffset = offset,
                 forceDirect = isContinuation,
-                activeNotificationKeys = repository.getActiveNotificationKeys() +
-                    InMemoryActiveReplyActionRegistry.availabilityFlow.value.keys
+                activeNotificationKeys = activeNotificationKeys
             )
 
             if (!isContinuation) {
-                lastReadRequest = requestedRead.continuationBase()
+                lastReadRequest = if (shouldReadLiveNotifications) {
+                    VoiceReadAloudRequest.Latest
+                } else {
+                    requestedRead.continuationBase()
+                }
             }
             readCursorOffset = plan.nextOffset
             spokenOutputDebugSink.record(plan.spokenText)

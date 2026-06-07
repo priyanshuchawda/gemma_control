@@ -182,7 +182,7 @@ private fun readCommandConfirmationText(command: VoiceReadCommand): String {
         VoiceCommand.ReadLatestMessages -> "Read active WhatsApp notification messages aloud?"
         VoiceCommand.ReadStoredMessages -> "Read your latest locally stored captured WhatsApp messages aloud?"
         VoiceCommand.ContinueReadingMessages -> "Continue reading locally stored captured WhatsApp messages aloud?"
-        VoiceCommand.SummarizeWhatsAppMessages -> "Summarize locally stored captured WhatsApp messages aloud?"
+        VoiceCommand.SummarizeWhatsAppMessages -> "Summarize active WhatsApp notification messages aloud?"
         VoiceCommand.ReadImportantMessages -> "Read important locally stored captured WhatsApp messages aloud?"
         is VoiceCommand.ReadMessagesFromConversation ->
             "Read locally stored captured WhatsApp messages from ${command.conversationName} aloud?"
