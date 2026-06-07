@@ -47,6 +47,9 @@ class VoiceAssistantTest {
         assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summary of WhatsApp messages"))
         assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("catch me up on WhatsApp"))
         assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("what happened in WhatsApp"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize the WhatsApp messages"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarise WhatsApp messages"))
+        assertEquals(VoiceCommand.SummarizeWhatsAppMessages, VoiceCommandParser.parse("summarize WhatsApp message is"))
         assertEquals(VoiceCommand.ReadImportantMessages, VoiceCommandParser.parse("read only important WhatsApp messages"))
 
         val chatCommand = VoiceCommandParser.parse("read messages from Mom")
