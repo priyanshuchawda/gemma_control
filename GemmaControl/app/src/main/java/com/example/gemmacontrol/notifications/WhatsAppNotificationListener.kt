@@ -100,10 +100,21 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.d(TAG, "Notification listener connected successfully")
+        val currentNotifications = try {
+            activeNotifications.orEmpty()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to inspect active notifications on listener connect", e)
+            emptyArray()
+        }
+        currentNotifications.forEach(::processPostedNotification)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
+        processPostedNotification(sbn)
+    }
+
+    private fun processPostedNotification(sbn: StatusBarNotification) {
         val packageName = sbn.packageName ?: return
         if (!WhatsAppNotificationParser.isPackageSupported(packageName)) return
 
